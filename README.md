@@ -96,6 +96,10 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
   `line:column`, message and rule. Tap a row and the caret jumps to that spot.
 - **Squiggles in the editor.** A wavy underline marks the exact range, the gutter shows a dot per
   line, and tapping the underline shows the message in a tooltip.
+- **A red "!" beside every broken file.** It sits next to the file's language badge in the Files
+  list, in the open-file tabs and in the file picker, so you can spot the broken file without
+  opening it. Folders roll their contents up, so a collapsed folder still shows the mark; amber
+  means warnings only. The Files tab in the tab bar carries the project's error count.
 - **What is actually checked** — with real parsers where the bundle has one:
   - **JS / TS / JSX / TSX** — Sucrase parse errors at the exact line and column
   - **JSON** — `JSON.parse` position, mapped back to a line

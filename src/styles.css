@@ -1255,6 +1255,69 @@ ol {
   background: var(--error-soft);
 }
 
+.problem-flag {
+  display: inline-grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border-radius: 50%;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--error);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--error) 16%, transparent);
+}
+
+.problem-flag.warning {
+  color: #1a1a1a;
+  background: var(--warn);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 18%, transparent);
+}
+
+/* inside a tab chip the mark sits between the badge and the name */
+.tab-chip-main .problem-flag {
+  width: 12px;
+  height: 12px;
+  font-size: 8.5px;
+}
+
+.folder-row .problem-flag {
+  margin-left: -2px;
+}
+
+/* hug the language badge: the mark belongs to the file, not to its name */
+.file-row-main .problem-flag {
+  margin-left: -3px;
+  margin-right: -2px;
+}
+
+.tab-badge {
+  position: absolute;
+  top: -3px;
+  right: -6px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--error);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.tab-badge.warning {
+  color: #1a1a1a;
+  background: var(--warn);
+}
+
 .problem-count {
   font-family: var(--mono);
   font-size: 9.5px;

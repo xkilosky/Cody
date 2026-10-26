@@ -17,6 +17,8 @@ import Icon from './Icons'
 import LangIcon from './LangIcon'
 import RunPanel from './RunPanel'
 import Sheet, { PromptSheet } from './Sheet'
+import ProblemMark from './ProblemMark'
+import { problemsAt, useProblemIndex } from '../lib/problemIndex'
 
 type Props = {
   project: Project
@@ -136,6 +138,8 @@ export default function ProjectView(props: Props) {
     onNotify(added > 0 ? `Imported ${added} file${added === 1 ? '' : 's'}` : 'Those files already exist', added > 0 ? 'success' : 'error')
     setMenuOpen(false)
   }
+
+  const index = useProblemIndex(project.files)
 
   const handleJson = async (list: FileList | null) => {
     const file = list?.[0]
@@ -261,6 +265,14 @@ export default function ProjectView(props: Props) {
             <span className="tab-icon">
               <Icon name={item.icon} size={20} filled={tab === item.id && item.id === 'run' ? false : false} />
               {item.id === 'run' && running && <span className="tab-dot" />}
+              {item.id === 'files' && index.total > 0 && (
+                <span
+                  className={`tab-badge${index.errors > 0 ? ' error' : ' warning'}`}
+                  aria-label={`${index.errors} errors, ${index.warnings} warnings`}
+                >
+                  {index.errors > 0 ? index.errors : index.warnings}
+                </span>
+              )}
             </span>
             <span>{item.label}</span>
           </button>
@@ -437,6 +449,7 @@ export default function ProjectView(props: Props) {
               }}
             >
               <LangIcon path={file.path} size={15} />
+              <ProblemMark problems={problemsAt(index, file.path)} path={file.path} />
               <span className="grow">{file.path}</span>
               {project.entry === file.path && <Icon name="check" size={16} />}
             </button>

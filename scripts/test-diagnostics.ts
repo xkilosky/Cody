@@ -7,6 +7,7 @@
  * file that must stay silent.
  */
 import { analyzeFile, analyzeProject, countBySeverity } from '../src/lib/diagnostics'
+import { buildProblemIndex, problemsAt, severityAt } from '../src/lib/problemIndex'
 import type { Diagnostic, Severity } from '../src/lib/diagnostics'
 import type { ProjectFile } from '../src/types'
 
@@ -275,6 +276,27 @@ if __name__ == "__main__":
     const { found, ok } = silent(path, content)
     check(`no false positives: ${path}`, ok, describe(found))
   }
+}
+
+/* ---------------- the shared file-list index ---------------- */
+{
+  const files: ProjectFile[] = [
+    { path: 'src/App.tsx', content: 'export default () => <div>\n' },
+    { path: 'src/lib/util.ts', content: 'export const add = (a: number, b: number) => a + b\n' },
+    { path: 'src/lib/bad.ts', content: 'export const = 1\n' },
+    { path: 'src/main.js', content: 'debugger\n' },
+    { path: 'styles.css', content: '.a { color: red; }\n' },
+  ]
+  const index = buildProblemIndex(files)
+  check('index: counts errors and warnings separately', index.errors >= 1 && index.warnings >= 1, `${index.errors}/${index.warnings}`)
+  check('index: knows which files are broken', index.filesWithProblems === 3, String(index.filesWithProblems))
+  check('index: a clean file has no mark', problemsAt(index, 'styles.css').length === 0)
+  check('index: a broken file gets an error mark', severityAt(index, 'src/App.tsx') === 'error')
+  check('index: warnings are amber, not red', severityAt(index, 'src/main.js') === 'warning', JSON.stringify(problemsAt(index, 'src/main.js')))
+  check('index: problems roll up to the folder', severityAt(index, 'src') === 'error')
+  check('index: nested folders roll up too', severityAt(index, 'src/lib') === 'error')
+  check('index: a folder with only clean files stays silent', severityAt(index, 'src/lib/util.ts') === null)
+  check('index: errors sort before warnings', index.list[0].severity === 'error', index.list[0].message)
 }
 
 /* ---------------- shape of a diagnostic ---------------- */

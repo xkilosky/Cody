@@ -4,7 +4,9 @@ import { languageForPath, runtimeLabel } from '../lib/languages'
 import Icon from './Icons'
 import LangIcon from './LangIcon'
 import Sheet, { PromptSheet } from './Sheet'
+import ProblemMark from './ProblemMark'
 import { fileName, normalizePath } from '../lib/utils'
+import { problemsAt, useProblemIndex } from '../lib/problemIndex'
 
 type Props = {
   project: Project
@@ -93,6 +95,10 @@ export default function FilesPane({
   const [renaming, setRenaming] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
+  // One shared project scan: which files are broken, and which folders hide
+  // something broken inside them.
+  const index = useProblemIndex(project.files)
+
   const tree = useMemo(() => {
     const query = filter.trim().toLowerCase()
     const paths = project.files
@@ -114,6 +120,7 @@ export default function FilesPane({
     nodes.map((node) => {
       if (node.kind === 'folder') {
         const isCollapsed = collapsed.has(node.path)
+        const inside = problemsAt(index, node.path)
         return (
           <div key={node.path}>
             <button
@@ -123,6 +130,7 @@ export default function FilesPane({
             >
               <Icon name={isCollapsed ? 'folder' : 'folder-open'} size={16} />
               <span className="file-name">{node.name}</span>
+              <ProblemMark problems={inside} path={node.path} />
               <span className="file-meta">{node.children.length}</span>
               <Icon name={isCollapsed ? 'chevron-right' : 'chevron-down'} size={14} />
             </button>
@@ -141,6 +149,7 @@ export default function FilesPane({
         >
           <button className="file-row-main" onClick={() => onOpenFile(node.path)}>
             <LangIcon lang={lang} size={15} />
+            <ProblemMark problems={problemsAt(index, node.path)} path={node.path} />
             <span className="file-name">{node.name}</span>
             {isEntry && <span className="pill tiny">entry</span>}
             {node.path.includes('/') && <span className="file-meta path-hint">{node.path}</span>}

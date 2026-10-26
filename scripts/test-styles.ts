@@ -48,6 +48,7 @@ const REQUIRED = [
   '.setting-row', '.switch', '.toast', '.toast-stack', '.cody-pane', '.cody-hero',
   '.status-problems', '.problem-list', '.problem-group', '.problem-row', '.problem-file',
   '.problem-loc', '.problem-msg', '.problem-rule', '.problem-count', '.problems-empty',
+  '.problem-flag', '.problem-flag.warning', '.tab-badge', '.tab-badge.warning',
   '.snippet-card', '.runtime-row', '.action-list', '.action-item', '.empty-state',
 ]
 

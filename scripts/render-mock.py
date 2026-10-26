@@ -493,15 +493,22 @@ def draw_screen(mode: str) -> Image.Image:
     c.rect((0, tabs_top, W, tabs_top + 38), fill=t("surface"))
     c.rect((0, tabs_top + 37, W, tabs_top + 38), fill=t("border"))
 
-    tabs = [("App.tsx", "tsx", True), ("Task.tsx", "tsx", False), ("styles.css", "css", False)]
+    # (name, language mark, active, has-problems)
+    tabs = [("App.tsx", "tsx", True, True), ("Task.tsx", "tsx", False, False), ("styles.css", "css", False, False)]
     x = 8.0
-    for name, mark_key, active in tabs:
+    for name, mark_key, active, broken in tabs:
         width = 42 + len(name) * 6.6
         if active:
             c.rect((x, tabs_top + 5, x + width, tabs_top + 40), fill=p("bg"), outline=t("border"), radius=8)
             c.rect((x + 1.2, tabs_top + 35, x + width - 1.2, tabs_top + 39), fill=p("bg"))
         draw_mark(canvas, mark_key, x + 8, tabs_top + 12.6, 15, mode)
-        c.text((x + 29, tabs_top + 12.5), name, t("text") if active else t("muted"), 11.5, mono=True)
+        # red "!" beside the badge: this file has an error (matches the app)
+        offset = 29
+        if broken:
+            c.circle((x + 30.5, tabs_top + 20.1), 5.4, t("error"))
+            c.text((x + 30.5, tabs_top + 17.2), "!", "#ffffff", 7.4, mono=True, anchor="ma", bold=True)
+            offset = 40
+        c.text((x + offset, tabs_top + 12.5), name, t("text") if active else t("muted"), 11.5, mono=True)
         if active:
             c.circle((x + width - 12, tabs_top + 20), 2.2, t("muted"))
         x += width + 5

@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { Project, Settings } from '../types'
 import type { CodyEditorHandle, CursorInfo } from '../editor/CodeEditor'
 import CodeEditor from '../editor/CodeEditor'
@@ -7,7 +7,9 @@ import Icon from './Icons'
 import LangIcon from './LangIcon'
 import Sheet from './Sheet'
 import { bytesOf, fileName, formatBytes } from '../lib/utils'
-import { analyzeFile, analyzeProject, countBySeverity, type Diagnostic } from '../lib/diagnostics'
+import { analyzeFile } from '../lib/diagnostics'
+import { problemsAt, useProblemIndex } from '../lib/problemIndex'
+import ProblemMark from './ProblemMark'
 
 type Props = {
   project: Project
@@ -121,19 +123,11 @@ export default function CodePane({
   const keywords = lang ? KEYWORD_INSERTS[lang.id] ?? [] : []
   // Analysing every file on each keystroke would fight the keyboard: the
   // project scan is deferred, the active file is linted live by the editor.
-  const deferredFiles = useDeferredValue(project.files)
-  const problems = useMemo(() => analyzeProject(deferredFiles), [deferredFiles])
-  const problemsByPath = useMemo(() => {
-    const map = new Map<string, Diagnostic[]>()
-    for (const problem of problems) {
-      const list = map.get(problem.path)
-      if (list) list.push(problem)
-      else map.set(problem.path, [problem])
-    }
-    return map
-  }, [problems])
-  const activeProblems = activePath ? problemsByPath.get(activePath) ?? [] : []
-  const totals = countBySeverity(problems)
+  const index = useProblemIndex(project.files)
+  const problems = index.list
+  const problemsByPath = index.byPath
+  const activeProblems = activePath ? problemsAt(index, activePath) : []
+  const totals = { errors: index.errors, warnings: index.warnings }
   const lintFile = useMemo(
     () => (path: string, content: string) => analyzeFile(path, content, project.files),
     [project.files],
@@ -191,6 +185,7 @@ export default function CodePane({
                 }}
               >
                 <LangIcon path={item.path} size={15} />
+                <ProblemMark problems={problemsAt(index, item.path)} path={item.path} />
                 <span>{item.path}</span>
               </button>
             ))}
@@ -230,6 +225,7 @@ export default function CodePane({
                   title={path}
                 >
                   <LangIcon lang={tabLang} active={isActive} size={15} />
+                  <ProblemMark problems={problemsAt(index, path)} path={path} />
                   <span className="tab-name">{fileName(path)}</span>
                 </button>
                 {isActive && unsaved && <span className="dirty-dot" aria-label="Unsaved changes" />}
@@ -409,13 +405,7 @@ export default function CodePane({
             >
               <LangIcon path={item.path} size={15} />
               <span className="grow">{item.path}</span>
-              {(problemsByPath.get(item.path)?.length ?? 0) > 0 && (
-                <span
-                  className={`problem-count${problemsByPath.get(item.path)!.some((p) => p.severity === 'error') ? ' error' : ''}`}
-                >
-                  {problemsByPath.get(item.path)!.length}
-                </span>
-              )}
+              <ProblemMark problems={problemsAt(index, item.path)} path={item.path} />
               {runEntry === item.path && <span className="pill tiny">entry</span>}
             </button>
           ))}
@@ -449,7 +439,7 @@ export default function CodePane({
                 <div className="problem-file">
                   <LangIcon path={path} size={14} />
                   <span className="grow">{path}</span>
-                  <span className="muted small">{list.length}</span>
+                  <ProblemMark problems={list} path={path} variant="count" />
                 </div>
                 {list.map((problem, index) => (
                   <button

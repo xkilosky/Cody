@@ -287,6 +287,25 @@ async function main() {
   check('tapping a problem closes the sheet', !dom.window.document.querySelector('.problem-row'))
   check('tapping a problem moves the caret to its line', /\(Ln 2, Col 3\)|Ln 2, Col 3/.test(text()), (dom.window.document.querySelector('.status-pos')?.textContent ?? ''))
 
+  // The file list must surface the same problem next to the file's badge.
+  await click('Files')
+  await wait(300)
+  const brokenRow = [...dom.window.document.querySelectorAll('.file-row-wrap')].find((row) =>
+    (row.textContent ?? '').includes('index.html'),
+  ) as HTMLElement | undefined
+  const rowMark = brokenRow?.querySelector('.problem-flag')
+  check('broken file row carries a mark', Boolean(rowMark), brokenRow?.outerHTML.slice(0, 120) ?? '(no row)')
+  check('mark sits right after the language badge', Boolean(brokenRow?.querySelector('.lang-icon + .problem-flag')))
+  check('mark is red for an error', rowMark?.classList.contains('error') ?? false, rowMark?.className ?? '')
+  check('mark explains itself to screen readers', /error/i.test(rowMark?.getAttribute('aria-label') ?? ''), rowMark?.getAttribute('aria-label') ?? '')
+  const cleanRow = [...dom.window.document.querySelectorAll('.file-row-wrap')].find((row) =>
+    (row.textContent ?? '').includes('styles.css'),
+  )
+  check('clean file row has no mark', !cleanRow?.querySelector('.problem-flag'))
+  check('Files tab in the tab bar shows the error count', Boolean(dom.window.document.querySelector('.tab-badge.error')), dom.window.document.querySelector('.tab-badge')?.outerHTML ?? '')
+  await click('Code')
+  await wait(250)
+
   // --- settings sheet ---------------------------------------------------
   await clickLabel('Project menu')
   await wait(150)

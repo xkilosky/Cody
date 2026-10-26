@@ -911,10 +911,6 @@ ol {
   padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom));
 }
 
-.tab-stage.tab-code {
-  padding-bottom: 0;
-}
-
 .pane {
   flex: 1;
   min-height: 0;
@@ -1214,15 +1210,23 @@ ol {
 .editor-toolbar {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 6px 6px calc(6px + var(--safe-bottom));
+  gap: 6px;
+  padding: 6px;
   background: var(--surface);
   border-top: 1px solid var(--border);
+}
+
+.tool-scroll {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
-.editor-toolbar::-webkit-scrollbar {
+.tool-scroll::-webkit-scrollbar {
   display: none;
 }
 
@@ -1256,7 +1260,9 @@ ol {
 .tool-btn.primary-soft {
   background: var(--accent-soft);
   color: var(--accent);
-  padding: 0 14px;
+  padding: 0 15px;
+  height: 42px;
+  border: 1px solid rgba(92, 225, 185, 0.28);
 }
 
 .tool-label {

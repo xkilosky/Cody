@@ -150,6 +150,7 @@ export default function CodePane({
 
       <div className="editor-wrap">
         <CodeEditor
+          key={file.path}
           value={file.content}
           path={file.path}
           settings={settings}
@@ -158,6 +159,9 @@ export default function CodePane({
           onRun={onRun}
           onReady={(instance) => {
             editorRef.current = instance
+          }}
+          onDestroy={() => {
+            editorRef.current = null
           }}
         />
       </div>
@@ -175,32 +179,33 @@ export default function CodePane({
       </div>
 
       <div className="editor-toolbar" role="toolbar" aria-label="Editing tools">
-        <button className="tool-btn" onClick={() => editorRef.current?.indent()} aria-label="Indent">
-          <Icon name="indent" size={18} />
-        </button>
-        <button className="tool-btn" onClick={() => setSymbolsOpen(true)} aria-label="Quick keys">
-          <span className="tool-glyph">⌘</span>
-        </button>
-        <button className="tool-btn" onClick={() => editorRef.current?.undo()} aria-label="Undo">
-          <Icon name="undo" size={18} />
-        </button>
-        <button className="tool-btn" onClick={() => editorRef.current?.redo()} aria-label="Redo">
-          <Icon name="redo" size={18} />
-        </button>
-        <button
-          className="tool-btn"
-          onClick={() => editorRef.current?.toggleComment()}
-          aria-label="Toggle comment"
-        >
-          <Icon name="comment" size={18} />
-        </button>
-        <button className="tool-btn" onClick={() => editorRef.current?.openSearch()} aria-label="Find">
-          <Icon name="search" size={18} />
-        </button>
-        <button className="tool-btn" onClick={() => setTypeOpen(true)} aria-label="Text options">
-          <span className="tool-glyph">Aa</span>
-        </button>
-        <div className="toolbar-spacer" />
+        <div className="tool-scroll">
+          <button className="tool-btn" onClick={() => editorRef.current?.indent()} aria-label="Indent">
+            <Icon name="indent" size={18} />
+          </button>
+          <button className="tool-btn" onClick={() => setSymbolsOpen(true)} aria-label="Quick keys">
+            <span className="tool-glyph">⌘</span>
+          </button>
+          <button className="tool-btn" onClick={() => editorRef.current?.undo()} aria-label="Undo">
+            <Icon name="undo" size={18} />
+          </button>
+          <button className="tool-btn" onClick={() => editorRef.current?.redo()} aria-label="Redo">
+            <Icon name="redo" size={18} />
+          </button>
+          <button
+            className="tool-btn"
+            onClick={() => editorRef.current?.toggleComment()}
+            aria-label="Toggle comment"
+          >
+            <Icon name="comment" size={18} />
+          </button>
+          <button className="tool-btn" onClick={() => editorRef.current?.openSearch()} aria-label="Find">
+            <Icon name="search" size={18} />
+          </button>
+          <button className="tool-btn" onClick={() => setTypeOpen(true)} aria-label="Text options">
+            <span className="tool-glyph">Aa</span>
+          </button>
+        </div>
         <button className="tool-btn primary-soft" onClick={onRun} aria-label="Run project">
           <Icon name="play" size={16} filled />
           <span className="tool-label">Run</span>

@@ -54,6 +54,7 @@ type Props = {
   onRun?: () => void
   readOnly?: boolean
   onReady?: (handle: CodyEditorHandle) => void
+  onDestroy?: () => void
 }
 
 function baseExtensions(settings: Settings): Extension[] {
@@ -112,6 +113,7 @@ export default function CodeEditor({
   onRun,
   readOnly,
   onReady,
+  onDestroy,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -121,11 +123,13 @@ export default function CodeEditor({
   const onChangeRef = useRef(onChange)
   const onSaveRef = useRef(onSave)
   const onRunRef = useRef(onRun)
+  const onDestroyRef = useRef(onDestroy)
   const [langReady, setLangReady] = useState(false)
 
   onChangeRef.current = onChange
   onSaveRef.current = onSave
   onRunRef.current = onRun
+  onDestroyRef.current = onDestroy
 
   // Create the view once.
   useEffect(() => {
@@ -215,6 +219,7 @@ export default function CodeEditor({
     }
     onReady?.(handle)
     return () => {
+      onDestroyRef.current?.()
       view.destroy()
       viewRef.current = null
     }

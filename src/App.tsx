@@ -154,6 +154,12 @@ export default function App() {
   )
 
   const enterProject = useCallback((next: Project) => {
+    // Flush any pending edit of the project we are leaving.
+    const previous = projectRef.current
+    if (previous && previous.id !== next.id && saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      void saveProject(previous)
+    }
     cleanupRef.current?.()
     cleanupRef.current = null
     setProject(next)
@@ -494,6 +500,26 @@ export default function App() {
     return () => {
       cleanupRef.current?.()
       stopPython()
+    }
+  }, [])
+
+  // Never lose the last keystrokes when the app is backgrounded or closed.
+  useEffect(() => {
+    const flush = () => {
+      const current = projectRef.current
+      if (!current || !saveTimer.current) return
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+      void saveProject(current)
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', flush)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', flush)
     }
   }, [])
 

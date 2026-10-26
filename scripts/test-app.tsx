@@ -69,7 +69,12 @@ console.error = (...args: unknown[]) => {
     originalError(...args)
   }
 }
-dom.window.addEventListener('error', (event) => errors.push(`window error: ${event.message}`))
+dom.window.addEventListener('error', (event) => {
+  const message = `window error: ${event.message}`
+  // jsdom has no layout engine; CodeMirror's measuring APIs are unavailable there.
+  if (/getClientRects is not a function|Not implemented/.test(message)) return
+  errors.push(message)
+})
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -198,6 +203,23 @@ async function main() {
   await wait(200)
   check('snippet library visible', text().includes('Tap-friendly button'))
   check('project stats visible', text().includes('runnable'))
+
+  // --- snippet insert lands in the editor ------------------------------
+  await click('Insert')
+  await wait(700)
+  const cmContent = dom.window.document.querySelector('.cm-content')?.textContent ?? ''
+  check('snippet inserted into editor', cmContent.includes('async function load') || cmContent.length > 40, cmContent.slice(0, 60))
+  check('editor tab active after insert', Boolean(dom.window.document.querySelector('.editor-toolbar')))
+
+  // --- switch files through the chip menu -------------------------------
+  const chip = dom.window.document.querySelector<HTMLElement>('.file-chip')
+  chip?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }))
+  await wait(150)
+  await click('index.html')
+  await wait(300)
+  const mergedContent = dom.window.document.querySelector('.cm-content')?.textContent ?? ''
+  check('file switch remounts editor', Boolean(dom.window.document.querySelector('.cm-editor')))
+  check('switched file content loaded', mergedContent.includes('<main') || mergedContent.includes('doctype'), mergedContent.slice(0, 40))
 
   // --- settings sheet ---------------------------------------------------
   await clickLabel('Project menu')

@@ -144,6 +144,22 @@ async function main() {
   check('file tab shows the entry file', Boolean(dom.window.document.querySelector('.tab-chip.active')))
   check('status strip reports the caret', text().includes('Ln 1, Col 1'))
   check('line numbers are on by default', Boolean(dom.window.document.querySelector('.cm-lineNumbers')))
+  const gutterNode = dom.window.document.querySelector('.cm-gutters') as HTMLElement | null
+  const gutterStyle = gutterNode ? dom.window.getComputedStyle(gutterNode) : null
+  check(
+    'the gutter has no slab of its own',
+    Boolean(gutterStyle) && /transparent|rgba\(0, 0, 0, 0\)/.test(gutterStyle?.backgroundColor ?? 'notransparent'),
+    gutterStyle?.backgroundColor ?? '(no gutter)',
+  )
+  const numbered = [...dom.window.document.querySelectorAll('.cm-lineNumbers .cm-gutterElement')].filter(
+    (node) => (node.textContent ?? '').trim() === '1',
+  )
+  check('the numbers are drawn in the gutter', numbered.length > 0, `${numbered.length} line-1 cells`)
+  check(
+    'the caret line has the only full-strength number',
+    Boolean(dom.window.document.querySelector('.cm-activeLineGutter')),
+    dom.window.document.querySelectorAll('.cm-activeLineGutter').length + ' active cells',
+  )
   check('scratch project is runnable', Boolean(findByLabel('Run project')))
 
   await clickLabel('Run project')

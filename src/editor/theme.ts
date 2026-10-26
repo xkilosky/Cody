@@ -77,15 +77,34 @@ function editorTheme(p: Palette, dark: boolean) {
         { backgroundColor: p.selection },
       '.cm-selectionMatch': { backgroundColor: p.selection, opacity: '0.55' },
       '.cm-activeLine': { backgroundColor: p.activeLine },
+      // The gutter is part of the page, not a slab glued to it: no background
+      // of its own, so the numbers sit on the editor surface instead of a grey
+      // band that is a different shade from the code.
       '.cm-gutters': {
-        backgroundColor: p.bg,
+        backgroundColor: 'transparent',
         color: p.gutter,
         border: 'none',
-        paddingLeft: '2px',
+        paddingLeft: '4px',
         fontVariantNumeric: 'tabular-nums',
+        userSelect: 'none',
       },
-      '.cm-lineNumbers .cm-gutterElement': { padding: '0 8px 0 6px', minWidth: '22px', fontSize: '0.82em' },
-      '.cm-activeLineGutter': { backgroundColor: 'transparent', color: p.gutterActive, fontWeight: '600' },
+      '.cm-lineNumbers .cm-gutterElement': {
+        padding: '0 9px 0 2px',
+        minWidth: '22px',
+        fontSize: '0.76em',
+        letterSpacing: '0.03em',
+        textAlign: 'right',
+        opacity: '0.6',
+        transition: 'opacity 120ms ease, color 120ms ease',
+      },
+      // the caret's line is the only number that reads at full strength
+      '.cm-activeLineGutter': {
+        backgroundColor: 'transparent',
+        color: p.gutterActive,
+        opacity: '1',
+        fontWeight: '500',
+      },
+      '.cm-activeLineGutter.cm-gutterElement': { opacity: '1' },
       '.cm-foldPlaceholder': { backgroundColor: p.panel, border: `1px solid ${p.border}`, color: p.gutter },
       '.cm-tooltip': {
         backgroundColor: p.panel,

@@ -101,6 +101,25 @@ app experience.
 
 ---
 
+## Deployment
+
+Cody is a static Vite build, so it deploys anywhere that serves files.
+
+**Vercel** — this repo is connected to the Vercel project `cody`:
+
+| | |
+| --- | --- |
+| Production | https://cody-flux-cf70.vercel.app |
+| Branch alias | https://cody-git-arena-e151acae-cody-flux-cf70.vercel.app |
+
+`vercel.json` pins the framework (Vite), build command (`npm run build`), output directory
+(`dist`) and long-lived caching for `/assets/*` (the service worker is kept revalidating so PWA
+updates land immediately).
+
+Any other host works the same way: `npm run build` and serve `dist/`, giving the app a single-page
+fallback to `index.html`. To install it on a phone, open the deployment URL and use
+**Add to Home Screen** — the manifest and icons are already wired up.
+
 ## Architecture
 
 ```

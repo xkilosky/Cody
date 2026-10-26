@@ -214,7 +214,7 @@ export default function CodyPanel({
         <div className="runtime-list">
           {[...new Set(project.files.map((file) => languageForPath(file.path)))].slice(0, 6).map((lang) => (
             <div key={lang.id} className="runtime-row">
-              <span className="lang-dot" style={{ background: lang.color }} />
+              <span className="lang-dot" />
               <span className="grow">{lang.label}</span>
               <span className="muted small">{runtimeLabel(lang.runtime)}</span>
             </div>

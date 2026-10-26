@@ -435,7 +435,7 @@ export default function ProjectView(props: Props) {
                 onSetRunEntry(file.path)
               }}
             >
-              <span className="lang-dot" style={{ background: languageForPath(file.path).color }} />
+              <span className="lang-dot" />
               <span className="grow">{file.path}</span>
               {project.entry === file.path && <Icon name="check" size={16} />}
             </button>

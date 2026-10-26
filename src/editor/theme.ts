@@ -5,81 +5,65 @@ import { tags as t } from '@lezer/highlight'
 type Palette = {
   bg: string
   fg: string
+  dim: string
+  faint: string
   caret: string
   selection: string
   selectionMatch: string
   activeLine: string
   gutterFg: string
   gutterActive: string
-  gutterBg: string
   panel: string
   border: string
-  keyword: string
-  string: string
-  number: string
-  comment: string
-  func: string
-  type: string
-  property: string
-  tag: string
-  attr: string
-  operator: string
+  /** The only hue in the editor. Same family as the app accent (mint). */
+  key: string
+  /** Softer step of the same hue, for strings and markup values. */
+  keySoft: string
+  /** One muted red, reserved for actual errors. */
   invalid: string
-  heading: string
 }
 
-/** Editor palettes modelled on the syntax colors phone editors ship (Spck/Acode),
- *  but with tighter punctuation and a calmer gutter so dense code stays readable. */
+/** Two palettes, one hue.
+ *
+ *  A phone screen is small and a phone editor is read in glances, so the syntax
+ *  palette is a neutral ink ramp: brightness and weight carry the structure,
+ *  comments recede into italic grey, and a single mint — the same mint as the
+ *  app's accent — marks the parts that drive a program (keywords, tags). One
+ *  red exists only for invalid code. Nothing else is coloured. */
 const DARK: Palette = {
-  bg: '#0c0f14',
-  fg: '#dfe6f1',
+  bg: '#0a0a0b',
+  fg: '#dcdcdf',
+  dim: '#8f8f97',
+  faint: '#61616a',
   caret: '#5ce1b9',
-  selection: 'rgba(78, 128, 255, 0.28)',
-  selectionMatch: 'rgba(78, 128, 255, 0.16)',
-  activeLine: 'rgba(255, 255, 255, 0.035)',
-  gutterFg: '#3d4a5e',
-  gutterActive: '#8fa8c8',
-  gutterBg: '#0c0f14',
-  panel: '#131924',
-  border: '#232c3a',
-  keyword: '#c9a6ff',
-  string: '#9be8b4',
-  number: '#ffc37d',
-  comment: '#5b6b83',
-  func: '#7dc4ff',
-  type: '#7ce0d3',
-  property: '#c5d3ea',
-  tag: '#ff8fa3',
-  attr: '#ffd166',
-  operator: '#93a4bd',
-  invalid: '#ff6b6b',
-  heading: '#7dc4ff',
+  selection: 'rgba(150, 168, 255, 0.18)',
+  selectionMatch: 'rgba(150, 168, 255, 0.1)',
+  activeLine: 'rgba(255, 255, 255, 0.04)',
+  gutterFg: '#4a4a51',
+  gutterActive: '#c8c8cd',
+  panel: '#141416',
+  border: '#27272b',
+  key: '#7ddcb8',
+  keySoft: '#a9a9b0',
+  invalid: '#e06c6c',
 }
 
 const LIGHT: Palette = {
   bg: '#ffffff',
-  fg: '#1a2230',
+  fg: '#1c1c1f',
+  dim: '#5c5c64',
+  faint: '#8e8e96',
   caret: '#0f9d76',
-  selection: 'rgba(59, 130, 246, 0.2)',
-  selectionMatch: 'rgba(59, 130, 246, 0.12)',
-  activeLine: '#f4f7fc',
-  gutterFg: '#a9b4c6',
-  gutterActive: '#4b5a70',
-  gutterBg: '#ffffff',
-  panel: '#f4f6fa',
-  border: '#e3e8f0',
-  keyword: '#8250df',
-  string: '#0a7d4f',
-  number: '#b4530a',
-  comment: '#94a3b8',
-  func: '#1e63c8',
-  type: '#0b7285',
-  property: '#334155',
-  tag: '#c2185b',
-  attr: '#9a6700',
-  operator: '#64748b',
-  invalid: '#dc2626',
-  heading: '#1e63c8',
+  selection: 'rgba(59, 88, 200, 0.16)',
+  selectionMatch: 'rgba(59, 88, 200, 0.09)',
+  activeLine: '#f6f6f7',
+  gutterFg: '#b4b4bb',
+  gutterActive: '#3d3d44',
+  panel: '#f5f5f6',
+  border: '#e4e4e7',
+  key: '#0b7a5c',
+  keySoft: '#5c5c64',
+  invalid: '#b3403f',
 }
 
 function theme(p: Palette, dark: boolean) {
@@ -114,7 +98,7 @@ function theme(p: Palette, dark: boolean) {
       '.cm-activeLine': { backgroundColor: p.activeLine },
       // gutter: quiet until the active line
       '.cm-gutters': {
-        backgroundColor: p.gutterBg,
+        backgroundColor: p.bg,
         color: p.gutterFg,
         border: 'none',
         paddingLeft: '2px',
@@ -147,8 +131,8 @@ function theme(p: Palette, dark: boolean) {
       '.cm-tooltip-autocomplete > ul': { fontFamily: 'var(--mono)', fontSize: '12.5px' },
       '.cm-tooltip-autocomplete > ul > li': { padding: '7px 10px' },
       '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-        backgroundColor: dark ? '#243352' : '#dbeafe',
-        color: dark ? '#fff' : '#0f172a',
+        backgroundColor: dark ? '#26262b' : '#eeeeef',
+        color: p.fg,
       },
       '.cm-panels': { backgroundColor: p.panel, color: p.fg },
       '.cm-panels.cm-panels-top': { borderBottom: `1px solid ${p.border}` },
@@ -180,20 +164,20 @@ function theme(p: Palette, dark: boolean) {
       },
       '.cm-panel.cm-search label': { color: p.gutterFg, fontSize: '11px' },
       '.cm-searchMatch': {
-        backgroundColor: dark ? 'rgba(255, 209, 102, .3)' : 'rgba(250, 204, 21, .35)',
-        outline: `1px solid ${dark ? 'rgba(255,209,102,.45)' : 'rgba(202,138,4,.4)'}`,
+        backgroundColor: dark ? 'rgba(255, 255, 255, .14)' : 'rgba(0, 0, 0, .09)',
+        outline: `1px solid ${p.faint}`,
         borderRadius: '2px',
       },
       '.cm-searchMatch.cm-searchMatch-selected': {
-        backgroundColor: dark ? 'rgba(255, 209, 102, .55)' : 'rgba(250, 204, 21, .65)',
+        backgroundColor: dark ? 'rgba(125, 220, 184, .28)' : 'rgba(11, 122, 92, .18)',
       },
       '.cm-matchingBracket, &.cm-focused .cm-matchingBracket': {
-        backgroundColor: dark ? 'rgba(124, 196, 255, .18)' : 'rgba(59, 130, 246, .16)',
-        outline: `1px solid ${dark ? 'rgba(124,196,255,.45)' : 'rgba(59,130,246,.45)'}`,
+        backgroundColor: dark ? 'rgba(125, 220, 184, .18)' : 'rgba(11, 122, 92, .14)',
+        outline: `1px solid ${dark ? 'rgba(125,220,184,.45)' : 'rgba(11,122,92,.4)'}`,
         borderRadius: '2px',
       },
       '.cm-nonmatchingBracket': { color: p.invalid },
-      '.cm-placeholder': { color: p.gutterFg, fontStyle: 'italic' },
+      '.cm-placeholder': { color: p.faint, fontStyle: 'italic' },
       '.cm-selectionBackground': { borderRadius: '1px' },
     },
     { dark },
@@ -202,26 +186,27 @@ function theme(p: Palette, dark: boolean) {
 
 function highlight(p: Palette) {
   return HighlightStyle.define([
-    { tag: [t.keyword, t.controlKeyword, t.moduleKeyword, t.definitionKeyword], color: p.keyword },
-    { tag: [t.string, t.special(t.string), t.regexp, t.character], color: p.string },
-    { tag: [t.number, t.integer, t.float, t.bool, t.null, t.atom], color: p.number },
-    { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: p.comment, fontStyle: 'italic' },
-    { tag: [t.function(t.variableName), t.function(t.propertyName), t.labelName], color: p.func },
-    { tag: [t.typeName, t.className, t.namespace, t.standard(t.name)], color: p.type },
-    { tag: [t.propertyName, t.attributeValue], color: p.property },
-    { tag: [t.tagName], color: p.tag },
-    { tag: [t.attributeName], color: p.attr },
-    { tag: [t.operator, t.operatorKeyword, t.derefOperator], color: p.operator },
-    { tag: [t.punctuation, t.bracket, t.separator, t.squareBracket, t.paren, t.brace], color: p.operator },
-    { tag: [t.meta, t.annotation, t.processingInstruction], color: p.comment },
-    { tag: [t.definition(t.name), t.variableName, t.name], color: p.fg },
-    { tag: [t.heading, t.heading1, t.heading2], color: p.heading, fontWeight: '700' },
-    { tag: [t.link, t.url], color: p.func, textDecoration: 'underline' },
+    // the one hue: the words that shape the program
+    { tag: [t.keyword, t.controlKeyword, t.moduleKeyword, t.definitionKeyword, t.modifier], color: p.key },
+    { tag: [t.tagName, t.angleBracket], color: p.key },
+    // strings sit one step softer than keywords — same family, less volume
+    { tag: [t.string, t.special(t.string), t.character, t.regexp, t.attributeValue], color: p.keySoft },
+    // neutral ink: weight and tone do the work
+    { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: p.faint, fontStyle: 'italic' },
+    { tag: [t.function(t.variableName), t.function(t.propertyName), t.labelName], color: p.fg, fontWeight: '600' },
+    { tag: [t.typeName, t.className, t.namespace, t.standard(t.name), t.definition(t.name)], color: p.fg, fontWeight: '600' },
+    { tag: [t.propertyName, t.attributeName], color: p.dim },
+    { tag: [t.number, t.integer, t.float, t.bool, t.null, t.atom], color: p.fg },
+    { tag: [t.operator, t.operatorKeyword, t.derefOperator], color: p.dim },
+    { tag: [t.punctuation, t.bracket, t.separator, t.squareBracket, t.paren, t.brace], color: p.faint },
+    { tag: [t.meta, t.annotation, t.processingInstruction], color: p.faint },
+    { tag: [t.variableName, t.name], color: p.fg },
+    { tag: [t.heading, t.heading1, t.heading2, t.strong], color: p.fg, fontWeight: '700' },
+    { tag: [t.link, t.url], color: p.fg, textDecoration: 'underline' },
     { tag: [t.emphasis], fontStyle: 'italic' },
-    { tag: [t.strong], fontWeight: '700' },
     { tag: [t.strikethrough], textDecoration: 'line-through' },
+    { tag: [t.escape], color: p.keySoft },
     { tag: [t.invalid], color: p.invalid },
-    { tag: [t.escape], color: p.number },
   ])
 }
 

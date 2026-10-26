@@ -121,7 +121,7 @@ export default function RunPanel({
       <div className="run-meta">
         {lang && (
           <>
-            <span className="pill" style={{ borderColor: `${lang.color}55`, color: lang.color }}>
+            <span className="pill">
               {lang.label}
             </span>
             <span className={`pill ${isCloud ? 'warn' : 'ok'}`}>{runtimeLabel(lang.runtime)}</span>

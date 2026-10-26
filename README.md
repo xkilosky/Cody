@@ -118,8 +118,11 @@ Details that matter on a phone:
   accent bar, and the gutter number for that line brightens — you always know where you are.
 - **Quiet gutter.** Line numbers are off-white/dim and only the active one is bold, so dense code
   reads first and chrome reads second.
-- **One accent colour.** Mint marks the active tab underline, the active line bar, Run, and the
-  selected tab in the bar. Everything else is neutral, so state jumps out.
+- **One hue, not a rainbow.** The editor is a neutral ink ramp — bright for the code you read,
+  dim for punctuation and properties, faint italic for comments — plus a single mint that marks
+  the words that shape a program (keywords, tags, strings one step softer). One muted red exists
+  only for invalid code. Language-brand colours are gone from the tabs and file lists too: a dot
+  is grey until the file is the one you have open, then it is mint.
 - **Keyboard-aware.** When the OS keyboard opens, `visualViewport` height is measured and the rail
   docks to it (sticky) rather than being pushed off-screen. The ⌄ key dismisses the keyboard.
 - **Both themes are real.** Dark and light are separate palettes for chrome *and* syntax, including

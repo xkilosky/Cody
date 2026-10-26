@@ -139,7 +139,7 @@ export default function FilesPane({
           style={{ paddingLeft: 12 + depth * 14 }}
         >
           <button className="file-row-main" onClick={() => onOpenFile(node.path)}>
-            <span className="lang-dot" style={{ background: lang.color }} />
+            <span className="lang-dot" />
             <span className="file-name">{node.name}</span>
             {isEntry && <span className="pill tiny">entry</span>}
             {node.path.includes('/') && <span className="file-meta path-hint">{node.path}</span>}

@@ -214,7 +214,7 @@ export default function ProjectSwitcher({
               const lang = languageForPath(file.path)
               return (
                 <div key={file.path} className="file-preview-row">
-                  <span className="lang-dot" style={{ background: lang.color }} />
+                  <span className="lang-dot" />
                   <span className="grow">{file.path}</span>
                 </div>
               )

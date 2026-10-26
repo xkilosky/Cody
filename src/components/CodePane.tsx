@@ -167,7 +167,7 @@ export default function CodePane({
                   setSwitcherOpen(false)
                 }}
               >
-                <span className="lang-dot" style={{ background: languageForPath(item.path).color }} />
+                <span className="lang-dot" />
                 <span>{item.path}</span>
               </button>
             ))}
@@ -206,7 +206,7 @@ export default function CodePane({
                   onClick={() => onOpenFile(path)}
                   title={path}
                 >
-                  <span className="lang-dot" style={{ background: tabLang.color }} />
+                  <span className="lang-dot" />
                   <span className="tab-name">{fileName(path)}</span>
                 </button>
                 {isActive && unsaved && <span className="dirty-dot" aria-label="Unsaved changes" />}
@@ -261,7 +261,7 @@ export default function CodePane({
         <span className="status-sep">·</span>
         <span>{formatBytes(stats?.bytes ?? 0)}</span>
         <span className="status-sep">·</span>
-        <span className="status-lang" style={{ color: lang!.color }}>
+        <span className="status-lang">
           {lang!.label}
         </span>
         <span className="status-sep">·</span>
@@ -358,7 +358,7 @@ export default function CodePane({
                 setFilter('')
               }}
             >
-              <span className="lang-dot" style={{ background: languageForPath(item.path).color }} />
+              <span className="lang-dot" />
               <span className="grow">{item.path}</span>
               {runEntry === item.path && <span className="pill tiny">entry</span>}
             </button>

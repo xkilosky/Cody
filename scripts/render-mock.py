@@ -63,7 +63,18 @@ FONT_MONO_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
 FONT_UI = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONT_UI_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
-LANG_COLORS = {"html": "#e34c26", "tsx": "#61dafb", "css": "#2965f1", "js": "#f7df1e"}
+# syntax kinds -> palette slots. The editor palette is a neutral ink ramp plus a
+# single mint hue and one error red, so most kinds resolve to a grey step.
+KIND_TO_TOKEN = {
+    "keyword": "key",
+    "string": "keySoft",
+    "comment": "faint",
+    "number": "fg",
+    "operator": "faint",
+    "func": "fg",
+    "type": "fg",
+    "fg": "fg",
+}
 
 
 def s(value: float) -> float:
@@ -293,18 +304,17 @@ def draw_screen(mode: str) -> Image.Image:
     c.rect((0, tabs_top, W, tabs_top + 38), fill=t("surface"))
     c.rect((0, tabs_top + 37, W, tabs_top + 38), fill=t("border"))
 
-    tabs = [("App.tsx", LANG_COLORS["tsx"], True), ("Task.tsx", LANG_COLORS["tsx"], False),
-            ("styles.css", LANG_COLORS["css"], False)]
+    tabs = [("App.tsx", True), ("Task.tsx", False), ("styles.css", False)]
     x = 8.0
-    for name, dot, active in tabs:
+    for name, active in tabs:
         width = 36 + len(name) * 6.6
         if active:
             c.rect((x, tabs_top + 5, x + width, tabs_top + 40), fill=t("editor-bg"), outline=t("border"), radius=8)
             c.rect((x + 1.2, tabs_top + 35, x + width - 1.2, tabs_top + 39), fill=t("editor-bg"))
-        c.circle((x + 12, tabs_top + 20), 3.1, dot)
+        c.circle((x + 12, tabs_top + 20), 3.0, t("accent") if active else t("muted"), 1.0 if active else 0.5)
         c.text((x + 20, tabs_top + 12.5), name, t("text") if active else t("muted"), 11.5, mono=True)
         if active:
-            c.circle((x + width - 12, tabs_top + 20), 2.4, t("warn"))
+            c.circle((x + width - 12, tabs_top + 20), 2.2, t("muted"))
         x += width + 5
     c.rect((W - 39, tabs_top + 7, W - 9, tabs_top + 31), fill=t("surface-2"), radius=8)
     c.rect((W - 33, tabs_top + 14, W - 24, tabs_top + 24), fill=None, outline=t("muted"), radius=2, width=1.2)
@@ -350,7 +360,7 @@ def draw_screen(mode: str) -> Image.Image:
                    bold=is_active)
         cx = text_x
         for text, kind in runs:
-            c.text((cx, y + 1.6), text, p(kind), font_size, mono=True)
+            c.text((cx, y + 1.6), text, p(KIND_TO_TOKEN.get(kind, "fg")), font_size, mono=True)
             cx += code_font.getlength(text) / SS
         if number == active_line and part == 0:
             caret_x = text_x + char_w * (caret_col - 1)
@@ -364,7 +374,7 @@ def draw_screen(mode: str) -> Image.Image:
     c.rect((0, st, W, st + 1), fill=t("border"))
     c.text((10, st + 7.5), "Ln 14, Col 21", t("text-dim"), 9.4, mono=True)
     c.text((95, st + 7.5), "·  34 lines", t("muted"), 9.4, mono=True)
-    c.text((153, st + 7.5), "·  TSX", LANG_COLORS["tsx"], 9.4, mono=True)
+    c.text((153, st + 7.5), "·  TSX", t("text-dim"), 9.4, mono=True)
     c.text((190, st + 7.5), "·  Spaces: 2", t("muted"), 9.4, mono=True)
     c.rect((W - 64, st + 5.5, W - 9, st + 20.5), fill=None, outline=t("border"), radius=7.5)
     c.text((W - 36.5, st + 9.4), "Saved", t("muted"), 9, mono=True, anchor="ma")

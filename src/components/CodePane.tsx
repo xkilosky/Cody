@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { Project, Settings } from '../types'
 import type { CodyEditorHandle, CursorInfo } from '../editor/CodeEditor'
 import CodeEditor from '../editor/CodeEditor'
@@ -7,6 +7,7 @@ import Icon from './Icons'
 import LangIcon from './LangIcon'
 import Sheet from './Sheet'
 import { bytesOf, fileName, formatBytes } from '../lib/utils'
+import { analyzeFile, analyzeProject, countBySeverity, type Diagnostic } from '../lib/diagnostics'
 
 type Props = {
   project: Project
@@ -111,11 +112,32 @@ export default function CodePane({
   const [filter, setFilter] = useState('')
   const [cursor, setCursor] = useState<CursorInfo>({ line: 1, column: 1, lines: 1, selected: 0 })
   const [keyboardOpen, setKeyboardOpen] = useState(false)
+  const [problemsOpen, setProblemsOpen] = useState(false)
   const railRef = useRef<HTMLDivElement | null>(null)
+  const pendingJump = useRef<{ path: string; line: number; column: number } | null>(null)
 
   const file = project.files.find((item) => item.path === activePath) ?? null
   const lang = file ? languageForPath(file.path) : null
   const keywords = lang ? KEYWORD_INSERTS[lang.id] ?? [] : []
+  // Analysing every file on each keystroke would fight the keyboard: the
+  // project scan is deferred, the active file is linted live by the editor.
+  const deferredFiles = useDeferredValue(project.files)
+  const problems = useMemo(() => analyzeProject(deferredFiles), [deferredFiles])
+  const problemsByPath = useMemo(() => {
+    const map = new Map<string, Diagnostic[]>()
+    for (const problem of problems) {
+      const list = map.get(problem.path)
+      if (list) list.push(problem)
+      else map.set(problem.path, [problem])
+    }
+    return map
+  }, [problems])
+  const activeProblems = activePath ? problemsByPath.get(activePath) ?? [] : []
+  const totals = countBySeverity(problems)
+  const lintFile = useMemo(
+    () => (path: string, content: string) => analyzeFile(path, content, project.files),
+    [project.files],
+  )
   const stats = useMemo(
     () => (file ? { lines: cursor.lines || file.content.split('\n').length, bytes: bytesOf(file.content) } : null),
     [file, cursor.lines],
@@ -241,9 +263,15 @@ export default function CodePane({
           onSave={onSaveNow}
           onRun={onRun}
           onCursor={setCursor}
+          lint={(content) => lintFile(file.path, content)}
           onReady={(instance) => {
             editorRef.current = instance
             setCursor(instance.cursor())
+            const jump = pendingJump.current
+            if (jump && jump.path === file.path) {
+              pendingJump.current = null
+              instance.goto(jump.line, jump.column)
+            }
           }}
           onDestroy={() => {
             editorRef.current = null
@@ -259,15 +287,35 @@ export default function CodePane({
         {cursor.selected > 0 && <span className="status-chip">{cursor.selected} sel</span>}
         <span className="status-sep">·</span>
         <span>{stats?.lines ?? 0} lines</span>
-        <span className="status-sep">·</span>
-        <span>{formatBytes(stats?.bytes ?? 0)}</span>
+        <span className="status-sep status-secondary">·</span>
+        <span className="status-secondary">{formatBytes(stats?.bytes ?? 0)}</span>
         <span className="status-sep">·</span>
         <span className="status-lang">
           {lang!.label}
         </span>
-        <span className="status-sep">·</span>
-        <span>Spaces: {settings.tabSize}</span>
+        <span className="status-sep status-secondary">·</span>
+        <span className="status-secondary">Spaces: {settings.tabSize}</span>
         <div className="toolbar-spacer" />
+        <button
+          className={`status-problems${activeProblems.length === 0 ? ' clean' : totals.errors > 0 && activeProblems.some((p) => p.severity === 'error') ? ' error' : ' warn'}`}
+          onClick={() => setProblemsOpen(true)}
+          aria-label="Show problems"
+        >
+          {activeProblems.length === 0 ? (
+            <>
+              <Icon name="check" size={11} /> No problems
+            </>
+          ) : (
+            <>
+              <Icon name={activeProblems.some((p) => p.severity === 'error') ? 'alert' : 'info'} size={11} />
+              {activeProblems.length === 1
+                ? activeProblems[0].severity === 'error'
+                  ? '1 error'
+                  : '1 warning'
+                : `${activeProblems.filter((p) => p.severity === 'error').length} errors, ${activeProblems.filter((p) => p.severity === 'warning').length} warnings`}
+            </>
+          )}
+        </button>
         <button className={`status-save${unsaved ? ' unsaved' : ''}`} onClick={onSaveNow}>
           {unsaved ? 'Save' : savedAt ? 'Saved' : 'Autosave'}
         </button>
@@ -361,11 +409,72 @@ export default function CodePane({
             >
               <LangIcon path={item.path} size={15} />
               <span className="grow">{item.path}</span>
+              {(problemsByPath.get(item.path)?.length ?? 0) > 0 && (
+                <span
+                  className={`problem-count${problemsByPath.get(item.path)!.some((p) => p.severity === 'error') ? ' error' : ''}`}
+                >
+                  {problemsByPath.get(item.path)!.length}
+                </span>
+              )}
               {runEntry === item.path && <span className="pill tiny">entry</span>}
             </button>
           ))}
           {filteredFiles.length === 0 && <p className="muted center">No files match.</p>}
         </div>
+      </Sheet>
+
+      <Sheet
+        open={problemsOpen}
+        title="Problems"
+        subtitle={
+          problems.length === 0
+            ? 'Nothing to fix'
+            : `${totals.errors} error${totals.errors === 1 ? '' : 's'} · ${totals.warnings} warning${totals.warnings === 1 ? '' : 's'} in ${problemsByPath.size} file${problemsByPath.size === 1 ? '' : 's'}`
+        }
+        onClose={() => setProblemsOpen(false)}
+      >
+        {problems.length === 0 ? (
+          <div className="problems-empty">
+            <Icon name="check" size={22} />
+            <strong>No problems found</strong>
+            <p>
+              Cody checked every file for syntax errors, unbalanced brackets, broken markup, Python indentation and
+              imports that point at missing files.
+            </p>
+          </div>
+        ) : (
+          <div className="problem-list">
+            {[...problemsByPath.entries()].map(([path, list]) => (
+              <div key={path} className="problem-group">
+                <div className="problem-file">
+                  <LangIcon path={path} size={14} />
+                  <span className="grow">{path}</span>
+                  <span className="muted small">{list.length}</span>
+                </div>
+                {list.map((problem, index) => (
+                  <button
+                    key={`${problem.line}:${problem.column}:${index}`}
+                    className={`problem-row ${problem.severity}`}
+                    onClick={() => {
+                      pendingJump.current = { path, line: problem.line, column: problem.column }
+                      onOpenFile(path)
+                      editorRef.current?.goto(problem.line, problem.column)
+                      setProblemsOpen(false)
+                    }}
+                  >
+                    <span className="problem-loc">
+                      {problem.line}:{problem.column}
+                    </span>
+                    <span className="problem-body">
+                      <span className="problem-msg">{problem.message}</span>
+                      <span className="problem-rule">{problem.rule}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </Sheet>
 
       <Sheet

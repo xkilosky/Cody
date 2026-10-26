@@ -1163,6 +1163,8 @@ ol {
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
+  min-height: 25px;
+  flex: none;
   font-size: 10px;
   color: var(--muted);
   font-family: var(--mono);
@@ -1205,8 +1207,162 @@ ol {
 
 .status-save.unsaved {
   color: var(--warn);
-  border-color: rgba(255, 209, 102, 0.4);
-  background: rgba(255, 209, 102, 0.1);
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+/* ---- problems / diagnostics -------------------------------------------- */
+
+.status-problems {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  flex: none;
+  white-space: nowrap;
+  max-width: 46vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-problems.clean {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+/* The strip is the most crowded row on a phone: on narrow screens the file
+   size and language label step aside for the problems chip and save state. */
+@media (max-width: 430px) {
+  .editor-status .status-secondary {
+    display: none;
+  }
+}
+
+.status-problems.warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+
+.status-problems.error {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 45%, transparent);
+  background: var(--error-soft);
+}
+
+.problem-count {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  min-width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warn) 22%, transparent);
+  color: var(--warn);
+  flex: none;
+}
+
+.problem-count.error {
+  background: var(--error-soft);
+  color: var(--error);
+}
+
+.problem-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.problem-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.problem-file {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 4px 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.problem-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-left-width: 3px;
+}
+
+.problem-row.error {
+  border-left-color: var(--error);
+}
+
+.problem-row.warning {
+  border-left-color: var(--warn);
+}
+
+.problem-loc {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  flex: none;
+  padding-top: 1px;
+  min-width: 34px;
+}
+
+.problem-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.problem-msg {
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.problem-rule {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.problems-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 26px 20px 34px;
+  color: var(--muted);
+}
+
+.problems-empty strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.problems-empty p {
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 34ch;
 }
 
 /* ---- keyboard rail ------------------------------------------------------ */

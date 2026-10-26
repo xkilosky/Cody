@@ -90,6 +90,24 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
   editing — insert at the cursor or scaffold a new file.
 - Project health at a glance: file/language/runnable counts and each language's runtime.
 
+### Finding bugs
+- **Live bug detection, offline, no server.** The status strip shows `No problems` or `1 error · 2 warnings`
+  for the open file; tap it for the **Problems** sheet, which groups every issue by file with its
+  `line:column`, message and rule. Tap a row and the caret jumps to that spot.
+- **Squiggles in the editor.** A wavy underline marks the exact range, the gutter shows a dot per
+  line, and tapping the underline shows the message in a tooltip.
+- **What is actually checked** — with real parsers where the bundle has one:
+  - **JS / TS / JSX / TSX** — Sucrase parse errors at the exact line and column
+  - **JSON** — `JSON.parse` position, mapped back to a line
+  - **Python** — missing `:` after a block, tabs vs spaces (`TabError`)
+  - **HTML / XML** — unclosed tags, stray closing tags, void tags and optional `</li>` handled correctly
+  - **CSS** — unbalanced blocks, declarations missing a `;`
+  - **every language** — unbalanced brackets, unterminated strings and comments (quote-aware, so
+    Rust lifetimes and JS template literals don't false-positive)
+  - **project-wide** — `import './Missing'` or `<script src="./nope.js">` that resolves to no file
+- **It stays quiet on correct code.** The test suite runs 22 valid files through it (one per
+  language) and requires zero findings, next to matched broken files that must be caught.
+
 ---
 
 ## Editor design notes

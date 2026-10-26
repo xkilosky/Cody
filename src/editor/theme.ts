@@ -134,6 +134,29 @@ function editorTheme(p: Palette, dark: boolean) {
       '.cm-nonmatchingBracket': { color: p.invalid },
       '.cm-placeholder': { color: p.gutter, fontStyle: 'italic' },
       '.cm-selectionBackground': { borderRadius: '1px' },
+      // diagnostics: wavy underline in the text, a dot in the gutter
+      '.cm-lintRange-error': {
+        backgroundImage: 'none',
+        textDecoration: `underline wavy ${p.invalid}`,
+        textUnderlineOffset: '3px',
+      },
+      '.cm-lintRange-warning': {
+        backgroundImage: 'none',
+        textDecoration: `underline wavy ${p.warning}`,
+        textUnderlineOffset: '3px',
+      },
+      '.cm-gutter-lint': { width: '1.1em' },
+      '.cm-lint-marker-error, .cm-lint-marker-warning': { width: '0.7em', height: '0.7em' },
+      '.cm-tooltip-lint': { padding: '0', margin: '0' },
+      '.cm-diagnostic': {
+        padding: '7px 10px',
+        fontFamily: 'var(--mono)',
+        fontSize: '12px',
+        borderLeft: '3px solid transparent',
+      },
+      '.cm-diagnostic-error': { borderLeftColor: p.invalid },
+      '.cm-diagnostic-warning': { borderLeftColor: p.warning },
+      '.cm-diagnostic-source': { opacity: '0.7' },
     },
     { dark },
   )

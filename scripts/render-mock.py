@@ -568,6 +568,13 @@ def draw_screen(mode: str) -> Image.Image:
     c.rect((W - 64, st + 5.5, W - 9, st + 20.5), fill=None, outline=t("border"), radius=7.5)
     c.text((W - 36.5, st + 9.4), "Saved", t("muted"), 9, mono=True, anchor="ma")
 
+    # problems chip: "1 error" in the error tint, like the real status strip
+    chip_w = 52.0
+    chip_x = W - 64 - chip_w - 6
+    c.rect((chip_x, st + 5.5, chip_x + chip_w, st + 20.5), fill=t("error"), outline=t("error"), radius=7.5, alpha=0.14)
+    c.text((chip_x + 12, st + 8.6), "!", t("error"), 9, mono=True, anchor="ma", bold=True)
+    c.text((chip_x + 18, st + 9.4), "1 error", t("error"), 8.6, mono=True)
+
     # ---------------- keyboard rail (two rows, like the DOM) ----------------
     rail = st + 26
     rail_h = RAIL_H

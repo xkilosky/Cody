@@ -32,8 +32,10 @@ import {
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
 import { bracketMatching, indentOnInput } from '@codemirror/language'
 import { searchKeymap, openSearchPanel } from '@codemirror/search'
+import { linter, lintGutter, type Diagnostic as CmDiagnostic } from '@codemirror/lint'
 import { editorThemeFor } from './theme'
 import { loadLanguageExtension } from '../lib/languages'
+import type { Diagnostic } from '../lib/diagnostics'
 import type { Settings } from '../types'
 
 export type CursorInfo = {
@@ -55,6 +57,8 @@ export type CodyEditorHandle = {
   redo: () => void
   openSearch: () => void
   scrollToTop: () => void
+  /** Jump to a 1-based line/column, e.g. from the problems list. */
+  goto: (line: number, column?: number) => void
   getView: () => EditorView | null
 }
 
@@ -70,6 +74,8 @@ type Props = {
   onDestroy?: () => void
   onCursor?: (info: CursorInfo) => void
   onDirty?: () => void
+  /** Returns the file's problems; used to draw squiggles and gutter markers. */
+  lint?: (content: string) => Diagnostic[]
 }
 
 function readCursor(view: EditorView): CursorInfo {
@@ -142,6 +148,7 @@ export default function CodeEditor({
   onReady,
   onDestroy,
   onCursor,
+  lint,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -153,6 +160,7 @@ export default function CodeEditor({
   const onRunRef = useRef(onRun)
   const onDestroyRef = useRef(onDestroy)
   const onCursorRef = useRef(onCursor)
+  const lintRef = useRef(lint)
   const cursorFrame = useRef<number | null>(null)
   const [langReady, setLangReady] = useState(false)
 
@@ -161,6 +169,7 @@ export default function CodeEditor({
   onRunRef.current = onRun
   onDestroyRef.current = onDestroy
   onCursorRef.current = onCursor
+  lintRef.current = lint
 
   // Create the view once.
   useEffect(() => {
@@ -243,6 +252,27 @@ export default function CodeEditor({
             run: selectLine,
           },
         ]),
+        lintGutter(),
+        linter(
+          (view): CmDiagnostic[] => {
+            const source = lintRef.current
+            if (!source) return []
+            const doc = view.state.doc
+            return source(doc.toString()).map((problem) => {
+              const line = doc.line(Math.min(Math.max(1, problem.line), doc.lines))
+              const from = Math.min(line.from + Math.max(0, problem.column - 1), line.to)
+              const to = Math.min(line.from + Math.max(problem.endColumn - 1, problem.column), line.to)
+              return {
+                from,
+                to: Math.max(from, to),
+                severity: problem.severity,
+                message: problem.message,
+                source: `Cody · ${problem.rule}`,
+              }
+            })
+          },
+          { delay: 350 },
+        ),
         cmPlaceholder('Start writing…'),
       ],
     })
@@ -279,6 +309,12 @@ export default function CodeEditor({
       redo: () => redoCommand(view),
       openSearch: () => openSearchPanel(view),
       scrollToTop: () => view.dispatch({ selection: { anchor: 0 }, scrollIntoView: true }),
+      goto: (line: number, column = 1) => {
+        const target = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines))
+        const anchor = Math.min(target.from + Math.max(0, column - 1), target.to)
+        view.dispatch({ selection: { anchor }, scrollIntoView: true })
+        view.focus()
+      },
       getView: () => view,
     }
     onReady?.(handle)

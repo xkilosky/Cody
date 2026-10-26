@@ -45,6 +45,7 @@ export type IconName =
   | 'wrap'
   | 'eye'
   | 'zap'
+  | 'alert'
 
 const PATHS: Record<IconName, string> = {
   logo: 'M9 5 3 12l6 7M15 5l6 7-6 7',
@@ -92,6 +93,8 @@ const PATHS: Record<IconName, string> = {
   wrap: 'M4 6h16M4 12h12a3 3 0 0 1 0 6h-3m0 0 2-2m-2 2 2 2M4 18h5',
   eye: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Zm9.5 2.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z',
   zap: 'M13 3 5 14h5l-1 7 8-11h-5l1-7Z',
+  // triangle-with-bang: used for problems/errors
+  alert: 'M12 4 2.5 20h19L12 4Zm0 5.5v5m0 3.2h.01',
 }
 
 type Props = SVGProps<SVGSVGElement> & {

@@ -25,6 +25,7 @@ export type TokenRole =
   | 'regexp'
   | 'escape'
   | 'invalid'
+  | 'warning'
   | 'meta'
   | 'heading'
   | 'link'
@@ -73,6 +74,7 @@ const VSCODE_DARK: Palette = {
   regexp: '#d16969',
   escape: '#d7ba7d',
   invalid: '#f44747',
+  warning: '#cca700',
   meta: '#569cd6',
   heading: '#569cd6',
   link: '#3794ff',
@@ -103,6 +105,7 @@ const VSCODE_LIGHT: Palette = {
   regexp: '#811f3f',
   escape: '#ee0000',
   invalid: '#cd3131',
+  warning: '#bf8803',
   meta: '#0000ff',
   heading: '#800000',
   link: '#006ab1',
@@ -133,6 +136,7 @@ const ONE_DARK: Palette = {
   regexp: '#98c379',
   escape: '#56b6c2',
   invalid: '#e06c75',
+  warning: '#e5c07b',
   meta: '#c678dd',
   heading: '#e06c75',
   link: '#61afef',
@@ -163,6 +167,7 @@ const ONE_LIGHT: Palette = {
   regexp: '#50a14f',
   escape: '#0184bc',
   invalid: '#e45649',
+  warning: '#c18401',
   meta: '#a626a4',
   heading: '#e45649',
   link: '#4078f2',
@@ -193,6 +198,7 @@ const GITHUB_DARK: Palette = {
   regexp: '#a5d6ff',
   escape: '#79c0ff',
   invalid: '#ffa198',
+  warning: '#d29922',
   meta: '#ff7b72',
   heading: '#1f6feb',
   link: '#58a6ff',
@@ -223,6 +229,7 @@ const GITHUB_LIGHT: Palette = {
   regexp: '#0a3069',
   escape: '#0550ae',
   invalid: '#cf222e',
+  warning: '#9a6700',
   meta: '#cf222e',
   heading: '#0550ae',
   link: '#0969da',

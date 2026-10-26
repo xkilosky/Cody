@@ -45,6 +45,13 @@ const suites = [
     plugins: [],
   },
   {
+    name: 'diagnostics',
+    entry: 'scripts/test-diagnostics.ts',
+    format: 'esm',
+    out: '.test-diagnostics.mjs',
+    plugins: [],
+  },
+  {
     name: 'styles',
     entry: 'scripts/test-styles.ts',
     format: 'esm',

@@ -262,6 +262,31 @@ async function main() {
     `${badge?.tagName} / ${badge?.getAttribute('aria-label')}`,
   )
 
+  // --- bug detection ----------------------------------------------------
+  const { EditorView } = await import('@codemirror/view')
+  const cmNode = dom.window.document.querySelector('.cm-content') as HTMLElement | null
+  const view = cmNode ? EditorView.findFromDOM(cmNode as never) : null
+  check('editor view reachable for the diagnostics test', Boolean(view), String(Boolean(cmNode)))
+  if (view) {
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '<main>\n  <h1>Broken\n</main>\n' } })
+  }
+  await wait(700)
+  const chip = dom.window.document.querySelector('.status-problems')
+  check('problems chip appears in the status strip', Boolean(chip), chip?.textContent ?? '(missing)')
+  check('problems chip reports the error', (chip?.textContent ?? '').includes('error'), chip?.textContent ?? '')
+  check('broken markup gets a squiggle', Boolean(dom.window.document.querySelector('.cm-lintRange-error')))
+  check('gutter shows a problem marker', Boolean(dom.window.document.querySelector('.cm-lint-marker')))
+  await clickLabel('Show problems')
+  await wait(250)
+  const sheetBody = dom.window.document.querySelector('.sheet')?.textContent ?? ''
+  check('problems sheet lists the file', sheetBody.includes('index.html'), sheetBody.slice(0, 80))
+  check('problems sheet explains the bug', /never closed|no opening tag/i.test(sheetBody), sheetBody.slice(0, 160))
+  const row = dom.window.document.querySelector('.problem-row') as HTMLElement | null
+  if (row) row.click()
+  await wait(350)
+  check('tapping a problem closes the sheet', !dom.window.document.querySelector('.problem-row'))
+  check('tapping a problem moves the caret to its line', /\(Ln 2, Col 3\)|Ln 2, Col 3/.test(text()), (dom.window.document.querySelector('.status-pos')?.textContent ?? ''))
+
   // --- settings sheet ---------------------------------------------------
   await clickLabel('Project menu')
   await wait(150)

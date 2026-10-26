@@ -17,6 +17,8 @@
   --accent-ink: #04291f;
   --accent-soft: rgba(92, 225, 185, 0.12);
   --warn: #cfae74;
+  --bulb: #eeb542;
+  --bulb-fix: #f8d367;
   --error: #e06c6c;
   --error-soft: rgba(224, 108, 108, 0.12);
   --radius-xs: 8px;
@@ -49,6 +51,8 @@
   --accent-ink: #ffffff;
   --accent-soft: rgba(15, 157, 118, 0.1);
   --warn: #8a6a2f;
+  --bulb: #ab7a11;
+  --bulb-fix: #8f6306;
   --error: #b3403f;
   --error-soft: rgba(179, 64, 63, 0.1);
   --shadow: 0 16px 36px rgba(21, 30, 48, 0.12);
@@ -1372,6 +1376,47 @@ ol {
   color: var(--accent);
 }
 
+/* the lightbulb in the gutter: one small yellow mark per line that has an
+   action, the way a problem gets its own marker */
+.cm-bulb-gutter {
+  width: 1.15em;
+}
+
+.cm-bulb-gutter .cm-gutterElement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+}
+
+.cm-bulb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bulb);
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.cm-bulb svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.cm-bulb.cm-bulb-fix {
+  color: var(--bulb-fix);
+  opacity: 1;
+}
+
+.cm-activeLineGutter .cm-bulb {
+  opacity: 1;
+}
+
+.cm-bulb:active {
+  transform: scale(0.88);
+}
+
 .problem-flag {
   display: inline-grid;
   place-items: center;
@@ -1411,66 +1456,6 @@ ol {
   border: 1px solid var(--border);
 }
 
-.action-kind.quickfix {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-}
-
-.action-kind.import {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.action-kind.refactor {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.action-kind.create {
-  color: var(--accent);
-  border-style: dashed;
-  background: transparent;
-}
-
-.action-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.action-title {
-  font-size: 13px;
-  color: var(--text);
-}
-
-.action-detail {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* count bubble on a rail button that has something to offer */
-.tool-count {
-  font-family: var(--mono);
-  font-size: 9px;
-  line-height: 1;
-  padding: 1px 3px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-contrast, #08201a);
-  font-weight: 700;
-}
-
-.tool-btn.accent {
-  color: var(--accent);
-}
-
 .problem-flag {
   width: 12px;
   height: 12px;
@@ -1493,66 +1478,6 @@ ol {
   border: 1px solid var(--border);
 }
 
-.action-kind.quickfix {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-}
-
-.action-kind.import {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.action-kind.refactor {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.action-kind.create {
-  color: var(--accent);
-  border-style: dashed;
-  background: transparent;
-}
-
-.action-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.action-title {
-  font-size: 13px;
-  color: var(--text);
-}
-
-.action-detail {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* count bubble on a rail button that has something to offer */
-.tool-count {
-  font-family: var(--mono);
-  font-size: 9px;
-  line-height: 1;
-  padding: 1px 3px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-contrast, #08201a);
-  font-weight: 700;
-}
-
-.tool-btn.accent {
-  color: var(--accent);
-}
-
 .problem-flag {
   margin-left: -2px;
 }
@@ -1572,66 +1497,6 @@ ol {
   background: var(--surface-3);
   color: var(--text-dim);
   border: 1px solid var(--border);
-}
-
-.action-kind.quickfix {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-}
-
-.action-kind.import {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.action-kind.refactor {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.action-kind.create {
-  color: var(--accent);
-  border-style: dashed;
-  background: transparent;
-}
-
-.action-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.action-title {
-  font-size: 13px;
-  color: var(--text);
-}
-
-.action-detail {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* count bubble on a rail button that has something to offer */
-.tool-count {
-  font-family: var(--mono);
-  font-size: 9px;
-  line-height: 1;
-  padding: 1px 3px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-contrast, #08201a);
-  font-weight: 700;
-}
-
-.tool-btn.accent {
-  color: var(--accent);
 }
 
 .problem-flag {

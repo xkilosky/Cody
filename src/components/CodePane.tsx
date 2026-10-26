@@ -9,7 +9,7 @@ import Sheet, { PromptSheet } from './Sheet'
 import { bytesOf, fileName, formatBytes } from '../lib/utils'
 import { analyzeFile } from '../lib/diagnostics'
 import { problemsAt, useProblemIndex } from '../lib/problemIndex'
-import { codeActionsFor, renameEdits, type CodeAction, type TextEdit } from '../lib/codeActions'
+import { actionMarkers, codeActionsFor, renameEdits, type ActionMarker, type CodeAction, type TextEdit } from '../lib/codeActions'
 import ProblemMark from './ProblemMark'
 
 type Props = {
@@ -163,6 +163,21 @@ export default function CodePane({
     })
     // the editor's selection is read lazily; the caret and the text drive updates
   }, [file, caretOffset, project.files, actionsOpen])
+
+  // The bulb marks the lines that actually have something to offer. The scan is
+  // deferred like the lint pass, so typing never waits on it.
+  const [bulbs, setBulbs] = useState<ActionMarker[]>([])
+  useEffect(() => {
+    if (!file) {
+      setBulbs([])
+      return
+    }
+    const { path, content } = file
+    const timer = setTimeout(() => {
+      setBulbs(actionMarkers({ path, content, files: project.files }))
+    }, 260)
+    return () => clearTimeout(timer)
+  }, [file, project.files])
 
   // The linter asks for fixes once per diagnostic. Same content, many
   // positions: compute once per version of the file and reuse.
@@ -337,6 +352,11 @@ export default function CodePane({
           lint={(content) => lintFile(file.path, content)}
           projectFiles={project.files}
           fixes={quickFixes}
+          bulbs={bulbs}
+          onBulb={(line, column) => {
+            editorRef.current?.goto(line, column)
+            setActionsOpen(true)
+          }}
           onRequestCodeActions={() => setActionsOpen(true)}
           onReady={(instance) => {
             editorRef.current = instance

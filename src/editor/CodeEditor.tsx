@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { EditorState, Compartment, type Extension } from '@codemirror/state'
+import { EditorState, Compartment, RangeSet, RangeSetBuilder, StateEffect, StateField, type Extension } from '@codemirror/state'
 import {
   EditorView,
   keymap,
@@ -11,6 +11,8 @@ import {
   rectangularSelection,
   crosshairCursor,
   highlightSpecialChars,
+  GutterMarker,
+  gutter,
   placeholder as cmPlaceholder,
 } from '@codemirror/view'
 import {
@@ -39,7 +41,7 @@ import { applyTextEdits } from './edits'
 import { languageForPath, loadLanguageExtension } from '../lib/languages'
 import type { Diagnostic } from '../lib/diagnostics'
 import type { ProjectFile } from '../types'
-import type { TextEdit } from '../lib/codeActions'
+import type { ActionMarker, TextEdit } from '../lib/codeActions'
 import type { Settings } from '../types'
 
 export type CursorInfo = {
@@ -92,6 +94,59 @@ type Props = {
   fixes?: (content: string, pos: number) => Array<{ title: string; edits: TextEdit[] }>
   /** Called for Mod-. (the phone UI opens the actions sheet instead). */
   onRequestCodeActions?: () => void
+  /** Lines that have something to offer — drawn as a small bulb in the gutter. */
+  bulbs?: ActionMarker[]
+  /** Tapping a bulb: open the actions for that line. */
+  onBulb?: (line: number, column: number) => void
+}
+
+/* ------------------------------------------------------------------------ */
+/* the lightbulb gutter                                                      */
+/* ------------------------------------------------------------------------ */
+
+const setBulbs = StateEffect.define<RangeSet<GutterMarker>>()
+
+/** Markers live in state so they re-render with the view and survive edits. */
+const bulbField = StateField.define<RangeSet<GutterMarker>>({
+  create: () => RangeSet.empty,
+  update(bulbs, transaction) {
+    for (const effect of transaction.effects) if (effect.is(setBulbs)) return effect.value
+    return transaction.docChanged ? bulbs.map(transaction.changes) : bulbs
+  },
+})
+
+const BULB_PATH = 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.7.5 1.1h6c0-.4.1-.8.5-1.1A6 6 0 0 0 12 3Z'
+
+function bulbSvg(): SVGElement {
+  const ns = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(ns, 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', '2')
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  const path = document.createElementNS(ns, 'path')
+  path.setAttribute('d', BULB_PATH)
+  svg.appendChild(path)
+  return svg
+}
+
+class BulbMarker extends GutterMarker {
+  constructor(readonly hasFix: boolean, readonly count: number) {
+    super()
+  }
+  eq(other: GutterMarker) {
+    return other instanceof BulbMarker && other.hasFix === this.hasFix && other.count === this.count
+  }
+  toDOM() {
+    const el = document.createElement('span')
+    el.className = `cm-bulb${this.hasFix ? ' cm-bulb-fix' : ''}`
+    el.setAttribute('aria-hidden', 'true')
+    if (this.count > 1) el.dataset.count = String(this.count)
+    el.appendChild(bulbSvg())
+    return el
+  }
 }
 
 function readCursor(view: EditorView): CursorInfo {
@@ -175,6 +230,8 @@ export default function CodeEditor({
   projectFiles,
   fixes,
   onRequestCodeActions,
+  bulbs,
+  onBulb,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -189,6 +246,8 @@ export default function CodeEditor({
   const lintRef = useRef(lint)
   const fixesRef = useRef(fixes)
   const codeActionsRequest = useRef(onRequestCodeActions)
+  const bulbLines = useRef(new Map<number, ActionMarker>())
+  const onBulbRef = useRef(onBulb)
   const completionOptions = useRef<CompletionOptions>({
     languageId: languageForPath(path).id,
     files: projectFiles,
@@ -205,6 +264,7 @@ export default function CodeEditor({
   lintRef.current = lint
   fixesRef.current = fixes
   codeActionsRequest.current = onRequestCodeActions
+  onBulbRef.current = onBulb
   completionOptions.current = { languageId: languageForPath(path).id, files: projectFiles, path }
 
   const completionSource = useMemo(
@@ -296,6 +356,20 @@ export default function CodeEditor({
             run: selectLine,
           },
         ]),
+        bulbField,
+        gutter({
+          class: 'cm-bulb-gutter',
+          markers: (view) => view.state.field(bulbField),
+          domEventHandlers: {
+            mousedown: (view, block) => {
+              const line = view.state.doc.lineAt(block.from).number
+              const mark = bulbLines.current.get(line)
+              if (!mark) return false
+              onBulbRef.current?.(mark.line, mark.column)
+              return true
+            },
+          },
+        }),
         lintGutter(),
         linter(
           (view): CmDiagnostic[] => {
@@ -430,6 +504,25 @@ export default function CodeEditor({
     if (!view) return
     view.dispatch({ effects: readOnlyCompartment.reconfigure(EditorState.readOnly.of(Boolean(readOnly))) })
   }, [readOnly, readOnlyCompartment])
+
+  // Place the bulbs. Lines are re-read from the document, so a marker can never
+  // point past the end of the file.
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    const builder = new RangeSetBuilder<GutterMarker>()
+    const lookup = new Map<number, ActionMarker>()
+    const ordered = [...(bulbs ?? [])].sort((a, b) => a.line - b.line)
+    for (const mark of ordered) {
+      const number = Math.min(Math.max(1, mark.line), view.state.doc.lines)
+      if (lookup.has(number)) continue
+      const line = view.state.doc.line(number)
+      lookup.set(number, { ...mark, line: number })
+      builder.add(line.from, line.from, new BulbMarker(mark.hasFix, mark.count))
+    }
+    bulbLines.current = lookup
+    view.dispatch({ effects: setBulbs.of(builder.finish()) })
+  }, [bulbs])
 
   return (
     <div

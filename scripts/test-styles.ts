@@ -52,6 +52,7 @@ const REQUIRED = [
   '.folder-wrap', '.folder-empty', '.delete-list', '.folder-row',
   '.action-kind', '.action-kind.quickfix', '.action-kind.import', '.action-kind.refactor',
   '.action-kind.create', '.action-body', '.action-title', '.action-detail', '.tool-count',
+  '.cm-bulb-gutter', '.cm-bulb', '.cm-bulb.cm-bulb-fix',
   '.snippet-card', '.runtime-row', '.action-list', '.action-item', '.empty-state',
 ]
 

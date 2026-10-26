@@ -6,7 +6,7 @@
  * have typed by hand. `apply()` below is the same edit engine the editor uses,
  * so these checks cover the real result, not just the label.
  */
-import { codeActionsFor, importSpecifier, renameEdits } from '../src/lib/codeActions'
+import { actionMarkers, codeActionsFor, importSpecifier, renameEdits } from '../src/lib/codeActions'
 import type { CodeAction, TextEdit } from '../src/lib/codeActions'
 import type { ProjectFile } from '../src/types'
 
@@ -200,6 +200,51 @@ const find = (list: CodeAction[], id: string) => list.find((action) => action.id
   check('up a folder', importSpecifier('src/a/main.ts', 'src/utils.ts') === '../utils', importSpecifier('src/a/main.ts', 'src/utils.ts'))
   check('root to root', importSpecifier('main.js', 'helper.js') === './helper', importSpecifier('main.js', 'helper.js'))
   check('python uses dots', importSpecifier('app.py', 'lib/util.py') === 'lib.util', importSpecifier('app.py', 'lib/util.py'))
+}
+
+/* ---------------- gutter bulbs ---------------- */
+{
+  const content = 'function run() {\n  const total = 1\n  if (total = 2) {\n    debugger\n  }\n}\n'
+  const marks = actionMarkers({ path: 'src/app.js', content })
+  const on = (line: number) => marks.find((mark) => mark.line === line)
+  check('the bulb sits on the debugger line', Boolean(on(4)), JSON.stringify(marks))
+  check('the bulb knows it is a fix', on(4)?.hasFix === true)
+  check('the bulb sits on the broken condition too', Boolean(on(3)))
+  check('the bulb sits on a let that is never reassigned', Boolean(actionMarkers({ path: 'src/app.js', content: 'let total = 1\n' }).find((mark) => mark.line === 1)))
+  check('a clean line gets no bulb', !on(2))
+  check('markers are ordered by line', marks.every((mark, index) => index === 0 || mark.line > marks[index - 1].line))
+}
+
+{
+  // whole-file offers still land on the line they belong to
+  const files: ProjectFile[] = [
+    { path: 'src/main.ts', content: "import { unusedThing } from './utils'\nconst a = 1\nconst b = clamp(a, 0, 9)\n" },
+    { path: 'src/utils.ts', content: 'export function clamp(a: number) { return a }\nexport const unusedThing = 1\n' },
+  ]
+  const marks = actionMarkers({ path: 'src/main.ts', content: files[0].content, files })
+  check('a missing import puts the bulb on the line that uses it', Boolean(marks.find((mark) => mark.line === 3)), JSON.stringify(marks))
+  check('an unused import puts the bulb on the import line', Boolean(marks.find((mark) => mark.line === 1)), JSON.stringify(marks))
+  check('an import is not counted as a fix', marks.find((mark) => mark.line === 3)?.hasFix === false)
+}
+
+{
+  // python and css lines
+  const python = 'def greet(name)\n    print(name)\n'
+  check('python missing colon gets a bulb', Boolean(actionMarkers({ path: 'app.py', content: python }).find((mark) => mark.line === 1)))
+  const css = 'body {\n  color: red\n}\n'
+  check('css missing semicolon gets a bulb', Boolean(actionMarkers({ path: 'style.css', content: css }).find((mark) => mark.line === 2)))
+  const cleanCss = 'body {\n  color: red;\n}\n'
+  check('correct css stays silent', actionMarkers({ path: 'style.css', content: cleanCss }).length === 0)
+}
+
+{
+  // a big file must not cost the keyboard: the scan is candidate-bounded
+  const big = Array.from({ length: 400 }, (_, index) => `const value${index} = compute(${index})`).join('\n')
+  const started = Date.now()
+  const marks = actionMarkers({ path: 'src/app.js', content: big })
+  const elapsed = Date.now() - started
+  check('a 400-line file scans quickly', elapsed < 120, `${elapsed}ms`)
+  check('a file with nothing to fix shows no bulbs', marks.length === 0, JSON.stringify(marks.slice(0, 3)))
 }
 
 /* ---------------- restraint ---------------- */

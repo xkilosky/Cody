@@ -125,7 +125,8 @@ offline, all undoable in one step. **✨/bulb button in the editor rail**, or `C
 | **Refactor** | Rename a symbol everywhere in the file; `let`→`const` when it is never reassigned; `var`→`let`; toggle single/double quotes; extract a selection into a `const` |
 | **Create** | Create the file an import or `<script src>` points at but the project lacks |
 
-Quick fixes also appear as buttons **inside the problems tooltip**, so tapping a squiggle offers the fix
+A small **yellow bulb sits in the gutter on every line that has something to offer** — the same place
+a problem gets its `!` marker — and tapping it opens the actions for that line. Quick fixes also appear as buttons **inside the problems tooltip**, so tapping a squiggle offers the fix
 right where the error is. Renames ask for the new name in a small prompt and apply every occurrence in
 one transaction.
 

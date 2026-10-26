@@ -361,7 +361,26 @@ async function main() {
   if (liveView) {
     const original = liveView.state.doc.toString()
     liveView.dispatch({ changes: { from: 0, insert: 'debugger\n' }, selection: { anchor: 3 } })
-    await wait(300)
+    await wait(600)
+    const bulb = dom.window.document.querySelector('.cm-bulb-gutter .cm-bulb.cm-bulb-fix') as HTMLElement | null
+    check('the gutter grows a bulb on the line with a fix', Boolean(bulb), dom.window.document.querySelector('.cm-gutters')?.innerHTML.slice(0, 300) ?? '')
+    const bulbLine = bulb?.closest('.cm-gutterElement') as HTMLElement | null
+    check(
+      'the bulb sits on the line that has the problem',
+      Boolean(bulbLine) && getComputedStyle(bulbLine as never).top !== undefined,
+      String(Boolean(bulbLine)),
+    )
+    bulb?.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true }))
+    await wait(400)
+    const bulbSheet = [...dom.window.document.querySelectorAll('.sheet')].find(
+      (el) => el.querySelector('h2')?.textContent === 'Code actions',
+    )
+    check('tapping the bulb opens the actions for that line', Boolean(bulbSheet), bulbSheet?.textContent?.slice(0, 80) ?? '')
+    if (bulbSheet) {
+      const close = [...bulbSheet.querySelectorAll('button')].find((node) => /close/i.test(node.getAttribute('aria-label') ?? ''))
+      close?.click()
+      await wait(250)
+    }
     await clickLabel('Code actions')
     await wait(300)
     const actionSheet = [...dom.window.document.querySelectorAll('.sheet')].find(

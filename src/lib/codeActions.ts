@@ -28,6 +28,12 @@ export type CodeAction = {
   command?: { id: 'create-file'; path: string } | { id: 'rename-symbol'; name: string }
 }
 
+/**
+ * Where the lightbulb belongs in the gutter: one per line that has something to
+ * offer. `column` is where the caret should land when the bulb is tapped.
+ */
+export type ActionMarker = { line: number; column: number; count: number; hasFix: boolean }
+
 export type ActionContext = {
   path: string
   content: string
@@ -507,6 +513,74 @@ export function codeActionsFor(context: ActionContext): CodeAction[] {
   }
 
   return actions
+}
+
+/* ------------------------------------------------------------------------ */
+/* where the bulb goes                                                     */
+/* ------------------------------------------------------------------------ */
+
+/** Only the actions that belong to one line — used for the gutter bulb. */
+const LINE_LOCAL = new Set([
+  'remove-debugger',
+  'assignment-in-condition',
+  'python-colon',
+  'css-semicolon',
+  'let-to-const',
+  'var-to-let',
+])
+
+/** A cheap pre-filter: the line *might* hold something worth offering. */
+const CANDIDATE =
+  /\b(?:debugger|let|var)\b|^\s*(?:def|class|if|elif|else|for|while|try|except|finally|with|match|case)\b|\b(?:if|elif|while)\s*\(/
+
+/**
+ * The lines that should show a small bulb, derived from the same catalogue the
+ * sheet uses — never a second, drifting copy of the rules. The scan is bounded
+ * (candidate lines only, one probe each) so it can run on every edit.
+ */
+export function actionMarkers(context: Omit<ActionContext, 'pos' | 'selection'>): ActionMarker[] {
+  const { path, content } = context
+  const isCss = CSS_LIKE.test(path)
+  const found = new Map<number, { column: number; count: number; hasFix: boolean }>()
+
+  const note = (offset: number, actions: CodeAction[]) => {
+    if (actions.length === 0) return
+    const line = lineAt(content, offset)
+    const column = offset - line.start + 1
+    const previous = found.get(line.index)
+    found.set(line.index, {
+      column: Math.min(previous?.column ?? column, column),
+      count: (previous?.count ?? 0) + actions.length,
+      hasFix: (previous?.hasFix ?? false) || actions.some((action) => action.kind === 'quickfix'),
+    })
+  }
+
+  // One probe at the top of the file gets the whole-file offers (imports); their
+  // own offsets say which line each one belongs to.
+  const head = codeActionsFor({ ...context, pos: 0 })
+  note(0, head.filter((action) => LINE_LOCAL.has(action.id)))
+  for (const action of head) {
+    if (action.id.startsWith('import-') && action.kind === 'import') {
+      note(action.cursor ?? 0, [action])
+    } else if (action.id === 'remove-unused-imports') {
+      for (const edit of action.edits) note(edit.from, [action])
+    }
+  }
+
+  let offset = 0
+  for (const text of content.split('\n')) {
+    const candidate = CANDIDATE.test(text) || (isCss && /:/.test(text) && !/[;{}]\s*$/.test(text))
+    if (candidate && offset > 0) {
+      const at = offset + Math.max(0, text.search(/\S/))
+      const actions = codeActionsFor({ ...context, pos: at })
+      note(at, actions.filter((action) => LINE_LOCAL.has(action.id)))
+    }
+    offset += text.length + 1
+  }
+
+  return [...found.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([index, info]) => ({ line: index + 1, column: info.column, count: info.count, hasFix: info.hasFix }))
 }
 
 /* ------------------------------------------------------------------------ */

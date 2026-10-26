@@ -31,6 +31,9 @@ type Props = {
   stdin: string
   setStdin: (value: string) => void
   savedAt: number | null
+  unsaved: boolean
+  recentPaths: string[]
+  onCloseTab: (path: string) => void
   onOpenSwitcher: () => void
   onOpenFile: (path: string) => void
   onRunFile: (path: string) => void
@@ -78,6 +81,9 @@ export default function ProjectView(props: Props) {
     stdin,
     setStdin,
     savedAt,
+    unsaved,
+    recentPaths,
+    onCloseTab,
     onOpenSwitcher,
     onOpenFile,
     onRunFile,
@@ -197,6 +203,9 @@ export default function ProjectView(props: Props) {
             activePath={activePath}
             runEntry={runEntry ?? project.entry ?? null}
             savedAt={savedAt}
+            unsaved={unsaved}
+            recentPaths={recentPaths}
+            onCloseTab={onCloseTab}
             editorRef={editorRef}
             onChangeFile={onChangeFile}
             onOpenFile={onOpenFile}

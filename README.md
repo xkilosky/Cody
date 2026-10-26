@@ -15,6 +15,8 @@ workspace you were in.
 No backend. No install step. No account. Projects are stored on the device (IndexedDB) and
 nothing leaves it unless you explicitly run a cloud-sandbox language.
 
+![Cody's editor on a phone, dark and light](docs/cody-editor.png)
+
 ---
 
 ## Why it exists
@@ -41,6 +43,11 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 ### Editing
 - CodeMirror 6 editor tuned for touch: line wrapping by default, no iOS zoom (16px+ inputs),
   indent / outdent / comment / undo / redo / find in a persistent toolbar.
+- Editor chrome modelled on the best phone editors (Spck, Acode) and then tightened:
+  **file tabs**, a quiet **line-number gutter** with the active line highlighted, a
+  **status strip** (`Ln 14, Col 21 · 34 lines · TSX · Spaces: 2 · Saved`) and a two-row
+  **keyboard rail** — actions with a pinned Run on top, a scrollable symbol row below, docked
+  against the OS keyboard instead of floating over your code.
 - Lazy-loaded grammars for **28 languages** (JavaScript, TypeScript, TSX/JSX, HTML, CSS, JSON,
   Markdown, Python, SQL, XML/SVG, YAML, TOML, Shell, C, C++, Java, C#, Go, Rust, PHP, Ruby, Lua,
   Swift, Kotlin, Dockerfile, Diff, plain text).
@@ -82,6 +89,45 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 - Curated, offline snippet library (20 snippets) filtered by the language of the file you are
   editing — insert at the cursor or scaffold a new file.
 - Project health at a glance: file/language/runnable counts and each language's runtime.
+
+---
+
+## Editor design notes
+
+The screen is organized around one rule: **the code gets the middle of the phone**. Every
+reference I looked at (Spck Editor, Acode, Dribbble code-editor kits) does this, and each one
+loses something to get there — usually the line numbers, the caret position, or the file you are in.
+
+| Layer | Height | What it does |
+| --- | --- | --- |
+| Header | 52px | Workspace name, `file · language · saved just now`, run + menu |
+| File tabs | 38px | Active/recent files, language dot, unsaved dot, close, all-files button |
+| Editor | flexible | Wrapped code, gutter, active-line highlight, caret + selection colours |
+| Status strip | 26px | `Ln/Col`, selection size, lines, size, language, tab size, save state |
+| Keyboard rail | 85px | Row 1: undo/redo/indent/find/text/keys/hide-keyboard + pinned **Run**; Row 2: scrollable symbol keys |
+| Tab bar | 62px + safe area | Files · Code · Run · Build |
+
+Details that matter on a phone:
+
+- **Symbols where your thumb already is.** A touch keyboard hides `{}`, `[]`, `<>`, `=>`, `;` and
+  backticks; the rail is a keyboard extension, not a toolbar. Long rails scroll with a fade so it
+  is obvious there is more.
+- **Two rows, not one.** Six action icons plus keys in a single row left room for three symbols on
+  a 390px screen (see the mock's history); splitting rows gives ~5 actions and 9 symbols at once.
+- **The caret is a first-class feature.** `Ln/Col` updates live, the active line gets a hairline
+  accent bar, and the gutter number for that line brightens — you always know where you are.
+- **Quiet gutter.** Line numbers are off-white/dim and only the active one is bold, so dense code
+  reads first and chrome reads second.
+- **One accent colour.** Mint marks the active tab underline, the active line bar, Run, and the
+  selected tab in the bar. Everything else is neutral, so state jumps out.
+- **Keyboard-aware.** When the OS keyboard opens, `visualViewport` height is measured and the rail
+  docks to it (sticky) rather than being pushed off-screen. The ⌄ key dismisses the keyboard.
+- **Both themes are real.** Dark and light are separate palettes for chrome *and* syntax, including
+  selection, search matches, bracket matching and the autocomplete popup.
+
+Regenerate the mock with `python3 scripts/render-mock.py docs/cody-editor.png` (reads the live
+tokens from `src/styles.css` and `src/editor/theme.ts`). It is a design renderer, not a browser
+screenshot — this sandbox has no Chromium.
 
 ---
 

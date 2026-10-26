@@ -46,6 +46,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [unsaved, setUnsaved] = useState(false)
+  const [recentPaths, setRecentPaths] = useState<string[]>([])
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cleanupRef = useRef<Cleanup | null>(null)
@@ -149,6 +151,7 @@ export default function App() {
     const write = () => {
       void saveProject(next).then(() => {
         setSavedAt(Date.now())
+        setUnsaved(false)
         void refreshProjects()
       })
     }
@@ -163,6 +166,7 @@ export default function App() {
       const next = { ...updater(current), updatedAt: Date.now() }
       projectRef.current = next
       setProject(next)
+      setUnsaved(true)
       persistProject(next, immediate)
     },
     [persistProject],
@@ -179,7 +183,11 @@ export default function App() {
     cleanupRef.current = null
     setProject(next)
     projectRef.current = next
-    setActivePath(next.entry && next.files.some((f) => f.path === next.entry) ? next.entry : next.files[0]?.path ?? null)
+    const firstPath =
+      next.entry && next.files.some((f) => f.path === next.entry) ? next.entry : next.files[0]?.path ?? null
+    setActivePath(firstPath)
+    setRecentPaths(firstPath ? [firstPath] : [])
+    setUnsaved(false)
     setRunEntry(resolveEntry(next) ?? null)
     setLogs([])
     setRunState({ kind: 'idle', runId: 0 })
@@ -505,6 +513,7 @@ export default function App() {
         if (current) {
           void saveProject(current).then(() => {
             setSavedAt(Date.now())
+            setUnsaved(false)
             notify('Saved', 'success')
           })
         }
@@ -575,10 +584,29 @@ export default function App() {
     setTimeout(tryInsert, 40)
   }, [])
 
-  const openFile = useCallback((path: string) => {
-    setActivePath(path)
-    setTab('code')
+  const trackRecent = useCallback((path: string) => {
+    setRecentPaths((prev) => [path, ...prev.filter((item) => item !== path)].slice(0, 6))
   }, [])
+
+  const openFile = useCallback(
+    (path: string) => {
+      setActivePath(path)
+      trackRecent(path)
+      setTab('code')
+    },
+    [trackRecent],
+  )
+
+  const closeTab = useCallback(
+    (path: string) => {
+      setRecentPaths((prev) => prev.filter((item) => item !== path))
+      if (path === activePath) {
+        const next = recentPaths.find((item) => item !== path) ?? projectRef.current?.files[0]?.path ?? null
+        if (next) setActivePath(next)
+      }
+    },
+    [activePath, recentPaths],
+  )
 
   const runFile = useCallback(
     (path: string) => {
@@ -644,6 +672,9 @@ export default function App() {
           stdin={stdin}
           setStdin={setStdin}
           savedAt={savedAt}
+          unsaved={unsaved}
+          recentPaths={recentPaths}
+          onCloseTab={closeTab}
           onOpenSwitcher={openSwitcher}
           onOpenFile={openFile}
           onRunFile={runFile}
@@ -672,6 +703,7 @@ export default function App() {
             if (current) {
               void saveProject(current).then(() => {
                 setSavedAt(Date.now())
+                setUnsaved(false)
                 notify('Saved', 'success')
               })
             }

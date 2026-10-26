@@ -48,7 +48,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lineWrap: true,
   autoRun: false,
   haptics: true,
-  showLineNumbers: false,
+  showLineNumbers: true,
   runnerEndpoint: 'https://emkc.org/api/v2/piston/execute',
 }
 

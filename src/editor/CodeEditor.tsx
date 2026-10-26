@@ -21,6 +21,11 @@ import {
   toggleComment,
   indentMore,
   indentLess,
+  copyLineDown,
+  moveLineUp,
+  moveLineDown,
+  deleteLine,
+  selectLine,
   redo as redoCommand,
   undo as undoCommand,
 } from '@codemirror/commands'
@@ -31,7 +36,15 @@ import { codyDarkTheme, codyLightTheme, codyHighlightDark, codyHighlightLight } 
 import { loadLanguageExtension } from '../lib/languages'
 import type { Settings } from '../types'
 
+export type CursorInfo = {
+  line: number
+  column: number
+  lines: number
+  selected: number
+}
+
 export type CodyEditorHandle = {
+  cursor: () => CursorInfo
   focus: () => void
   insert: (text: string) => void
   wrapSelection: (before: string, after?: string) => void
@@ -55,6 +68,21 @@ type Props = {
   readOnly?: boolean
   onReady?: (handle: CodyEditorHandle) => void
   onDestroy?: () => void
+  onCursor?: (info: CursorInfo) => void
+  onDirty?: () => void
+}
+
+function readCursor(view: EditorView): CursorInfo {
+  const { state } = view
+  const head = state.selection.main.head
+  const line = state.doc.lineAt(head)
+  const sel = state.selection.ranges.reduce((sum, range) => sum + (range.to - range.from), 0)
+  return {
+    line: line.number,
+    column: head - line.from + 1,
+    lines: state.doc.lines,
+    selected: sel,
+  }
 }
 
 function baseExtensions(settings: Settings): Extension[] {
@@ -114,6 +142,7 @@ export default function CodeEditor({
   readOnly,
   onReady,
   onDestroy,
+  onCursor,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -124,12 +153,15 @@ export default function CodeEditor({
   const onSaveRef = useRef(onSave)
   const onRunRef = useRef(onRun)
   const onDestroyRef = useRef(onDestroy)
+  const onCursorRef = useRef(onCursor)
+  const cursorFrame = useRef<number | null>(null)
   const [langReady, setLangReady] = useState(false)
 
   onChangeRef.current = onChange
   onSaveRef.current = onSave
   onRunRef.current = onRun
   onDestroyRef.current = onDestroy
+  onCursorRef.current = onCursor
 
   // Create the view once.
   useEffect(() => {
@@ -145,6 +177,13 @@ export default function CodeEditor({
           if (update.docChanged) onChangeRef.current(update.state.doc.toString())
           if (update.docChanged && update.transactions.some((tr) => tr.isUserEvent('input'))) {
             document.dispatchEvent(new CustomEvent('cody:typing'))
+          }
+          if (update.docChanged || update.selectionSet) {
+            if (cursorFrame.current) cancelAnimationFrame(cursorFrame.current)
+            cursorFrame.current = requestAnimationFrame(() => {
+              cursorFrame.current = null
+              onCursorRef.current?.(readCursor(update.view))
+            })
           }
         }),
         keymap.of([
@@ -179,6 +218,31 @@ export default function CodeEditor({
             preventDefault: true,
             run: indentLess,
           },
+          {
+            key: 'Mod-d',
+            preventDefault: true,
+            run: copyLineDown,
+          },
+          {
+            key: 'Alt-ArrowUp',
+            preventDefault: true,
+            run: moveLineUp,
+          },
+          {
+            key: 'Alt-ArrowDown',
+            preventDefault: true,
+            run: moveLineDown,
+          },
+          {
+            key: 'Mod-Shift-k',
+            preventDefault: true,
+            run: deleteLine,
+          },
+          {
+            key: 'Mod-l',
+            preventDefault: true,
+            run: selectLine,
+          },
         ]),
         cmPlaceholder('Start writing…'),
       ],
@@ -186,6 +250,7 @@ export default function CodeEditor({
     const view = new EditorView({ state, parent: hostRef.current })
     viewRef.current = view
     const handle: CodyEditorHandle = {
+      cursor: () => readCursor(view),
       focus: () => view.focus(),
       insert: (text: string) => {
         const { from, to } = view.state.selection.main
@@ -219,6 +284,7 @@ export default function CodeEditor({
     }
     onReady?.(handle)
     return () => {
+      if (cursorFrame.current) cancelAnimationFrame(cursorFrame.current)
       onDestroyRef.current?.()
       view.destroy()
       viewRef.current = null

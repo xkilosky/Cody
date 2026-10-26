@@ -141,7 +141,9 @@ async function main() {
   check('boots straight into a workspace', text().includes('Untitled'))
   check('editor mounted on first paint', Boolean(dom.window.document.querySelector('.cm-editor')))
   check('no landing page copy', !text().includes('from your phone') && !text().includes('Start from a template'))
-  check('file chip shows the entry file', text().includes('index.html'))
+  check('file tab shows the entry file', Boolean(dom.window.document.querySelector('.tab-chip.active')))
+  check('status strip reports the caret', text().includes('Ln 1, Col 1'))
+  check('line numbers are on by default', Boolean(dom.window.document.querySelector('.cm-lineNumbers')))
   check('scratch project is runnable', Boolean(findByLabel('Run project')))
 
   await clickLabel('Run project')
@@ -228,15 +230,21 @@ async function main() {
   check('snippet inserted into editor', cmContent.includes('async function load') || cmContent.length > 40, cmContent.slice(0, 60))
   check('editor tab active after insert', Boolean(dom.window.document.querySelector('.editor-toolbar')))
 
-  // --- switch files through the chip menu -------------------------------
-  const chip = dom.window.document.querySelector<HTMLElement>('.file-chip')
-  chip?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }))
-  await wait(150)
+  // --- switch files via the tab strip / all-files sheet -----------------
+  await clickLabel('All files')
+  await wait(200)
+  const sheetText = dom.window.document.querySelector('.sheet')?.textContent ?? '(no sheet)'
+  check(
+    'file sheet lists project files',
+    sheetText.includes('index.html') && sheetText.includes('src/App.tsx'),
+    sheetText.slice(0, 120),
+  )
   await click('index.html')
-  await wait(300)
+  await wait(350)
   const mergedContent = dom.window.document.querySelector('.cm-content')?.textContent ?? ''
   check('file switch remounts editor', Boolean(dom.window.document.querySelector('.cm-editor')))
   check('switched file content loaded', mergedContent.includes('<main') || mergedContent.includes('doctype'), mergedContent.slice(0, 40))
+  check('tab strip now has two tabs', dom.window.document.querySelectorAll('.tab-chip').length >= 2)
 
   // --- settings sheet ---------------------------------------------------
   await clickLabel('Project menu')

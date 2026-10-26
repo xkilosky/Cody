@@ -57,6 +57,15 @@ const REQUIRED = [
   '.snippet-card', '.runtime-row', '.action-list', '.action-item', '.empty-state',
 ]
 
+// the shell owns the viewport: an auto-height shell plus a locked body means
+// nothing scrolls at all
+{
+  const shell = css.slice(css.indexOf('.project-shell {'), css.indexOf('.app-header {'))
+  check('the shell has a definite height', /height:\s*100vh/.test(shell) && /height:\s*calc\(100dvh/.test(shell), shell.slice(0, 120))
+  check('the shell clips instead of growing', /overflow:\s*hidden/.test(shell))
+  check('the keyboard inset shrinks the shell', shell.includes('var(--kb-inset, 0px)'))
+}
+
 for (const selector of REQUIRED) {
   check(`css has ${selector}`, css.includes(`\n${selector} `) || css.includes(`\n${selector},`) || css.includes(`\n${selector}{`) || css.includes(`\n${selector}:`))
 }

@@ -69,7 +69,7 @@ function editorTheme(p: Palette, dark: boolean) {
         WebkitOverflowScrolling: 'touch',
         fontFamily: 'var(--mono)',
       },
-      '.cm-content': { caretColor: p.fg, padding: '8px 0 45vh 0', lineHeight: '1.62' },
+      '.cm-content': { caretColor: p.fg, padding: '8px 0 28vh 0', lineHeight: '1.62' },
       '.cm-line': { padding: '0 14px 0 6px' },
       '&.cm-focused': { outline: 'none' },
       '.cm-cursor, .cm-dropCursor': { borderLeftColor: p.fg, borderLeftWidth: '2px' },

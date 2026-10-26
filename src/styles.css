@@ -120,7 +120,9 @@ ol {
 }
 
 .app-root {
-  min-height: 100dvh;
+  height: 100vh;
+  height: calc(100dvh - var(--kb-inset, 0px));
+  overflow: hidden;
   background:
     radial-gradient(120% 60% at 50% -10%, rgba(139, 124, 255, 0.12), transparent 60%),
     var(--bg);
@@ -752,8 +754,16 @@ ol {
    Project shell
    ========================================================================== */
 
+/* The shell owns the viewport. Every pane inside it has its own scroller
+   (.file-list, .cm-scroller, .console, .snippet-list), so the page itself must
+   never scroll — otherwise a locked body (a sheet is open) leaves the whole
+   editor stuck. --kb-inset is set by the code pane when the on-screen keyboard
+   is up, so the shell — and the rail with it — stays above the keyboard. */
 .project-shell {
-  min-height: 100dvh;
+  height: 100vh;
+  height: calc(100dvh - var(--kb-inset, 0px));
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   max-width: 820px;
@@ -1081,6 +1091,7 @@ ol {
 /* ---- file tabs ---------------------------------------------------------- */
 
 .editor-tabs {
+  flex: none;
   display: flex;
   align-items: stretch;
   gap: 4px;
@@ -1658,6 +1669,7 @@ ol {
 /* ---- keyboard rail ------------------------------------------------------ */
 
 .editor-toolbar {
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2518,7 +2530,6 @@ ol {
   .project-shell {
     border-left: 1px solid var(--border);
     border-right: 1px solid var(--border);
-    min-height: 100dvh;
   }
 
   .editor-toolbar {

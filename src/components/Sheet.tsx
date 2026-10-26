@@ -1,4 +1,28 @@
 import { useEffect, useState, type ReactNode } from 'react'
+
+/**
+ * Sheets stack (the switcher opens the create sheet, a menu opens a confirm).
+ * Each one used to save-and-restore `document.body.style.overflow` on its own,
+ * so closing two in the same commit left the body locked at `hidden` — after
+ * which the page could not scroll at all. One lock, counted, fixes that.
+ */
+let lockedSheets = 0
+let overflowBeforeLock = ''
+
+function lockBodyScroll(): () => void {
+  if (lockedSheets === 0) {
+    overflowBeforeLock = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  }
+  lockedSheets += 1
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    lockedSheets = Math.max(0, lockedSheets - 1)
+    if (lockedSheets === 0) document.body.style.overflow = overflowBeforeLock
+  }
+}
 import Icon from './Icons'
 
 type Props = {
@@ -14,14 +38,13 @@ type Props = {
 export default function Sheet({ open, title, subtitle, onClose, children, footer, size = 'default' }: Props) {
   useEffect(() => {
     if (!open) return
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const unlock = lockBodyScroll()
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => {
-      document.body.style.overflow = previous
+      unlock()
       window.removeEventListener('keydown', onKey)
     }
   }, [open, onClose])

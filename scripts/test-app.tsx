@@ -198,6 +198,12 @@ async function main() {
   check('switcher closed after create', !text().includes('Workspaces'))
   check('new project has index.html', text().includes('index.html'))
   check('new project carries the plain starter files', text().includes('app.js') || text().includes('styles.css'))
+  // two sheets were stacked (workspaces → create) and closed in one commit
+  check(
+    'stacked sheets release the page scroll lock',
+    dom.window.document.body.style.overflow === '',
+    `body overflow = ${JSON.stringify(dom.window.document.body.style.overflow)}`,
+  )
 
   // the switcher reopens on the list and keeps the previous workspace
   await clickLabel('Switch workspace')
@@ -350,6 +356,11 @@ async function main() {
   await wait(400)
   check('code editor mounted', Boolean(dom.window.document.querySelector('.cm-editor')))
   check('editor toolbar present', Boolean(findByLabel('Undo') && findByLabel('Find')))
+  check(
+    'the code area scrolls inside its own pane',
+    Boolean(dom.window.document.querySelector('.editor-wrap .cm-scroller')),
+    dom.window.document.querySelector('.editor-wrap')?.innerHTML.slice(0, 60) ?? '(no editor)',
+  )
 
   // --- smart autocomplete ----------------------------------------------
   // A .tsx file for the member check — created here, since the workspace

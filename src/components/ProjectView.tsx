@@ -235,6 +235,7 @@ export default function ProjectView(props: Props) {
             onRunFile={onRunFile}
             onSaveNow={onSaveNow}
             onUpdateSettings={(patch) => onUpdateSettings?.(patch)}
+            onCreateFile={onCreateFile}
             onNotify={onNotify}
           />
         )}

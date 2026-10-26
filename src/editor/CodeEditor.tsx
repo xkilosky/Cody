@@ -35,9 +35,11 @@ import { searchKeymap, openSearchPanel } from '@codemirror/search'
 import { linter, lintGutter, type Diagnostic as CmDiagnostic } from '@codemirror/lint'
 import { editorThemeFor } from './theme'
 import { createCompletionSource, type CompletionOptions } from './completions'
+import { applyTextEdits } from './edits'
 import { languageForPath, loadLanguageExtension } from '../lib/languages'
 import type { Diagnostic } from '../lib/diagnostics'
 import type { ProjectFile } from '../types'
+import type { TextEdit } from '../lib/codeActions'
 import type { Settings } from '../types'
 
 export type CursorInfo = {
@@ -63,6 +65,10 @@ export type CodyEditorHandle = {
   goto: (line: number, column?: number) => void
   /** Open the suggestion list (the rail has no Ctrl-Space on a phone). */
   complete: () => void
+  /** Apply code-action edits (absolute offsets in the current document). */
+  applyEdits: (edits: TextEdit[]) => void
+  /** The selected range, for selection-driven refactors. */
+  selection: () => { from: number; to: number }
   getView: () => EditorView | null
 }
 
@@ -82,6 +88,10 @@ type Props = {
   lint?: (content: string) => Diagnostic[]
   /** Other files in the project, so exports can be suggested by name. */
   projectFiles?: ProjectFile[]
+  /** Quick fixes to offer inside the problems tooltip. */
+  fixes?: (content: string, pos: number) => Array<{ title: string; edits: TextEdit[] }>
+  /** Called for Mod-. (the phone UI opens the actions sheet instead). */
+  onRequestCodeActions?: () => void
 }
 
 function readCursor(view: EditorView): CursorInfo {
@@ -97,7 +107,7 @@ function readCursor(view: EditorView): CursorInfo {
   }
 }
 
-function baseExtensions(settings: Settings): Extension[] {
+function baseExtensions(settings: Settings, onCodeActions?: () => void): Extension[] {
   return [
     highlightSpecialChars(),
     history(),
@@ -119,6 +129,13 @@ function baseExtensions(settings: Settings): Extension[] {
       ...historyKeymap,
       ...completionKeymap,
       indentWithTab,
+      {
+        key: 'Mod-.',
+        run: () => {
+          onCodeActions?.()
+          return true
+        },
+      },
     ]),
   ]
 }
@@ -156,6 +173,8 @@ export default function CodeEditor({
   onCursor,
   lint,
   projectFiles,
+  fixes,
+  onRequestCodeActions,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -168,6 +187,8 @@ export default function CodeEditor({
   const onDestroyRef = useRef(onDestroy)
   const onCursorRef = useRef(onCursor)
   const lintRef = useRef(lint)
+  const fixesRef = useRef(fixes)
+  const codeActionsRequest = useRef(onRequestCodeActions)
   const completionOptions = useRef<CompletionOptions>({
     languageId: languageForPath(path).id,
     files: projectFiles,
@@ -182,6 +203,8 @@ export default function CodeEditor({
   onDestroyRef.current = onDestroy
   onCursorRef.current = onCursor
   lintRef.current = lint
+  fixesRef.current = fixes
+  codeActionsRequest.current = onRequestCodeActions
   completionOptions.current = { languageId: languageForPath(path).id, files: projectFiles, path }
 
   const completionSource = useMemo(
@@ -195,7 +218,7 @@ export default function CodeEditor({
     const state = EditorState.create({
       doc: value,
       extensions: [
-        ...baseExtensions(settings),
+        ...baseExtensions(settings, () => codeActionsRequest.current?.()),
         // register an extra autocomplete source; the language packages keep
         // their own (HTML tags, CSS properties) because this only adds data
         EditorState.languageData.of(() => [{ autocomplete: completionSource }]),
@@ -279,16 +302,22 @@ export default function CodeEditor({
             const source = lintRef.current
             if (!source) return []
             const doc = view.state.doc
-            return source(doc.toString()).map((problem) => {
+            return source(doc.toString()).map((problem, problemIndex) => {
               const line = doc.line(Math.min(Math.max(1, problem.line), doc.lines))
               const from = Math.min(line.from + Math.max(0, problem.column - 1), line.to)
               const to = Math.min(line.from + Math.max(problem.endColumn - 1, problem.column), line.to)
+              // a hopelessly broken file should not run the fix engine 60 times
+              const offered = problemIndex < 8 ? fixesRef.current?.(doc.toString(), from) ?? [] : []
               return {
                 from,
                 to: Math.max(from, to),
                 severity: problem.severity,
                 message: problem.message,
                 source: `Cody · ${problem.rule}`,
+                actions: offered.slice(0, 3).map((fix) => ({
+                  name: fix.title,
+                  apply: (target: EditorView) => applyTextEdits(target, fix.edits),
+                })),
               }
             })
           },
@@ -331,6 +360,14 @@ export default function CodeEditor({
       openSearch: () => openSearchPanel(view),
       scrollToTop: () => view.dispatch({ selection: { anchor: 0 }, scrollIntoView: true }),
       complete: () => startCompletion(view),
+      applyEdits: (edits: TextEdit[]) => {
+        applyTextEdits(view, edits)
+        view.focus()
+      },
+      selection: () => {
+        const range = view.state.selection.main
+        return { from: range.from, to: range.to }
+      },
       goto: (line: number, column = 1) => {
         const target = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines))
         const anchor = Math.min(target.from + Math.max(0, column - 1), target.to)

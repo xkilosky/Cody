@@ -114,7 +114,22 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
   scans for declarations and class/object members, resolves the receiver left of the dot, and ranks
   by prefix. Pure and offline: no type checker, no server, no telemetry.
 
-### Finding bugs
+### Code actions (the lightbulb)
+Everything a quick fix or refactor needs is computed from the buffer, the caret and the project — all
+offline, all undoable in one step. **✨/bulb button in the editor rail**, or `Ctrl-.`.
+
+| Kind | Offered |
+| --- | --- |
+| **Fix** | Remove a leftover `debugger`; use `===` when `=` appears in an `if`/`while` condition; add the missing `:` in Python; add a missing `;` in CSS; convert tab indentation to spaces; trim trailing whitespace |
+| **Import** | **Import `clamp`** when you use a symbol another file exports (named, default and Python `from x import y`, with the relative path worked out); remove unused imports (single name or whole statement) |
+| **Refactor** | Rename a symbol everywhere in the file; `let`→`const` when it is never reassigned; `var`→`let`; toggle single/double quotes; extract a selection into a `const` |
+| **Create** | Create the file an import or `<script src>` points at but the project lacks |
+
+Quick fixes also appear as buttons **inside the problems tooltip**, so tapping a squiggle offers the fix
+right where the error is. Renames ask for the new name in a small prompt and apply every occurrence in
+one transaction.
+
+
 - **Live bug detection, offline, no server.** The status strip shows `No problems` or `1 error · 2 warnings`
   for the open file; tap it for the **Problems** sheet, which groups every issue by file with its
   `line:column`, message and rule. Tap a row and the caret jumps to that spot.

@@ -357,6 +357,34 @@ async function main() {
     await wait(200)
   }
 
+  // --- code actions -----------------------------------------------------
+  if (liveView) {
+    const original = liveView.state.doc.toString()
+    liveView.dispatch({ changes: { from: 0, insert: 'debugger\n' }, selection: { anchor: 3 } })
+    await wait(300)
+    await clickLabel('Code actions')
+    await wait(300)
+    const actionSheet = [...dom.window.document.querySelectorAll('.sheet')].find(
+      (el) => el.querySelector('h2')?.textContent === 'Code actions',
+    )
+    const titles = [...(actionSheet?.querySelectorAll('.action-title') ?? [])].map((node) => node.textContent ?? '')
+    check('the rail opens a code actions sheet', Boolean(actionSheet), titles.join(' | '))
+    check('it offers the debugger quick fix', titles.some((title) => /debugger/i.test(title)), titles.join(' | '))
+    check('actions are labelled by kind', Boolean(actionSheet?.querySelector('.action-kind.quickfix')))
+    const fixButton = [...(actionSheet?.querySelectorAll('button') ?? [])].find((node) =>
+      /debugger/i.test(node.textContent ?? ''),
+    ) as HTMLElement | undefined
+    fixButton?.click()
+    await wait(400)
+    check(
+      'applying the fix edits the buffer',
+      !liveView.state.doc.toString().includes('debugger'),
+      liveView.state.doc.toString().slice(0, 60),
+    )
+    liveView.dispatch({ changes: { from: 0, to: liveView.state.doc.length, insert: original } })
+    await wait(250)
+  }
+
   // back to the entry file for the remaining checks
   await click('Files')
   await wait(200)

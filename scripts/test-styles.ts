@@ -50,6 +50,8 @@ const REQUIRED = [
   '.problem-loc', '.problem-msg', '.problem-rule', '.problem-count', '.problems-empty',
   '.problem-flag', '.problem-flag.warning', '.tab-badge', '.tab-badge.warning',
   '.folder-wrap', '.folder-empty', '.delete-list', '.folder-row',
+  '.action-kind', '.action-kind.quickfix', '.action-kind.import', '.action-kind.refactor',
+  '.action-kind.create', '.action-body', '.action-title', '.action-detail', '.tool-count',
   '.snippet-card', '.runtime-row', '.action-list', '.action-item', '.empty-state',
 ]
 

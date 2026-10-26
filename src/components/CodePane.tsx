@@ -5,10 +5,11 @@ import CodeEditor from '../editor/CodeEditor'
 import { languageForPath } from '../lib/languages'
 import Icon from './Icons'
 import LangIcon from './LangIcon'
-import Sheet from './Sheet'
+import Sheet, { PromptSheet } from './Sheet'
 import { bytesOf, fileName, formatBytes } from '../lib/utils'
 import { analyzeFile } from '../lib/diagnostics'
 import { problemsAt, useProblemIndex } from '../lib/problemIndex'
+import { codeActionsFor, renameEdits, type CodeAction, type TextEdit } from '../lib/codeActions'
 import ProblemMark from './ProblemMark'
 
 type Props = {
@@ -27,6 +28,7 @@ type Props = {
   onRunFile: (path: string) => void
   onSaveNow: () => void
   onUpdateSettings: (patch: Partial<Settings>) => void
+  onCreateFile: (path: string, content?: string) => void
   onNotify: (message: string, tone?: 'info' | 'success' | 'error') => void
 }
 
@@ -90,6 +92,13 @@ const KEYWORD_INSERTS: Record<string, string[]> = {
   markdown: ['# ', '## ', '- ', '```', '[text](url)'],
 }
 
+const ACTION_KIND_LABEL: Record<CodeAction['kind'], string> = {
+  quickfix: 'Fix',
+  import: 'Import',
+  refactor: 'Refactor',
+  create: 'Create',
+}
+
 export default function CodePane({
   project,
   settings,
@@ -106,6 +115,7 @@ export default function CodePane({
   onRunFile,
   onSaveNow,
   onUpdateSettings,
+  onCreateFile,
   onNotify,
 }: Props) {
   const [switcherOpen, setSwitcherOpen] = useState(false)
@@ -115,6 +125,8 @@ export default function CodePane({
   const [cursor, setCursor] = useState<CursorInfo>({ line: 1, column: 1, lines: 1, selected: 0 })
   const [keyboardOpen, setKeyboardOpen] = useState(false)
   const [problemsOpen, setProblemsOpen] = useState(false)
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const [renamingSymbol, setRenamingSymbol] = useState<string | null>(null)
   const railRef = useRef<HTMLDivElement | null>(null)
   const pendingJump = useRef<{ path: string; line: number; column: number } | null>(null)
 
@@ -132,6 +144,69 @@ export default function CodePane({
     () => (path: string, content: string) => analyzeFile(path, content, project.files),
     [project.files],
   )
+  const caretOffset = useMemo(() => {
+    if (!file) return 0
+    const lines = file.content.split('\n')
+    const index = Math.min(Math.max(0, cursor.line - 1), lines.length - 1)
+    const before = lines.slice(0, index).reduce((total, text) => total + text.length + 1, 0)
+    return Math.min(before + Math.max(0, cursor.column - 1), file.content.length)
+  }, [file, cursor.line, cursor.column])
+
+  const actions = useMemo<CodeAction[]>(() => {
+    if (!file) return []
+    return codeActionsFor({
+      path: file.path,
+      content: file.content,
+      pos: caretOffset,
+      selection: editorRef.current?.selection(),
+      files: project.files,
+    })
+    // the editor's selection is read lazily; the caret and the text drive updates
+  }, [file, caretOffset, project.files, actionsOpen])
+
+  // The linter asks for fixes once per diagnostic. Same content, many
+  // positions: compute once per version of the file and reuse.
+  const fixCache = useRef<{ content: string; map: Map<number, Array<{ title: string; edits: TextEdit[] }>> } | null>(null)
+  const quickFixes = useMemo(
+    () => (content: string, pos: number) => {
+      if (!fixCache.current || fixCache.current.content !== content) {
+        fixCache.current = { content, map: new Map() }
+      }
+      const cached = fixCache.current.map.get(pos)
+      if (cached) return cached
+      const computed = codeActionsFor({ path: file?.path ?? '', content, pos, files: project.files })
+        .filter((action) => action.edits.length > 0 && (action.kind === 'quickfix' || action.kind === 'import'))
+        .map((action) => ({ title: action.title, edits: action.edits }))
+      fixCache.current.map.set(pos, computed)
+      return computed
+    },
+    [file?.path, project.files],
+  )
+
+  const runAction = (action: CodeAction) => {
+    setActionsOpen(false)
+    if (action.command?.id === 'create-file') {
+      onCreateFile(action.command.path, '')
+      onNotify(`Created ${action.command.path}`, 'success')
+      return
+    }
+    if (action.command?.id === 'rename-symbol') {
+      setRenamingSymbol(action.command.name)
+      return
+    }
+    if (action.edits.length === 0) return
+    editorRef.current?.applyEdits(action.edits)
+    onNotify(action.title, 'success')
+  }
+
+  const applyRename = (next: string) => {
+    if (!renamingSymbol || !file) return
+    const target = next.trim()
+    if (!target || target === renamingSymbol) return
+    editorRef.current?.applyEdits(renameEdits(file.content, renamingSymbol, target))
+    onNotify(`Renamed ${renamingSymbol} to ${target}`, 'success')
+  }
+
   const stats = useMemo(
     () => (file ? { lines: cursor.lines || file.content.split('\n').length, bytes: bytesOf(file.content) } : null),
     [file, cursor.lines],
@@ -261,6 +336,8 @@ export default function CodePane({
           onCursor={setCursor}
           lint={(content) => lintFile(file.path, content)}
           projectFiles={project.files}
+          fixes={quickFixes}
+          onRequestCodeActions={() => setActionsOpen(true)}
           onReady={(instance) => {
             editorRef.current = instance
             setCursor(instance.cursor())
@@ -344,6 +421,15 @@ export default function CodePane({
             title="Suggestions (Ctrl-Space)"
           >
             <Icon name="sparkles" size={18} />
+          </button>
+          <button
+            className={`tool-btn${actions.some((action) => action.kind === 'quickfix') ? ' accent' : ''}`}
+            onClick={() => setActionsOpen(true)}
+            aria-label="Code actions"
+            title="Code actions (Ctrl-.)"
+          >
+            <Icon name="bulb" size={18} />
+            {actions.length > 0 && <span className="tool-count">{actions.length}</span>}
           </button>
           <button className="tool-btn" onClick={() => setTypeOpen(true)} aria-label="Text options">
             <span className="tool-glyph">Aa</span>
@@ -475,6 +561,51 @@ export default function CodePane({
           </div>
         )}
       </Sheet>
+
+      <Sheet
+        open={actionsOpen}
+        title="Code actions"
+        subtitle={
+          actions.length > 0
+            ? `${actions.length} available on line ${cursor.line}`
+            : 'Nothing to fix or refactor here'
+        }
+        onClose={() => setActionsOpen(false)}
+      >
+        {actions.length === 0 ? (
+          <div className="problems-empty">
+            <Icon name="bulb" size={22} />
+            <strong>No actions here</strong>
+            <p>
+              Put the caret on code with a problem, an unused import, a literal or a name you want to rename. Cody
+              offers the fixes and refactors that apply at that spot.
+            </p>
+          </div>
+        ) : (
+          <div className="action-list">
+            {actions.map((action) => (
+              <button key={action.id} className="action-item" onClick={() => runAction(action)}>
+                <span className={`action-kind ${action.kind}`}>{ACTION_KIND_LABEL[action.kind]}</span>
+                <span className="action-body">
+                  <span className="action-title">{action.title}</span>
+                  {action.detail && <span className="action-detail">{action.detail}</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </Sheet>
+
+      <PromptSheet
+        open={Boolean(renamingSymbol)}
+        title={renamingSymbol ? `Rename ${renamingSymbol}` : 'Rename'}
+        subtitle="Every occurrence in this file is renamed in one step."
+        label="New name"
+        initialValue={renamingSymbol ?? ''}
+        confirmLabel="Rename"
+        onClose={() => setRenamingSymbol(null)}
+        onSubmit={applyRename}
+      />
 
       <Sheet
         open={symbolsOpen}

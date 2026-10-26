@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { Project } from '../types'
 import { languageForPath, runtimeLabel } from '../lib/languages'
 import Icon from './Icons'
 import LangIcon from './LangIcon'
-import Sheet, { PromptSheet } from './Sheet'
 import ProblemMark from './ProblemMark'
-import { fileName, normalizePath } from '../lib/utils'
+import Sheet, { PromptSheet } from './Sheet'
+import { dirName, fileName, normalizePath } from '../lib/utils'
 import { problemsAt, useProblemIndex } from '../lib/problemIndex'
+import { allFolders, buildTree, filesUnder, type TreeNode } from '../lib/projectTree'
 
 type Props = {
   project: Project
@@ -18,47 +19,13 @@ type Props = {
   onRenameFile: (from: string, to: string) => void
   onDeleteFile: (path: string) => void
   onDuplicateFile: (path: string) => void
+  onCreateFolder: (path: string) => void
+  onRenameFolder: (from: string, to: string) => void
+  onDeleteFolder: (path: string) => void
+  onDuplicateFolder: (path: string) => void
+  onMoveFile: (path: string, folder: string) => void
   onSetEntry: (path: string) => void
   onNotify: (message: string, tone?: 'info' | 'success' | 'error') => void
-}
-
-type FileNode = { kind: 'file'; name: string; path: string }
-type FolderNode = { kind: 'folder'; name: string; path: string; children: TreeNode[] }
-type TreeNode = FileNode | FolderNode
-
-function buildTree(paths: string[]): TreeNode[] {
-  const root: FolderNode = { kind: 'folder', name: '', path: '', children: [] }
-  for (const path of paths) {
-    const parts = path.split('/')
-    let cursor = root
-    parts.forEach((part, index) => {
-      const isLeaf = index === parts.length - 1
-      const nextPath = parts.slice(0, index + 1).join('/')
-      if (isLeaf) {
-        cursor.children.push({ kind: 'file', name: part, path })
-      } else {
-        let folder = cursor.children.find(
-          (child): child is FolderNode => child.kind === 'folder' && child.name === part,
-        )
-        if (!folder) {
-          folder = { kind: 'folder', name: part, path: nextPath, children: [] }
-          cursor.children.push(folder)
-        }
-        cursor = folder
-      }
-    })
-  }
-  const sortNodes = (nodes: TreeNode[]): TreeNode[] =>
-    nodes.sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1
-      return a.name.localeCompare(b.name)
-    })
-  const walk = (nodes: TreeNode[]) => {
-    sortNodes(nodes)
-    for (const node of nodes) if (node.kind === 'folder') walk(node.children)
-  }
-  walk(root.children)
-  return root.children
 }
 
 const QUICK_FILES = [
@@ -85,27 +52,43 @@ export default function FilesPane({
   onRenameFile,
   onDeleteFile,
   onDuplicateFile,
+  onCreateFolder,
+  onRenameFolder,
+  onDeleteFolder,
+  onDuplicateFolder,
+  onMoveFile,
   onSetEntry,
   onNotify,
 }: Props) {
   const [filter, setFilter] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [actionPath, setActionPath] = useState<string | null>(null)
+  const [folderAction, setFolderAction] = useState<string | null>(null)
+  const [newMenuOpen, setNewMenuOpen] = useState(false)
   const [newFileOpen, setNewFileOpen] = useState(false)
+  const [newFileParent, setNewFileParent] = useState('')
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const [newFolderParent, setNewFolderParent] = useState('')
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [renamingFolder, setRenamingFolder] = useState<string | null>(null)
+  const [moving, setMoving] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [confirmFolderDelete, setConfirmFolderDelete] = useState<string | null>(null)
 
   // One shared project scan: which files are broken, and which folders hide
   // something broken inside them.
   const index = useProblemIndex(project.files)
 
+  const folders = useMemo(() => project.folders ?? [], [project.folders])
+
   const tree = useMemo(() => {
     const query = filter.trim().toLowerCase()
+    if (!query) return buildTree(project.files, folders)
     const paths = project.files
       .map((file) => file.path)
-      .filter((path) => !query || path.toLowerCase().includes(query))
-    return buildTree(paths)
-  }, [project.files, filter])
+      .filter((path) => path.toLowerCase().includes(query))
+    return buildTree(paths.map((path) => ({ path, content: '' })), folders)
+  }, [project.files, folders, filter])
 
   const toggleFolder = (path: string) => {
     setCollapsed((prev) => {
@@ -116,34 +99,73 @@ export default function FilesPane({
     })
   }
 
-  const renderNodes = (nodes: TreeNode[], depth = 0) =>
+  const openNewFile = (parent: string | null) => {
+    setNewFileParent(parent ?? '')
+    setNewFileOpen(true)
+    setNewMenuOpen(false)
+    setFolderAction(null)
+  }
+
+  const openNewFolder = (parent: string | null) => {
+    setNewFolderParent(parent ?? '')
+    setNewFolderOpen(true)
+    setNewMenuOpen(false)
+    setFolderAction(null)
+  }
+
+  const renderNodes = (nodes: TreeNode[], depth = 0): ReactNode =>
     nodes.map((node) => {
       if (node.kind === 'folder') {
         const isCollapsed = collapsed.has(node.path)
-        const inside = problemsAt(index, node.path)
+        const inside = filesUnder(project.files, node.path)
         return (
-          <div key={node.path}>
-            <button
-              className="file-row folder-row"
-              style={{ paddingLeft: 12 + depth * 14 }}
-              onClick={() => toggleFolder(node.path)}
-            >
-              <Icon name={isCollapsed ? 'folder' : 'folder-open'} size={16} />
-              <span className="file-name">{node.name}</span>
-              <ProblemMark problems={inside} path={node.path} />
-              <span className="file-meta">{node.children.length}</span>
-              <Icon name={isCollapsed ? 'chevron-right' : 'chevron-down'} size={14} />
-            </button>
-            {!isCollapsed && renderNodes(node.children, depth + 1)}
+          <div key={`dir:${node.path}`}>
+            <div className="file-row-wrap folder-wrap">
+              <button
+                className="file-row folder-row"
+                style={{ paddingLeft: 12 + depth * 14 }}
+                onClick={() => toggleFolder(node.path)}
+                aria-expanded={!isCollapsed}
+              >
+                <Icon name={isCollapsed ? 'folder' : 'folder-open'} size={16} />
+                <ProblemMark problems={problemsAt(index, node.path)} path={node.path} />
+                <span className="file-name">{node.name}</span>
+                <span className="file-meta">{inside.length}</span>
+                <Icon name={isCollapsed ? 'chevron-right' : 'chevron-down'} size={14} />
+              </button>
+              <button
+                className="row-icon"
+                aria-label={`Folder actions for ${node.path}`}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setFolderAction(node.path)
+                }}
+              >
+                <Icon name="more" size={18} />
+              </button>
+            </div>
+            {!isCollapsed &&
+              (node.children.length > 0 ? (
+                renderNodes(node.children, depth + 1)
+              ) : (
+                <button
+                  className="folder-empty"
+                  style={{ paddingLeft: 26 + depth * 14 }}
+                  onClick={() => openNewFile(node.path)}
+                >
+                  <Icon name="plus" size={13} /> Empty folder — add a file
+                </button>
+              ))}
           </div>
         )
       }
+
       const lang = languageForPath(node.path)
       const isEntry = runEntry === node.path || project.entry === node.path
       const isRunnable = lang.runtime !== 'none'
       return (
         <div
-          key={node.path}
+          key={`file:${node.path}`}
           className={`file-row-wrap${activePath === node.path ? ' active' : ''}`}
           style={{ paddingLeft: 12 + depth * 14 }}
         >
@@ -182,6 +204,12 @@ export default function FilesPane({
 
   const actionFile = project.files.find((file) => file.path === actionPath)
   const actionLang = actionFile ? languageForPath(actionFile.path) : null
+  const folderPath = folderAction
+  const folderFiles = folderPath ? filesUnder(project.files, folderPath) : []
+  const deletingFolderFiles = confirmFolderDelete ? filesUnder(project.files, confirmFolderDelete) : []
+  const fileCount = project.files.length
+  const folderCount = allFolders(project.files, folders).length
+  const languageCount = new Set(project.files.map((file) => languageForPath(file.path).id)).size
 
   return (
     <div className="pane files-pane">
@@ -203,20 +231,25 @@ export default function FilesPane({
             </button>
           )}
         </div>
-        <button className="btn small ghost" onClick={() => setNewFileOpen(true)}>
+        <button className="btn small ghost" onClick={() => setNewMenuOpen(true)}>
           <Icon name="plus" size={16} /> New
         </button>
       </div>
 
       <div className="file-list">
-        {project.files.length === 0 ? (
+        {project.files.length === 0 && tree.length === 0 ? (
           <div className="empty-state">
             <Icon name="file" size={28} />
             <h3>No files yet</h3>
-            <p>Create your first file to start building.</p>
-            <button className="btn primary" onClick={() => setNewFileOpen(true)}>
-              <Icon name="plus" size={16} /> New file
-            </button>
+            <p>Create your first file or folder to start building.</p>
+            <div className="row-gap">
+              <button className="btn primary" onClick={() => openNewFile(null)}>
+                <Icon name="plus" size={16} /> New file
+              </button>
+              <button className="btn ghost" onClick={() => openNewFolder(null)}>
+                <Icon name="folder" size={16} /> New folder
+              </button>
+            </div>
           </div>
         ) : tree.length === 0 ? (
           <div className="empty-state">
@@ -231,9 +264,8 @@ export default function FilesPane({
 
       <div className="pane-footnote">
         <span>
-          {project.files.length} file{project.files.length === 1 ? '' : 's'} ·{' '}
-          {new Set(project.files.map((file) => languageForPath(file.path).id)).size} language
-          {new Set(project.files.map((file) => languageForPath(file.path).id)).size === 1 ? '' : 's'}
+          {fileCount} file{fileCount === 1 ? '' : 's'} · {folderCount} folder
+          {folderCount === 1 ? '' : 's'} · {languageCount} language{languageCount === 1 ? '' : 's'}
         </span>
         {project.entry && (
           <button className="linkish" onClick={() => onOpenFile(project.entry!)}>
@@ -242,13 +274,30 @@ export default function FilesPane({
         )}
       </div>
 
+      {/* ---- new: file or folder ---------------------------------------- */}
+      <Sheet open={newMenuOpen} title="Create" subtitle="Files live in folders — folders can be empty." onClose={() => setNewMenuOpen(false)}>
+        <div className="action-list">
+          <button className="action-item" onClick={() => openNewFile(null)}>
+            <Icon name="file" size={18} />
+            <span className="grow">New file</span>
+            <span className="muted small">root</span>
+          </button>
+          <button className="action-item" onClick={() => openNewFolder(null)}>
+            <Icon name="folder" size={18} />
+            <span className="grow">New folder</span>
+            <span className="muted small">root</span>
+          </button>
+        </div>
+      </Sheet>
+
+      {/* ---- new file ---------------------------------------------------- */}
       <PromptSheet
         open={newFileOpen}
         title="New file"
-        subtitle="Type a path — folders are created automatically."
+        subtitle={newFileParent ? `Inside ${newFileParent}/` : 'Type a path — folders are created automatically.'}
         label="File path"
-        placeholder="src/components/Card.tsx"
-        initialValue=""
+        placeholder={newFileParent ? `${newFileParent}/file.js` : 'src/components/Card.tsx'}
+        initialValue={newFileParent ? `${newFileParent}/` : ''}
         confirmLabel="Create file"
         onClose={() => setNewFileOpen(false)}
         onSubmit={(value) => {
@@ -259,6 +308,7 @@ export default function FilesPane({
             return
           }
           onCreateFile(path)
+          setNewFileOpen(false)
         }}
       >
         <div className="chip-row wrap">
@@ -267,7 +317,7 @@ export default function FilesPane({
               key={name}
               className="chip"
               onClick={() => {
-                onCreateFile(name)
+                onCreateFile(newFileParent ? `${newFileParent}/${fileName(name)}` : name)
                 setNewFileOpen(false)
               }}
             >
@@ -277,6 +327,25 @@ export default function FilesPane({
         </div>
       </PromptSheet>
 
+      {/* ---- new folder -------------------------------------------------- */}
+      <PromptSheet
+        open={newFolderOpen}
+        title="New folder"
+        subtitle={newFolderParent ? `Inside ${newFolderParent}/` : 'Folders can be empty, or hold files and other folders.'}
+        label="Folder path"
+        placeholder={newFolderParent ? `${newFolderParent}/components` : 'src/components'}
+        initialValue={newFolderParent ? `${newFolderParent}/` : ''}
+        confirmLabel="Create folder"
+        onClose={() => setNewFolderOpen(false)}
+        onSubmit={(value) => {
+          const path = normalizePath(value)
+          if (!path) return
+          onCreateFolder(path)
+          setNewFolderOpen(false)
+        }}
+      />
+
+      {/* ---- rename file ------------------------------------------------- */}
       <PromptSheet
         open={Boolean(renaming)}
         title="Rename or move"
@@ -290,9 +359,46 @@ export default function FilesPane({
           const path = normalizePath(value)
           if (!path) return
           onRenameFile(renaming, path)
+          setRenaming(null)
         }}
       />
 
+      {/* ---- rename folder ----------------------------------------------- */}
+      <PromptSheet
+        open={Boolean(renamingFolder)}
+        title="Rename folder"
+        subtitle="Every file inside moves with it."
+        label="New folder path"
+        initialValue={renamingFolder ?? ''}
+        confirmLabel="Rename folder"
+        onClose={() => setRenamingFolder(null)}
+        onSubmit={(value) => {
+          if (!renamingFolder) return
+          const path = normalizePath(value)
+          if (!path) return
+          onRenameFolder(renamingFolder, path)
+          setRenamingFolder(null)
+        }}
+      />
+
+      {/* ---- move file --------------------------------------------------- */}
+      <PromptSheet
+        open={Boolean(moving)}
+        title="Move file"
+        subtitle="Type a folder path. Leave empty for the project root."
+        label="Destination folder"
+        placeholder="src/components"
+        initialValue={moving ? dirName(moving) : ''}
+        confirmLabel="Move file"
+        onClose={() => setMoving(null)}
+        onSubmit={(value) => {
+          if (!moving) return
+          onMoveFile(moving, normalizePath(value))
+          setMoving(null)
+        }}
+      />
+
+      {/* ---- file actions ------------------------------------------------ */}
       <Sheet
         open={Boolean(actionFile)}
         title={actionFile ? fileName(actionFile.path) : ''}
@@ -346,6 +452,16 @@ export default function FilesPane({
             <button
               className="action-item"
               onClick={() => {
+                setMoving(actionFile.path)
+                setActionPath(null)
+              }}
+            >
+              <Icon name="folder" size={18} />
+              <span>Move to folder…</span>
+            </button>
+            <button
+              className="action-item"
+              onClick={() => {
                 onDuplicateFile(actionFile.path)
                 setActionPath(null)
               }}
@@ -367,6 +483,72 @@ export default function FilesPane({
         )}
       </Sheet>
 
+      {/* ---- folder actions ---------------------------------------------- */}
+      <Sheet
+        open={Boolean(folderPath)}
+        title={folderPath ? fileName(folderPath) : ''}
+        subtitle={
+          folderPath
+            ? `${folderPath}/ · ${folderFiles.length} file${folderFiles.length === 1 ? '' : 's'}`
+            : undefined
+        }
+        onClose={() => setFolderAction(null)}
+      >
+        {folderPath && (
+          <div className="action-list">
+            <button className="action-item" onClick={() => openNewFile(folderPath)}>
+              <Icon name="file" size={18} />
+              <span>New file here</span>
+            </button>
+            <button className="action-item" onClick={() => openNewFolder(folderPath)}>
+              <Icon name="folder" size={18} />
+              <span>New folder inside</span>
+            </button>
+            <button
+              className="action-item"
+              onClick={() => {
+                setRenamingFolder(folderPath)
+                setFolderAction(null)
+              }}
+            >
+              <Icon name="pencil" size={18} />
+              <span>Rename folder</span>
+            </button>
+            <button
+              className="action-item"
+              onClick={() => {
+                onDuplicateFolder(folderPath)
+                setFolderAction(null)
+              }}
+            >
+              <Icon name="copy" size={18} />
+              <span>Duplicate folder</span>
+            </button>
+            <button
+              className="action-item"
+              onClick={() => {
+                toggleFolder(folderPath)
+                setFolderAction(null)
+              }}
+            >
+              <Icon name={collapsed.has(folderPath) ? 'chevron-down' : 'chevron-right'} size={18} />
+              <span>{collapsed.has(folderPath) ? 'Expand folder' : 'Collapse folder'}</span>
+            </button>
+            <button
+              className="action-item danger"
+              onClick={() => {
+                setConfirmFolderDelete(folderPath)
+                setFolderAction(null)
+              }}
+            >
+              <Icon name="trash" size={18} />
+              <span>Delete folder</span>
+            </button>
+          </div>
+        )}
+      </Sheet>
+
+      {/* ---- delete file ------------------------------------------------- */}
       <Sheet
         open={Boolean(confirmDelete)}
         title="Delete file?"
@@ -390,6 +572,46 @@ export default function FilesPane({
         }
       >
         <p className="muted">This removes the file from the project. Export a backup first if you need it.</p>
+      </Sheet>
+
+      {/* ---- delete folder ----------------------------------------------- */}
+      <Sheet
+        open={Boolean(confirmFolderDelete)}
+        title="Delete folder?"
+        subtitle={confirmFolderDelete ? `${confirmFolderDelete}/` : undefined}
+        onClose={() => setConfirmFolderDelete(null)}
+        footer={
+          <div className="row-gap">
+            <button className="btn ghost block" onClick={() => setConfirmFolderDelete(null)}>
+              Cancel
+            </button>
+            <button
+              className="btn danger block"
+              onClick={() => {
+                if (confirmFolderDelete) onDeleteFolder(confirmFolderDelete)
+                setConfirmFolderDelete(null)
+              }}
+            >
+              Delete folder
+            </button>
+          </div>
+        }
+      >
+        <p className="muted">
+          {deletingFolderFiles.length === 0
+            ? 'This folder is empty, so nothing else will be lost.'
+            : `This removes the folder and the ${deletingFolderFiles.length} file${
+                deletingFolderFiles.length === 1 ? '' : 's'
+              } inside it.`}
+        </p>
+        {deletingFolderFiles.length > 0 && (
+          <ul className="delete-list">
+            {deletingFolderFiles.slice(0, 6).map((file) => (
+              <li key={file.path}>{file.path}</li>
+            ))}
+            {deletingFolderFiles.length > 6 && <li className="muted">+{deletingFolderFiles.length - 6} more</li>}
+          </ul>
+        )}
       </Sheet>
     </div>
   )

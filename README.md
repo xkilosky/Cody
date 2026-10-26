@@ -59,7 +59,14 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 - Workspace switcher (header chevron or `⌘K`): open, create, duplicate, delete, import, theme,
   settings — all as sheets over the editor.
 - Templates: Web app, React + TypeScript, Python, Node API, C, Go, Rust, Java, Three.js, blank.
-- File tree with folders, search, rename/move, duplicate, delete, "set as entry".
+- **Folders are real objects**, not just path prefixes: create one with **Files → New → New folder**,
+  and it stays even while empty (it lives in `project.folders`). Every folder row has its own
+  actions: new file here, new folder inside, rename (contents move with it), duplicate (copies the
+  whole subtree), collapse/expand and delete (with a warning that lists what will be lost).
+- **File operations**: create (root or inside a folder), read, rename/move by path, **move to a
+  folder…**, duplicate, delete (with confirmation), and set as project entry.
+- **Project operations**: create from a template, open, duplicate, rename at the top, delete
+  (from the project menu) — plus the file tree's own count badge, search filter and problem marks.
 - Import loose files (multi-select), import a whole folder (`webkitdirectory`), or import a
   `.cody.json` project file.
 - Export a **ZIP** (dependency-free ZIP writer, no libraries) or a portable JSON project, and use

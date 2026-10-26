@@ -45,6 +45,11 @@ type Props = {
   onRenameFile: (from: string, to: string) => void
   onDeleteFile: (path: string) => void
   onDuplicateFile: (path: string) => void
+  onCreateFolder: (path: string) => void
+  onRenameFolder: (from: string, to: string) => void
+  onDeleteFolder: (path: string) => void
+  onDuplicateFolder: (path: string) => void
+  onMoveFile: (path: string, folder: string) => void
   onSetEntry: (path: string) => void
   onRun: (path?: string) => void
   onStop: () => void
@@ -58,6 +63,7 @@ type Props = {
   onOpenProject: (id: string) => void
   onImportProject: (project: Project) => void
   onDeleteProject: (id: string) => void
+  onDuplicateProject: (id: string) => void
   editorRef: MutableRefObject<CodyEditorHandle | null>
   onSaveNow: () => void
   onUpdateSettings?: (patch: Partial<Settings>) => void
@@ -95,6 +101,11 @@ export default function ProjectView(props: Props) {
     onRenameFile,
     onDeleteFile,
     onDuplicateFile,
+    onCreateFolder,
+    onRenameFolder,
+    onDeleteFolder,
+    onDuplicateFolder,
+    onMoveFile,
     onSetEntry,
     onRun,
     onStop,
@@ -107,6 +118,7 @@ export default function ProjectView(props: Props) {
     onNotify,
     onImportProject,
     onDeleteProject,
+    onDuplicateProject,
     editorRef,
     onSaveNow,
     onUpdateSettings,
@@ -196,6 +208,11 @@ export default function ProjectView(props: Props) {
             onRenameFile={onRenameFile}
             onDeleteFile={onDeleteFile}
             onDuplicateFile={onDuplicateFile}
+            onCreateFolder={onCreateFolder}
+            onRenameFolder={onRenameFolder}
+            onDeleteFolder={onDeleteFolder}
+            onDuplicateFolder={onDuplicateFolder}
+            onMoveFile={onMoveFile}
             onSetEntry={onSetEntry}
             onNotify={onNotify}
           />
@@ -290,6 +307,26 @@ export default function ProjectView(props: Props) {
           >
             <Icon name="files" size={18} />
             <span>Switch workspace…</span>
+          </button>
+          <button
+            className="action-item"
+            onClick={() => {
+              setMenuOpen(false)
+              onOpenSwitcher()
+            }}
+          >
+            <Icon name="plus" size={18} />
+            <span>New project…</span>
+          </button>
+          <button
+            className="action-item"
+            onClick={() => {
+              setMenuOpen(false)
+              onDuplicateProject(project.id)
+            }}
+          >
+            <Icon name="copy" size={18} />
+            <span>Duplicate project</span>
           </button>
           <button
             className="action-item"

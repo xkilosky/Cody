@@ -39,9 +39,13 @@ export function projectFromJson(text: string, fallbackName = 'Imported project')
       .map((file) => ({ path: normalizePath(file.path), content: file.content }))
     if (files.length === 0) return null
     const now = Date.now()
+    const folders = Array.isArray(data.folders)
+      ? [...new Set((data.folders as unknown[]).filter((f): f is string => typeof f === 'string').map(normalizePath).filter(Boolean))]
+      : []
     return {
       id: uid('p_'),
       name: data.name || fallbackName,
+      folders,
       description: data.description,
       entry: data.entry && files.some((f) => f.path === data.entry) ? data.entry : files[0].path,
       templateId: data.templateId,

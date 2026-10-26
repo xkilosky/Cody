@@ -49,6 +49,7 @@ const REQUIRED = [
   '.status-problems', '.problem-list', '.problem-group', '.problem-row', '.problem-file',
   '.problem-loc', '.problem-msg', '.problem-rule', '.problem-count', '.problems-empty',
   '.problem-flag', '.problem-flag.warning', '.tab-badge', '.tab-badge.warning',
+  '.folder-wrap', '.folder-empty', '.delete-list', '.folder-row',
   '.snippet-card', '.runtime-row', '.action-list', '.action-item', '.empty-state',
 ]
 

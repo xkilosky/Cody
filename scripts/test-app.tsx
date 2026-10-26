@@ -200,16 +200,111 @@ async function main() {
   check('react preview maps project modules', reactDoc.includes('https://cody.local/src/main.tsx'))
   check('react preview transpiled JSX', !reactDoc.includes('useState<Item[]>'))
 
-  // --- add a nested file ------------------------------------------------
+  // --- create files and folders -----------------------------------------
   await click('Files')
+  await wait(250)
   await click('New')
+  await wait(150)
+  check('create menu offers files and folders', text().includes('New file') && text().includes('New folder'))
+  await click('New file')
   await wait(150)
   check('new file sheet opened', text().includes('Type a path'))
   await typeInto('.sheet input.text-input', 'src/util/helper.js')
   await click('Create file')
   await wait(300)
   check('nested file created', text().includes('helper.js'))
+  // creating a file jumps to the editor, so come back to the tree
+  await click('Files')
+  await wait(250)
   check('folder node created', text().includes('util'))
+
+  // an empty folder is a real thing: it exists with nothing inside
+  await click('New')
+  await wait(120)
+  await click('New folder')
+  await wait(150)
+  await typeInto('.sheet input.text-input', 'assets')
+  await click('Create folder')
+  await wait(300)
+  const fileList = () => dom.window.document.querySelector('.file-list')?.textContent ?? ''
+  check('empty folder created', fileList().includes('assets'))
+  check('empty folder says so', fileList().includes('Empty folder'))
+
+  // add a file straight into a folder from the folder's own actions
+  await clickLabel('Folder actions for src')
+  await wait(200)
+  check(
+    'folder actions opened',
+    text().includes('New file here') && text().includes('Rename folder') && text().includes('Delete folder'),
+  )
+  await click('New file here')
+  await wait(200)
+  check('new file sheet is scoped to the folder', text().includes('Inside src/'))
+  await typeInto('.sheet input.text-input', 'src/notes.md')
+  await click('Create file')
+  await wait(300)
+  await click('Files')
+  await wait(250)
+  check('file created inside the folder', fileList().includes('notes.md'))
+
+  // a folder of its own: rename it, and every file inside moves with it
+  await click('New')
+  await wait(120)
+  await click('New file')
+  await wait(150)
+  await typeInto('.sheet input.text-input', 'tmp/scratch.txt')
+  await click('Create file')
+  await wait(300)
+  await click('Files')
+  await wait(250)
+  check('second folder created', fileList().includes('tmp'))
+  await clickLabel('Folder actions for tmp')
+  await wait(200)
+  await click('Rename folder')
+  await wait(200)
+  await typeInto('.sheet input.text-input', 'drafts')
+  await click('Rename folder')
+  await wait(400)
+  await click('Files')
+  await wait(250)
+  check('folder renamed', fileList().includes('drafts'))
+  check('file moved with the folder', fileList().includes('scratch.txt') && !fileList().includes('tmp'))
+
+  // move a file into the empty folder
+  await clickLabel('Actions for drafts/scratch.txt')
+  await wait(200)
+  await click('Move to folder…')
+  await wait(200)
+  await typeInto('.sheet input.text-input', 'assets')
+  await click('Move file')
+  await wait(400)
+  await click('Files')
+  await wait(250)
+  check('file moved into the empty folder', fileList().includes('assets'))
+  check('moved file is no longer empty-folder state', !fileList().includes('Empty folder'))
+
+  // deleting a folder removes what is inside it
+  await clickLabel('Folder actions for assets')
+  await wait(200)
+  check('delete folder warns about its contents', text().includes('1 file'))
+  await click('Delete folder')
+  await wait(250)
+  check('delete folder asks for confirmation', text().includes('This removes the folder'))
+  await click('Delete folder')
+  await wait(400)
+  check('folder deleted', !fileList().includes('assets'))
+  check('its file went with it', !fileList().includes('scratch.txt'))
+
+  // deleting a single file
+  await clickLabel('Actions for src/notes.md')
+  await wait(200)
+  await click('Delete file')
+  await wait(250)
+  check('delete file asks for confirmation', text().includes('This removes the file'))
+  await click('Delete')
+  await wait(400)
+  check('file deleted', !fileList().includes('notes.md'))
+  check('another file took its place', Boolean(dom.window.document.querySelector('.file-row-wrap.active')))
 
   // --- editor mounts for the active file --------------------------------
   await click('Code')
@@ -278,7 +373,11 @@ async function main() {
   check('gutter shows a problem marker', Boolean(dom.window.document.querySelector('.cm-lint-marker')))
   await clickLabel('Show problems')
   await wait(250)
-  const sheetBody = dom.window.document.querySelector('.sheet')?.textContent ?? ''
+  console.log('DEBUG sheets:', [...dom.window.document.querySelectorAll('.sheet')].map((el) => ((el.querySelector('h2')?.textContent ?? '?') + '|' + el.textContent?.slice(0, 60))).join(' // '))
+  const problemsSheet = [...dom.window.document.querySelectorAll('.sheet')].find(
+    (el) => el.querySelector('h2')?.textContent === 'Problems',
+  )
+  const sheetBody = problemsSheet?.textContent ?? ''
   check('problems sheet lists the file', sheetBody.includes('index.html'), sheetBody.slice(0, 80))
   check('problems sheet explains the bug', /never closed|no opening tag/i.test(sheetBody), sheetBody.slice(0, 160))
   const row = dom.window.document.querySelector('.problem-row') as HTMLElement | null

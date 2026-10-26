@@ -7,6 +7,8 @@ export type Project = {
   id: string
   name: string
   files: ProjectFile[]
+  /** Folders that exist even when empty. Implied folders come from file paths. */
+  folders?: string[]
   /** Preferred entry file, relative to project root. */
   entry?: string
   description?: string

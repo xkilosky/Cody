@@ -16,7 +16,8 @@ import { bundleProject, findEntryForFile, resolveEntry } from './lib/bundle'
 import { runInCloud } from './lib/cloud'
 import { runPython, stopPython } from './lib/python'
 import { languageForPath } from './lib/languages'
-import { uid } from './lib/utils'
+import { dirName, fileName, normalizePath, uid } from './lib/utils'
+import { allFolders, ancestorFolders, filesUnder, foldersUnder } from './lib/projectTree'
 import {
   deleteProject as deleteProjectRecord,
   getValue,
@@ -326,7 +327,7 @@ export default function App() {
   )
 
   const renameFile = useCallback(
-    (oldPath: string, newPath: string) => {
+    (oldPath: string, newPath: string, silent = false) => {
       const current = projectRef.current
       if (!current) return
       if (oldPath === newPath) return
@@ -343,7 +344,7 @@ export default function App() {
       }))
       setActivePath((prev) => (prev === oldPath ? newPath : prev))
       setRunEntry((prev) => (prev === oldPath ? newPath : prev))
-      notify('File renamed', 'success')
+      if (!silent) notify('File renamed', 'success')
     },
     [commit, notify],
   )
@@ -383,6 +384,173 @@ export default function App() {
       createFile(copyPath, file.content, true)
     },
     [createFile],
+  )
+
+  /* ---------------------------------------------------------------- */
+  /* folders                                                           */
+  /* ---------------------------------------------------------------- */
+
+  const createFolder = useCallback(
+    (raw: string) => {
+      const current = projectRef.current
+      if (!current) return
+      const path = normalizePath(raw)
+      if (!path) return
+      if (allFolders(current.files, current.folders).includes(path)) {
+        notify('That folder already exists', 'error')
+        return
+      }
+      commit(
+        (prev) => ({
+          ...prev,
+          folders: [...new Set([...(prev.folders ?? []), ...ancestorFolders(path), path])].sort((a, b) =>
+            a.localeCompare(b),
+          ),
+        }),
+        true,
+      )
+      notify(`Created ${path}/`, 'success')
+    },
+    [commit, notify],
+  )
+
+  const renameFolder = useCallback(
+    (from: string, rawTo: string) => {
+      const current = projectRef.current
+      if (!current) return
+      const to = normalizePath(rawTo)
+      if (!to || to === from) return
+      if (to.startsWith(`${from}/`)) {
+        notify('A folder cannot move inside itself', 'error')
+        return
+      }
+      if (current.files.some((file) => file.path === to)) {
+        notify('A file already uses that path', 'error')
+        return
+      }
+      const movedFilesUnder = filesUnder(current.files, from)
+      const collisions = movedFilesUnder
+        .map((file) => `${to}/${file.path.slice(from.length + 1)}`)
+        .filter((path) => current.files.some((file) => file.path === path))
+      if (collisions.length > 0) {
+        notify(`${collisions[0]} already exists`, 'error')
+        return
+      }
+
+      const rewrite = (path: string) => `${to}${path.slice(from.length)}`
+      // only *declared* folders are stored; implied ones come from file paths
+      const declared = current.folders ?? []
+      const movedDeclared = foldersUnder(declared, from).map(rewrite)
+      const keptDeclared = declared.filter((folder) => !foldersUnder(declared, from).includes(folder))
+      const touched = foldersUnder(allFolders(current.files, declared), from)
+      const movedFiles = new Set(movedFilesUnder.map((file) => file.path))
+
+      commit((prev) => ({
+        ...prev,
+        files: prev.files
+          .map((file) => (movedFiles.has(file.path) ? { ...file, path: rewrite(file.path) } : file))
+          .sort((a, b) => a.path.localeCompare(b.path)),
+        folders: [...new Set([...keptDeclared, ...movedDeclared])].sort((a, b) => a.localeCompare(b)),
+        entry: prev.entry && prev.entry.startsWith(`${from}/`) ? rewrite(prev.entry) : prev.entry,
+      }))
+      setActivePath((prev) => (prev && prev.startsWith(`${from}/`) ? rewrite(prev) : prev))
+      setRunEntry((prev) => (prev && prev.startsWith(`${from}/`) ? rewrite(prev) : prev))
+      notify('Folder renamed', 'success')
+    },
+    [commit, notify],
+  )
+
+  const deleteFolder = useCallback(
+    (raw: string) => {
+      const current = projectRef.current
+      if (!current) return
+      const path = normalizePath(raw)
+      if (!path) return
+      const doomed = filesUnder(current.files, path)
+      const declared = current.folders ?? []
+      const dropped = foldersUnder(declared, path)
+      const removed = new Set(doomed.map((file) => file.path))
+
+      commit((prev) => {
+        const files = prev.files.filter((file) => !removed.has(file.path))
+        return {
+          ...prev,
+          files,
+          folders: (prev.folders ?? []).filter((folder) => !dropped.includes(folder)),
+          entry: prev.entry && removed.has(prev.entry) ? files[0]?.path : prev.entry,
+        }
+      })
+      setActivePath((prev) => {
+        if (!prev || !removed.has(prev)) return prev
+        const current2 = projectRef.current
+        return current2?.files[0]?.path ?? null
+      })
+      setRunEntry((prev) => (prev && removed.has(prev) ? null : prev))
+      notify(`Deleted ${path}/ · ${doomed.length} file${doomed.length === 1 ? '' : 's'}`)
+    },
+    [commit, notify],
+  )
+
+  const duplicateFolder = useCallback(
+    (raw: string) => {
+      const current = projectRef.current
+      if (!current) return
+      const path = normalizePath(raw)
+      if (!path) return
+      const existing = new Set(allFolders(current.files, current.folders))
+      let copyPath = `${path}-copy`
+      let counter = 2
+      while (existing.has(copyPath)) {
+        copyPath = `${path}-copy-${counter}`
+        counter += 1
+        if (counter > 40) return
+      }
+      const source = filesUnder(current.files, path)
+      if (source.length === 0) {
+        notify('Nothing to duplicate in that folder', 'error')
+        return
+      }
+      const copies = source.map((file) => ({
+        path: `${copyPath}/${file.path.slice(path.length + 1)}`,
+        content: file.content,
+      }))
+      const copiedDeclared = foldersUnder(current.folders ?? [], path).map(
+        (folder) => `${copyPath}${folder.slice(path.length)}`,
+      )
+      commit((prev) => ({
+        ...prev,
+        files: [...prev.files, ...copies].sort((a, b) => a.path.localeCompare(b.path)),
+        folders: [...new Set([...(prev.folders ?? []), ...copiedDeclared, copyPath])].sort((a, b) => a.localeCompare(b)),
+      }))
+      notify(`Duplicated ${path}/`, 'success')
+    },
+    [commit, notify],
+  )
+
+  const moveFile = useCallback(
+    (path: string, rawFolder: string) => {
+      const current = projectRef.current
+      if (!current) return
+      const folder = normalizePath(rawFolder)
+      const target = folder ? `${folder}/${fileName(path)}` : fileName(path)
+      if (target === path) return
+      if (current.files.some((file) => file.path === target)) {
+        notify(`${target} already exists`, 'error')
+        return
+      }
+      // keep the destination folder alive even if the file is later removed
+      if (folder) {
+        commit((prev) => ({
+          ...prev,
+          folders: [...new Set([...(prev.folders ?? []), ...ancestorFolders(folder)])].sort((a, b) =>
+            a.localeCompare(b),
+          ),
+        }))
+      }
+      renameFile(path, target, true)
+      notify(`Moved ${fileName(path)} to ${folder || 'project root'}`, 'success')
+    },
+    [commit, notify, renameFile],
   )
 
   const setEntry = useCallback(
@@ -683,6 +851,11 @@ export default function App() {
           onRenameFile={renameFile}
           onDeleteFile={deleteFile}
           onDuplicateFile={duplicateFile}
+          onCreateFolder={createFolder}
+          onRenameFolder={renameFolder}
+          onDeleteFolder={deleteFolder}
+          onDuplicateFolder={duplicateFolder}
+          onMoveFile={moveFile}
           onSetEntry={setEntry}
           onRun={run}
           onStop={stopRun}
@@ -697,6 +870,7 @@ export default function App() {
           onOpenProject={openProject}
           onImportProject={importProject}
           onDeleteProject={removeProject}
+          onDuplicateProject={(id) => void duplicateProject(id)}
           editorRef={editorHandleRef}
           onSaveNow={() => {
             const current = projectRef.current

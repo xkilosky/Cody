@@ -129,12 +129,6 @@ async function main() {
   const { createRoot } = await import('react-dom/client')
   const { createElement } = await import('react')
   const App = (await import('../src/App')).default
-  const { saveProject } = await import('../src/lib/storage')
-  const { TEMPLATES, projectFromTemplate } = await import('../src/lib/templates')
-
-  // Seed a saved project (no last-opened pointer, so the app starts on Home).
-  const seed = projectFromTemplate(TEMPLATES.find((t) => t.id === 'react-ts')!, 'Seeded react app')
-  await saveProject(seed)
 
   const root = createRoot(dom.window.document.getElementById('root')!)
   root.render(createElement(App))
@@ -143,43 +137,66 @@ async function main() {
   const checks: Array<[string, boolean, string?]> = []
   const check = (label: string, ok: boolean, extra?: string) => checks.push([label, ok, extra])
 
-  check('home renders tagline', text().includes('from your phone'))
-  check('saved project listed', text().includes('Seeded react app'))
-  check('templates listed', text().includes('React + TypeScript'))
-
-  // --- open the seeded React project and run it -------------------------
-  await click('Seeded react app')
-  await wait(400)
-  check('project shell opened', text().includes('Seeded react app') && text().includes('Files'))
-  check('file tree shows index.html', text().includes('index.html'))
-  check('file tree shows src folder', text().includes('src'))
+  // Cold boot with empty storage: the editor must be first paint.
+  check('boots straight into a workspace', text().includes('Untitled'))
+  check('editor mounted on first paint', Boolean(dom.window.document.querySelector('.cm-editor')))
+  check('no landing page copy', !text().includes('from your phone') && !text().includes('Start from a template'))
+  check('file chip shows the entry file', text().includes('index.html'))
+  check('scratch project is runnable', Boolean(findByLabel('Run project')))
 
   await clickLabel('Run project')
   await wait(600)
   const iframe = dom.window.document.querySelector<HTMLIFrameElement>('iframe.preview-frame')
   const srcdoc = iframe?.getAttribute('srcdoc') ?? ''
   check('preview iframe mounted', Boolean(iframe))
-  check('preview has import map', srcdoc.includes('type="importmap"'))
-  check('preview maps project modules', srcdoc.includes('https://cody.local/src/main.tsx'))
+  check('preview inlined the stylesheet', srcdoc.includes('data-cody-file="styles.css"'))
+  check('preview inlined the script', srcdoc.includes('pings') && srcdoc.includes('id="ping"'))
   check('preview has console bridge', srcdoc.includes('__cody'))
-  check('preview transpiled JSX', !srcdoc.includes('useState<Item[]>'))
 
   await click('Output')
   check('console recorded the run', text().includes('module') || text().includes('Browser'))
 
-  // --- back home, create a project from a template ----------------------
-  await clickLabel('Back to projects')
-  await wait(350)
-  check('returned home', text().includes('Start from a template'))
+  // --- workspace switcher: create a project from a template -------------
+  await clickLabel('Switch workspace')
+  await wait(250)
+  check('switcher opened', text().includes('Workspaces'))
+  check('current workspace marked', text().includes('Untitled'))
+
+  await click('New')
+  await wait(200)
+  check('template list shown', text().includes('React + TypeScript'))
 
   await click('Web app')
-  await wait(200)
+  await wait(250)
   check('template prompt opened', text().includes('New Web app project'))
   await typeInto('.sheet input.text-input', 'Smoke app')
   await click('Create')
-  await wait(500)
+  await wait(600)
   check('new project opened', text().includes('Smoke app'))
+  check('switcher closed after create', !text().includes('Workspaces'))
   check('new project has index.html', text().includes('index.html'))
+
+  // the switcher reopens on the list and keeps the previous workspace
+  await clickLabel('Switch workspace')
+  await wait(250)
+  check('switcher reopens on the list', text().includes('Untitled') && text().includes('Smoke app'))
+
+  // --- a React workspace transpiles + import-maps in the preview ---------
+  await click('New')
+  await wait(200)
+  await click('React + TypeScript')
+  await wait(250)
+  await typeInto('.sheet input.text-input', 'React smoke')
+  await click('Create')
+  await wait(600)
+  check('react workspace opened', text().includes('React smoke'))
+  await clickLabel('Run project')
+  await wait(600)
+  const reactDoc =
+    dom.window.document.querySelector<HTMLIFrameElement>('iframe.preview-frame')?.getAttribute('srcdoc') ?? ''
+  check('react preview has an import map', reactDoc.includes('type="importmap"'))
+  check('react preview maps project modules', reactDoc.includes('https://cody.local/src/main.tsx'))
+  check('react preview transpiled JSX', !reactDoc.includes('useState<Item[]>'))
 
   // --- add a nested file ------------------------------------------------
   await click('Files')

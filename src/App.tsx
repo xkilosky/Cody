@@ -8,7 +8,7 @@ import type {
   Toast,
 } from './types'
 import { DEFAULT_SETTINGS } from './types'
-import Home from './components/Home'
+import ProjectSwitcher from './components/ProjectSwitcher'
 import ProjectView from './components/ProjectView'
 import SettingsSheet from './components/SettingsSheet'
 import Toasts from './components/Toasts'
@@ -16,7 +16,7 @@ import { bundleProject, findEntryForFile, resolveEntry } from './lib/bundle'
 import { runInCloud } from './lib/cloud'
 import { runPython, stopPython } from './lib/python'
 import { languageForPath } from './lib/languages'
-import { projectMetaOf, uid } from './lib/utils'
+import { uid } from './lib/utils'
 import {
   deleteProject as deleteProjectRecord,
   getValue,
@@ -27,7 +27,7 @@ import {
   saveSettings,
   setValue,
 } from './lib/storage'
-import { projectFromTemplate, type Template } from './lib/templates'
+import { projectFromTemplate, scratchProject, type Template } from './lib/templates'
 
 type Cleanup = () => void
 
@@ -38,12 +38,13 @@ export default function App() {
   const [project, setProject] = useState<Project | null>(null)
   const [activePath, setActivePath] = useState<string | null>(null)
   const [runEntry, setRunEntry] = useState<string | null>(null)
-  const [tab, setTab] = useState<'files' | 'code' | 'run' | 'cody'>('files')
+  const [tab, setTab] = useState<'files' | 'code' | 'run' | 'cody'>('code')
   const [runState, setRunState] = useState<RunState>({ kind: 'idle', runId: 0 })
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [stdin, setStdin] = useState('')
   const [toasts, setToasts] = useState<Toast[]>([])
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [switcherOpen, setSwitcherOpen] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -69,12 +70,26 @@ export default function App() {
       if (cancelled) return
       setSettings(storedSettings)
       setProjects(metas)
+
+      // Editor first: always boot straight into a workspace.
+      const firstRun = !lastId && metas.length === 0
+      let target: Project | null = null
+      if (lastId) target = await loadProject(lastId)
+      if (!target && metas.length > 0) target = await loadProject(metas[0].id)
+      if (!target) {
+        target = scratchProject()
+        await saveProject(target)
+      }
+      if (cancelled || !target) return
+      setProjects(await listProjects())
+      if (cancelled) return
+      enterProject(target)
       setBooting(false)
-      if (lastId) {
-        const last = await loadProject(lastId)
-        if (!cancelled && last) {
-          enterProject(last)
-        }
+      if (firstRun) {
+        setTimeout(
+          () => notify('Fresh workspace — tap ← for templates and other projects', 'info'),
+          700,
+        )
       }
     })()
     return () => {
@@ -168,25 +183,21 @@ export default function App() {
     setRunEntry(resolveEntry(next) ?? null)
     setLogs([])
     setRunState({ kind: 'idle', runId: 0 })
-    setTab('files')
+    setTab('code')
     setSettingsOpen(false)
+    setSwitcherOpen(false)
     void setValue('lastProject', next.id)
   }, [])
 
-  const closeProject = useCallback(() => {
-    cleanupRef.current?.()
-    cleanupRef.current = null
-    stopPython()
-    if (saveTimer.current) clearTimeout(saveTimer.current)
+  const openSwitcher = useCallback(() => {
     const current = projectRef.current
-    if (current) void saveProject(current)
-    setProject(null)
-    projectRef.current = null
-    void setValue('lastProject', null)
-    setRunState({ kind: 'idle', runId: 0 })
-    setLogs([])
-    void refreshProjects()
-  }, [refreshProjects])
+    if (current && saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+      void saveProject(current)
+    }
+    setSwitcherOpen(true)
+  }, [])
 
   /* ---------------------------------------------------------------- */
   /* project lifecycle                                                 */
@@ -198,7 +209,6 @@ export default function App() {
       await saveProject(next)
       await refreshProjects()
       enterProject(next)
-      setTab('code')
       notify(`Created ${next.name}`, 'success')
     },
     [enterProject, notify, refreshProjects],
@@ -220,11 +230,23 @@ export default function App() {
   const removeProject = useCallback(
     async (id: string) => {
       await deleteProjectRecord(id)
-      await refreshProjects()
-      if (projectRef.current?.id === id) closeProject()
+      const remaining = await listProjects()
+      setProjects(remaining)
+      if (projectRef.current?.id === id) {
+        const nextMeta = remaining[0]
+        const next = nextMeta ? await loadProject(nextMeta.id) : null
+        if (next) {
+          enterProject(next)
+        } else {
+          const scratch = scratchProject()
+          await saveProject(scratch)
+          await refreshProjects()
+          enterProject(scratch)
+        }
+      }
       notify('Project deleted')
     },
-    [closeProject, notify, refreshProjects],
+    [enterProject, notify, refreshProjects],
   )
 
   const duplicateProject = useCallback(
@@ -487,6 +509,11 @@ export default function App() {
           })
         }
       }
+      if (event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        openSwitcher()
+        return
+      }
       if (event.key === 'Enter') {
         event.preventDefault()
         run()
@@ -494,7 +521,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [notify, run])
+  }, [notify, openSwitcher, run])
 
   useEffect(() => {
     return () => {
@@ -617,7 +644,7 @@ export default function App() {
           stdin={stdin}
           setStdin={setStdin}
           savedAt={savedAt}
-          onBack={closeProject}
+          onOpenSwitcher={openSwitcher}
           onOpenFile={openFile}
           onRunFile={runFile}
           onChangeFile={changeFile}
@@ -651,21 +678,34 @@ export default function App() {
           }}
         />
       ) : (
-        <Home
-          projects={projects}
-          settings={settings}
-          onCreate={createProject}
-          onOpen={openProject}
-          onDelete={removeProject}
-          onDuplicate={duplicateProject}
-          onImport={importProject}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onNotify={notify}
-          onToggleTheme={() =>
-            updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })
-          }
-        />
+        <div className="boot">
+          <div className="boot-logo">
+            <span className="brand-mark">&lt;/&gt;</span>
+          </div>
+          <p>Opening workspace…</p>
+        </div>
       )}
+
+      <ProjectSwitcher
+        open={switcherOpen}
+        currentId={project?.id ?? null}
+        projects={projects}
+        settings={settings}
+        onClose={() => setSwitcherOpen(false)}
+        onCreate={createProject}
+        onOpen={openProject}
+        onDelete={removeProject}
+        onDuplicate={duplicateProject}
+        onImport={importProject}
+        onOpenSettings={() => {
+          setSwitcherOpen(false)
+          setSettingsOpen(true)
+        }}
+        onNotify={notify}
+        onToggleTheme={() =>
+          updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })
+        }
+      />
 
       <SettingsSheet
         open={settingsOpen}

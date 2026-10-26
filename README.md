@@ -7,6 +7,11 @@ It gives you a file tree, a fast touch-friendly code editor, live previews that 
 browser, real Python in the browser, a cloud sandbox for compiled languages, and one-tap export
 of a runnable project.
 
+**It opens as an editor, not a landing page.** Cold start drops you straight into a workspace with
+the code on screen — no hero, no marketing, no empty dashboard. Workspaces, templates, imports and
+settings live in a switcher sheet one tap (or `⌘K` / `Ctrl+K`) away, and the app remembers the
+workspace you were in.
+
 No backend. No install step. No account. Projects are stored on the device (IndexedDB) and
 nothing leaves it unless you explicitly run a cloud-sandbox language.
 
@@ -16,6 +21,8 @@ nothing leaves it unless you explicitly run a cloud-sandbox language.
 
 Desktop editors assume a keyboard and three panes of screen. Cody assumes a thumb:
 
+- **Editor first** — boot lands in the code, not a dashboard. The workspace switcher is a sheet
+  over the editor, so switching projects never costs you your screen.
 - **One-handed navigation** — a 4-tab bottom bar (Files · Code · Run · Build) instead of a
   cramped sidebar, with every primary action inside the bottom third of the screen.
 - **A keyboard for people without a keyboard** — a symbol rail (`{} () [] => ; $`) plus
@@ -40,7 +47,10 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 - Live theme (dark/light), font size 11–22px, tab size, line numbers, mono/serif, haptics.
 - Autocomplete, bracket matching, bracket closing, multi-cursor, search panel, fold-aware editing.
 
-### Projects & files
+### Workspaces & files
+- First launch creates a runnable scratch workspace (HTML + CSS + JS) and opens `index.html`.
+- Workspace switcher (header chevron or `⌘K`): open, create, duplicate, delete, import, theme,
+  settings — all as sheets over the editor.
 - Templates: Web app, React + TypeScript, Python, Node API, C, Go, Rust, Java, Three.js, blank.
 - File tree with folders, search, rename/move, duplicate, delete, "set as entry".
 - Import loose files (multi-select), import a whole folder (`webkitdirectory`), or import a
@@ -126,7 +136,7 @@ fallback to `index.html`. To install it on a phone, open the deployment URL and 
 src/
   App.tsx                  app shell: routing, state, persistence, run orchestration
   components/
-    Home.tsx               project list, templates, import/export
+    ProjectSwitcher.tsx    workspace list, new-from-template, import, theme/settings
     ProjectView.tsx        header, tab bar, project menu & sheets
     FilesPane.tsx          file tree, search, file actions
     CodePane.tsx           editor host + mobile toolbars/sheets

@@ -1,5 +1,5 @@
 import { renderToString } from 'react-dom/server'
-import Home from '../src/components/Home'
+import ProjectSwitcher from '../src/components/ProjectSwitcher'
 import ProjectView from '../src/components/ProjectView'
 import SettingsSheet from '../src/components/SettingsSheet'
 import FilesPane from '../src/components/FilesPane'
@@ -38,10 +38,32 @@ function render(name: string, node: JSX.Element) {
 const editorRef = { current: null }
 
 render(
-  'Home',
-  <Home
+  'ProjectSwitcher (open)',
+  <ProjectSwitcher
+    open
+    currentId={project.id}
     projects={[meta]}
     settings={DEFAULT_SETTINGS}
+    onClose={noop}
+    onCreate={noop}
+    onOpen={noop}
+    onDelete={noop}
+    onDuplicate={noop}
+    onImport={async () => {}}
+    onOpenSettings={noop}
+    onNotify={notify}
+    onToggleTheme={noop}
+  />,
+)
+
+render(
+  'ProjectSwitcher (empty)',
+  <ProjectSwitcher
+    open
+    currentId={null}
+    projects={[]}
+    settings={DEFAULT_SETTINGS}
+    onClose={noop}
     onCreate={noop}
     onOpen={noop}
     onDelete={noop}
@@ -65,7 +87,7 @@ const baseProps = {
   stdin: '',
   setStdin: noop,
   savedAt: Date.now(),
-  onBack: noop,
+  onOpenSwitcher: noop,
   onOpenFile: noop,
   onRunFile: noop,
   onChangeFile: noop,

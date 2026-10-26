@@ -31,7 +31,7 @@ type Props = {
   stdin: string
   setStdin: (value: string) => void
   savedAt: number | null
-  onBack: () => void
+  onOpenSwitcher: () => void
   onOpenFile: (path: string) => void
   onRunFile: (path: string) => void
   onChangeFile: (path: string, content: string) => void
@@ -78,7 +78,7 @@ export default function ProjectView(props: Props) {
     stdin,
     setStdin,
     savedAt,
-    onBack,
+    onOpenSwitcher,
     onOpenFile,
     onRunFile,
     onChangeFile,
@@ -145,7 +145,12 @@ export default function ProjectView(props: Props) {
   return (
     <div className="project-shell">
       <header className="app-header">
-        <button className="icon-btn" onClick={onBack} aria-label="Back to projects">
+        <button
+          className="icon-btn"
+          onClick={onOpenSwitcher}
+          aria-label="Switch workspace"
+          title="Workspaces (⌘K)"
+        >
           <Icon name="chevron-left" size={22} />
         </button>
         <button className="title-block" onClick={() => setRenameOpen(true)}>
@@ -254,6 +259,16 @@ export default function ProjectView(props: Props) {
 
       <Sheet open={menuOpen} title={project.name} subtitle="Project actions" onClose={() => setMenuOpen(false)}>
         <div className="action-list">
+          <button
+            className="action-item"
+            onClick={() => {
+              onOpenSwitcher()
+              setMenuOpen(false)
+            }}
+          >
+            <Icon name="files" size={18} />
+            <span>Switch workspace…</span>
+          </button>
           <button
             className="action-item"
             onClick={() => {

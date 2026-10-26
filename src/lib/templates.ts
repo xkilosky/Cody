@@ -845,3 +845,62 @@ export function projectFromTemplate(template: Template, name?: string): Project 
 export function getTemplate(id: string | undefined): Template | undefined {
   return TEMPLATES.find((t) => t.id === id)
 }
+
+/**
+ * The workspace Cody boots into the very first time — an empty-but-runnable
+ * project so the editor is on screen immediately, with no landing page in the way.
+ */
+export function scratchProject(name = 'Untitled'): Project {
+  const now = Date.now()
+  return {
+    id: uid('p_'),
+    name,
+    description: 'Scratch workspace',
+    templateId: 'web-starter',
+    entry: 'index.html',
+    files: [
+      {
+        path: 'index.html',
+        content: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Untitled</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Hello from Cody</h1>
+      <p>Edit this file, then tap Run.</p>
+      <button id="ping" type="button">Ping</button>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
+`,
+      },
+      {
+        path: 'styles.css',
+        content: `body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0b0d10; color: #e8ecf3; }
+main { padding: 28px 20px; display: grid; gap: 12px; }
+h1 { font-size: 26px; margin: 0; letter-spacing: -0.02em; }
+p { margin: 0; color: #8b93a1; font-size: 15px; }
+button { justify-self: start; padding: 12px 18px; border-radius: 12px; border: 0; background: #5ce1b9; color: #06251c; font-weight: 600; font-size: 15px; }
+`,
+      },
+      {
+        path: 'app.js',
+        content: `let pings = 0
+
+document.getElementById('ping').addEventListener('click', () => {
+  pings += 1
+  console.log('ping', pings)
+})
+`,
+      },
+    ],
+    createdAt: now,
+    updatedAt: now,
+  }
+}

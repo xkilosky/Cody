@@ -96,14 +96,6 @@ const legacy = (load: () => Promise<Record<string, unknown>>, key: string) => as
   return StreamLanguage.define(mod[key] as never)
 }
 
-function clikeMode(load: () => Promise<Record<string, unknown>>, name: string) {
-  return async () => {
-    const mod = await load()
-    const language = (mod.cLike as (config: unknown) => unknown)(mod[name])
-    return StreamLanguage.define(language as never)
-  }
-}
-
 const LOADERS: Record<string, () => Promise<Extension>> = {
   javascript: lazy(async () => (await import('@codemirror/lang-javascript')).javascript()),
   jsx: lazy(async () => (await import('@codemirror/lang-javascript')).javascript({ jsx: true })),
@@ -132,8 +124,8 @@ const LOADERS: Record<string, () => Promise<Extension>> = {
   swift: legacy(() => import('@codemirror/legacy-modes/mode/swift'), 'swift'),
   dockerfile: legacy(() => import('@codemirror/legacy-modes/mode/dockerfile'), 'dockerFile'),
   diff: legacy(() => import('@codemirror/legacy-modes/mode/diff'), 'diff'),
-  csharp: clikeMode(() => import('@codemirror/legacy-modes/mode/clike'), 'csharp'),
-  kotlin: clikeMode(() => import('@codemirror/legacy-modes/mode/clike'), 'kotlin'),
+  csharp: legacy(() => import('@codemirror/legacy-modes/mode/clike'), 'csharp'),
+  kotlin: legacy(() => import('@codemirror/legacy-modes/mode/clike'), 'kotlin'),
 }
 
 export function loadLanguageExtension(languageId: string): Promise<Extension> {

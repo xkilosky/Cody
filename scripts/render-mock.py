@@ -80,13 +80,13 @@ FONT_UI_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 # syntax kinds -> palette slots. The editor palette is a neutral ink ramp plus a
 # single mint hue and one error red, so most kinds resolve to a grey step.
 KIND_TO_TOKEN = {
-    "keyword": "key",
-    "string": "keySoft",
-    "comment": "faint",
-    "number": "fg",
-    "operator": "faint",
-    "func": "fg",
-    "type": "fg",
+    "keyword": "keyword",
+    "string": "string",
+    "comment": "comment",
+    "number": "number",
+    "operator": "operator",
+    "func": "func",
+    "type": "func",
     "fg": "fg",
 }
 

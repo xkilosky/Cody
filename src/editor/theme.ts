@@ -15,21 +15,28 @@ type Palette = {
   gutterActive: string
   panel: string
   border: string
-  /** The only hue in the editor. Same family as the app accent (mint). */
-  key: string
-  /** Softer step of the same hue, for strings and markup values. */
-  keySoft: string
-  /** One muted red, reserved for actual errors. */
+  /** Four syntax hues and a grey ramp. Nothing else is coloured. */
+  keyword: string
+  string: string
+  number: string
+  func: string
+  comment: string
+  property: string
+  operator: string
+  /** One muted red, reserved for invalid code. */
   invalid: string
 }
 
-/** Two palettes, one hue.
+/** Two palettes, four hues.
  *
- *  A phone screen is small and a phone editor is read in glances, so the syntax
- *  palette is a neutral ink ramp: brightness and weight carry the structure,
- *  comments recede into italic grey, and a single mint — the same mint as the
- *  app's accent — marks the parts that drive a program (keywords, tags). One
- *  red exists only for invalid code. Nothing else is coloured. */
+ *  Syntax has to be *read*: a keyword, a string, a number and a function body
+ *  should not all be the same grey. But an editor on a phone is not a
+ *  highlighter demo either, so the palette is deliberately small — mint for the
+ *  words that shape a program (keywords, tags, `self`), warm sand for strings
+ *  and literals, steel blue for things you can call or construct, mauve for
+ *  numbers and constants — over a neutral ink ramp for everything else.
+ *  Comments fade to italic grey, properties to dim grey, punctuation to faint
+ *  grey, so structure recedes and no line turns into confetti. */
 const DARK: Palette = {
   bg: '#0a0a0b',
   fg: '#dcdcdf',
@@ -43,8 +50,13 @@ const DARK: Palette = {
   gutterActive: '#c8c8cd',
   panel: '#141416',
   border: '#27272b',
-  key: '#7ddcb8',
-  keySoft: '#a9a9b0',
+  keyword: '#7ddcb8',
+  string: '#d6bd93',
+  number: '#c3a9e8',
+  func: '#9dc0e8',
+  comment: '#6b6b74',
+  property: '#a2a2ab',
+  operator: '#6b6b74',
   invalid: '#e06c6c',
 }
 
@@ -61,8 +73,13 @@ const LIGHT: Palette = {
   gutterActive: '#3d3d44',
   panel: '#f5f5f6',
   border: '#e4e4e7',
-  key: '#0b7a5c',
-  keySoft: '#5c5c64',
+  keyword: '#0b7a5c',
+  string: '#8a5a1a',
+  number: '#6b3fa0',
+  func: '#2c5c9e',
+  comment: '#8a8a92',
+  property: '#4b4b52',
+  operator: '#a0a0a8',
   invalid: '#b3403f',
 }
 
@@ -186,31 +203,65 @@ function theme(p: Palette, dark: boolean) {
 
 function highlight(p: Palette) {
   return HighlightStyle.define([
-    // the one hue: the words that shape the program
-    { tag: [t.keyword, t.controlKeyword, t.moduleKeyword, t.definitionKeyword, t.modifier], color: p.key },
-    { tag: [t.tagName, t.angleBracket], color: p.key },
-    // strings sit one step softer than keywords — same family, less volume
-    { tag: [t.string, t.special(t.string), t.character, t.regexp, t.attributeValue], color: p.keySoft },
-    // neutral ink: weight and tone do the work
-    { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: p.faint, fontStyle: 'italic' },
-    { tag: [t.function(t.variableName), t.function(t.propertyName), t.labelName], color: p.fg, fontWeight: '600' },
-    { tag: [t.typeName, t.className, t.namespace, t.standard(t.name), t.definition(t.name)], color: p.fg, fontWeight: '600' },
-    { tag: [t.propertyName, t.attributeName], color: p.dim },
-    { tag: [t.number, t.integer, t.float, t.bool, t.null, t.atom], color: p.fg },
-    { tag: [t.operator, t.operatorKeyword, t.derefOperator], color: p.dim },
-    { tag: [t.punctuation, t.bracket, t.separator, t.squareBracket, t.paren, t.brace], color: p.faint },
-    { tag: [t.meta, t.annotation, t.processingInstruction], color: p.faint },
-    { tag: [t.variableName, t.name], color: p.fg },
-    { tag: [t.heading, t.heading1, t.heading2, t.strong], color: p.fg, fontWeight: '700' },
-    { tag: [t.link, t.url], color: p.fg, textDecoration: 'underline' },
+    // mint — the words that shape a program
+    {
+      tag: [
+        t.keyword, t.controlKeyword, t.moduleKeyword, t.definitionKeyword, t.modifier,
+        t.self, t.controlOperator, t.definitionOperator, t.tagName, t.angleBracket,
+      ],
+      color: p.keyword,
+    },
+    // sand — text that the program carries around
+    {
+      tag: [
+        t.string, t.special(t.string), t.character, t.regexp, t.attributeValue,
+        t.escape, t.docString,
+      ],
+      color: p.string,
+    },
+    // mauve — values and constants
+    {
+      tag: [t.number, t.integer, t.float, t.bool, t.null, t.atom, t.constant(t.name), t.literal, t.unit],
+      color: p.number,
+    },
+    // steel — things you call, construct or name as a type
+    {
+      tag: [
+        t.function(t.variableName), t.function(t.propertyName), t.labelName, t.macroName,
+        t.typeName, t.className, t.namespace, t.standard(t.name), t.definition(t.typeName),
+      ],
+      color: p.func,
+    },
+    { tag: [t.color], color: p.number },
+    { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: p.comment, fontStyle: 'italic' },
+    { tag: [t.propertyName, t.attributeName], color: p.property },
+    { tag: [t.operator, t.operatorKeyword, t.derefOperator, t.updateOperator], color: p.operator },
+    {
+      tag: [t.punctuation, t.bracket, t.separator, t.squareBracket, t.paren, t.brace, t.compareOperator, t.arithmeticOperator, t.logicOperator, t.bitwiseOperator],
+      color: p.faint,
+    },
+    { tag: [t.meta, t.annotation, t.processingInstruction, t.documentMeta], color: p.comment },
+    { tag: [t.variableName, t.name, t.definition(t.name)], color: p.fg },
+    { tag: [t.heading, t.heading1, t.heading2, t.heading3], color: p.keyword, fontWeight: '700' },
+    { tag: [t.strong], color: p.fg, fontWeight: '700' },
     { tag: [t.emphasis], fontStyle: 'italic' },
     { tag: [t.strikethrough], textDecoration: 'line-through' },
-    { tag: [t.escape], color: p.keySoft },
+    { tag: [t.link, t.url], color: p.func, textDecoration: 'underline' },
+    { tag: [t.list], color: p.keyword },
+    { tag: [t.monospace], color: p.string },
+    { tag: [t.inserted], color: p.keyword },
+    { tag: [t.deleted], color: p.invalid },
+    { tag: [t.changed], color: p.number },
     { tag: [t.invalid], color: p.invalid },
   ])
 }
 
+/** Raw highlight styles — also used by scripts/test-syntax.ts to prove tokens
+ *  actually get distinct styles for every language. */
+export const codyHighlightStyleDark = highlight(DARK)
+export const codyHighlightStyleLight = highlight(LIGHT)
+
 export const codyDarkTheme = theme(DARK, true)
 export const codyLightTheme = theme(LIGHT, false)
-export const codyHighlightDark = syntaxHighlighting(highlight(DARK))
-export const codyHighlightLight = syntaxHighlighting(highlight(LIGHT))
+export const codyHighlightDark = syntaxHighlighting(codyHighlightStyleDark)
+export const codyHighlightLight = syntaxHighlighting(codyHighlightStyleLight)

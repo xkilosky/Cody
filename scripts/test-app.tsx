@@ -245,6 +245,15 @@ async function main() {
   check('file switch remounts editor', Boolean(dom.window.document.querySelector('.cm-editor')))
   check('switched file content loaded', mergedContent.includes('<main') || mergedContent.includes('doctype'), mergedContent.slice(0, 40))
   check('tab strip now has two tabs', dom.window.document.querySelectorAll('.tab-chip').length >= 2)
+  // syntax highlighting end-to-end: the parser must have split a line into styled spans
+  const highlighted = [...dom.window.document.querySelectorAll('.cm-line span')].filter(
+    (span) => (span.textContent ?? '').trim().length > 0,
+  )
+  check(
+    'markup is syntax-highlighted in the live editor',
+    highlighted.length >= 3,
+    `${highlighted.length} styled spans in ${dom.window.document.querySelector('.cm-content')?.textContent?.slice(0, 40)}`,
+  )
   const badge = dom.window.document.querySelector('.tab-chip.active .lang-icon')
   check('active tab carries a language mark', Boolean(badge), badge?.outerHTML ?? '')
   check(

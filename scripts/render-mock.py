@@ -13,7 +13,7 @@ import re
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 SS = 3  # supersample
@@ -55,8 +55,22 @@ def parse_palettes() -> dict[str, dict[str, str]]:
     return {mode: dict(re.findall(r"(\w+):\s*'([^']+)'", block)) for mode, block in sections.items()}
 
 
+def parse_marks() -> dict[str, dict[str, object]]:
+    """Pull the language marks (24x24 paths + brand hex) out of the icon table."""
+    src = (ROOT / "src/lib/languageIcons.ts").read_text()
+    marks: dict[str, dict[str, object]] = {}
+    for block in re.finditer(
+        r"(\w+): \{\s*title: '([^']*)',\s*hex: '(#[0-9a-fA-F]{6})',\s*lift: (\w+),\s*path: '([^']+)'",
+        src,
+    ):
+        key, title, hex_value, lift, path = block.groups()
+        marks[key] = {"title": title, "hex": hex_value, "lift": lift == "true", "path": path}
+    return marks
+
+
 TOKENS = parse_tokens()
 PALETTES = parse_palettes()
+MARKS = parse_marks()
 
 FONT_MONO = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
 FONT_MONO_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
@@ -138,6 +152,165 @@ class Canvas:
         self._layer(
             lambda d: d.text((s(xy[0]), s(xy[1])), value, font=run_font, fill=color(fg, alpha), anchor=anchor)
         )
+
+
+# --------------------------------------------------------------------------- #
+# real language marks (SVG path -> polygons -> PIL)
+# --------------------------------------------------------------------------- #
+
+PATH_RE = re.compile(r"([MmLlHhVvCcSsQqTtAaZz])([^MmLlHhVvCcSsQqTtAaZz]*)")
+NUM_RE = re.compile(r"-?\d*\.?\d+(?:e-?\d+)?")
+
+
+def _arc_points(x0, y0, rx, ry, rotation, large_arc, sweep, x1, y1, steps=12):
+    """Endpoint-parameterised elliptical arc -> list of points."""
+    import math
+
+    if rx == 0 or ry == 0:
+        return [(x1, y1)]
+    phi = math.radians(rotation)
+    dx, dy = (x0 - x1) / 2, (y0 - y1) / 2
+    x1p = math.cos(phi) * dx + math.sin(phi) * dy
+    y1p = -math.sin(phi) * dx + math.cos(phi) * dy
+    rx, ry = abs(rx), abs(ry)
+    lam = (x1p**2) / (rx**2) + (y1p**2) / (ry**2)
+    if lam > 1:
+        rx *= math.sqrt(lam)
+        ry *= math.sqrt(lam)
+    sign = -1 if large_arc == sweep else 1
+    num = max(0.0, rx**2 * ry**2 - rx**2 * y1p**2 - ry**2 * x1p**2)
+    den = rx**2 * y1p**2 + ry**2 * x1p**2
+    coef = sign * math.sqrt(num / den) if den else 0.0
+    cxp = coef * rx * y1p / ry
+    cyp = -coef * ry * x1p / rx
+    cx = math.cos(phi) * cxp - math.sin(phi) * cyp + (x0 + x1) / 2
+    cy = math.sin(phi) * cxp + math.cos(phi) * cyp + (y0 + y1) / 2
+    t0 = math.atan2((y1p - cyp) / ry, (x1p - cxp) / rx)
+    t1 = math.atan2((-y1p - cyp) / ry, (-x1p - cxp) / rx)
+    delta = t1 - t0
+    if sweep and delta < 0:
+        delta += 2 * math.pi
+    elif not sweep and delta > 0:
+        delta -= 2 * math.pi
+    points = []
+    for step in range(1, steps + 1):
+        angle = t0 + delta * step / steps
+        points.append(
+            (
+                cx + rx * math.cos(angle) * math.cos(phi) - ry * math.sin(angle) * math.sin(phi),
+                cy + rx * math.cos(angle) * math.sin(phi) + ry * math.sin(angle) * math.cos(phi),
+            )
+        )
+    return points
+
+
+def path_contours(d: str, steps: int = 8) -> list[list[tuple[float, float]]]:
+    """Flatten an SVG path into closed polygons (enough for logo silhouettes)."""
+    tokens = [(cmd, [float(n) for n in NUM_RE.findall(args)]) for cmd, args in PATH_RE.findall(d)]
+    contours: list[list[tuple[float, float]]] = []
+    current: list[tuple[float, float]] = []
+    x = y = start_x = start_y = 0.0
+    prev_ctrl = None
+    for cmd, nums in tokens:
+        rel = cmd.islower()
+        code = cmd.upper()
+        if code == "M":
+            if current:
+                contours.append(current)
+            x, y = nums[0] + (x if rel else 0), nums[1] + (y if rel else 0)
+            start_x, start_y = x, y
+            current = [(x, y)]
+            for i in range(2, len(nums) - 1, 2):
+                x, y = nums[i] + (x if rel else 0), nums[i + 1] + (y if rel else 0)
+                current.append((x, y))
+        elif code in "LHV":
+            if code == "L":
+                pairs = list(zip(nums[0::2], nums[1::2]))
+            elif code == "H":
+                pairs = [(n, 0.0) for n in nums]
+            else:
+                pairs = [(0.0, n) for n in nums]
+            for dx, dy in pairs:
+                x = dx + (x if rel else 0) if code in "LH" else x
+                y = dy + (y if rel else 0) if code in "LV" else y
+                current.append((x, y))
+        elif code in "CSQT":
+            for i in range(0, len(nums), 6 if code == "C" else 4 if code in "SQ" else 2):
+                if code == "C":
+                    x1, y1, x2, y2, nx, ny = nums[i : i + 6]
+                    if rel:
+                        x1, y1, x2, y2, nx, ny = x1 + x, y1 + y, x2 + x, y2 + y, nx + x, ny + y
+                elif code in "SQ":
+                    x1, y1, nx, ny = nums[i : i + 4]
+                    if rel:
+                        x1, y1, nx, ny = x1 + x, y1 + y, nx + x, ny + y
+                    if code == "S":
+                        x1, y1 = 2 * x - prev_ctrl[0], 2 * y - prev_ctrl[1] if prev_ctrl else (x, y)
+                    else:
+                        x1, y1 = x, y
+                else:
+                    nx, ny = nums[i : i + 2]
+                    if rel:
+                        nx, ny = nx + x, ny + y
+                    x1, y1 = x, y
+                ctrl_x = (x1, y1)
+                for step in range(1, steps + 1):
+                    t = step / steps
+                    if code == "C":
+                        mx = (1 - t) ** 3 * x + 3 * (1 - t) ** 2 * t * x1 + 3 * (1 - t) * t**2 * (x2 if code == "C" else x1) + t**3 * nx
+                        my = (1 - t) ** 3 * y + 3 * (1 - t) ** 2 * t * y1 + 3 * (1 - t) * t**2 * (y2 if code == "C" else y1) + t**3 * ny
+                    else:
+                        mx = (1 - t) ** 2 * x + 2 * (1 - t) * t * x1 + t**2 * nx
+                        my = (1 - t) ** 2 * y + 2 * (1 - t) * t * y1 + t**2 * ny
+                    current.append((mx, my))
+                prev_ctrl = (x2, y2) if code == "C" else ctrl_x
+                x, y = nx, ny
+        elif code == "A":
+            for i in range(0, len(nums), 7):
+                rx, ry, rot, large, sweep, nx, ny = nums[i : i + 7]
+                if rel:
+                    nx, ny = nx + x, ny + y
+                current.extend(_arc_points(x, y, rx, ry, rot, int(large), int(sweep), nx, ny))
+                x, y = nx, ny
+        elif code == "Z":
+            if current:
+                current.append((start_x, start_y))
+                contours.append(current)
+            current = []
+            x, y = start_x, start_y
+    if current:
+        contours.append(current)
+    return contours
+
+
+def draw_mark(canvas, key: str, x: float, y: float, size: float, mode: str) -> None:
+    """Draw a real language mark at (x, y) sized `size`, scaled from its 24 grid.
+
+    Contours are XOR-ed into a mask so counter-shapes (the React atom's rings,
+    the C++ circle) stay open instead of filling in solid."""
+    mark = MARKS[key]
+    scale = size / 24.0
+    fill = str(mark["hex"])
+    if mark["lift"] and mode == "dark":
+        fill = mix(fill, TOKENS["dark"]["text"], 0.55)
+    mask = Image.new("1", canvas.image.size, 0)
+    for contour in path_contours(str(mark["path"])):
+        if len(contour) < 3:
+            continue
+        shape = Image.new("1", canvas.image.size, 0)
+        points = [(s(x + px * scale), s(y + py * scale)) for px, py in contour]
+        ImageDraw.Draw(shape).polygon(points, fill=1)
+        mask = ImageChops.logical_xor(mask, shape)
+    layer = Image.new("RGBA", canvas.image.size, color(fill))
+    layer.putalpha(mask.convert("L").point(lambda v: int(v * 0.82)))
+    canvas.image.alpha_composite(layer)
+
+
+def mix(a: str, b: str, t: float) -> str:
+    """Blend two hex colours (t=0 -> a, t=1 -> b)."""
+    ca, cb = color(a), color(b)
+    out = tuple(int(ca[i] + (cb[i] - ca[i]) * t) for i in range(3))
+    return "#%02x%02x%02x" % out
 
 
 # --------------------------------------------------------------------------- #
@@ -304,25 +477,15 @@ def draw_screen(mode: str) -> Image.Image:
     c.rect((0, tabs_top, W, tabs_top + 38), fill=t("surface"))
     c.rect((0, tabs_top + 37, W, tabs_top + 38), fill=t("border"))
 
-    tabs = [("App.tsx", "tsx", True), ("Task.tsx", "tsx", False), ("styles.css", "#", False)]
+    tabs = [("App.tsx", "tsx", True), ("Task.tsx", "tsx", False), ("styles.css", "css", False)]
     x = 8.0
-    for name, glyph, active in tabs:
-        width = 40 + len(glyph) * 4.6 + len(name) * 6.6
+    for name, mark_key, active in tabs:
+        width = 42 + len(name) * 6.6
         if active:
             c.rect((x, tabs_top + 5, x + width, tabs_top + 40), fill=t("editor-bg"), outline=t("border"), radius=8)
             c.rect((x + 1.2, tabs_top + 35, x + width - 1.2, tabs_top + 39), fill=t("editor-bg"))
-        badge_w = max(16.0, 7.0 + len(glyph) * 4.6)
-        c.rect(
-            (x + 7, tabs_top + 12, x + 7 + badge_w, tabs_top + 28),
-            fill=t("accent") if active else t("surface-2"),
-            outline=t("accent") if active else t("border-strong"),
-            radius=5,
-            width=1,
-            alpha=0.16 if active else 1.0,
-        )
-        c.text((x + 7 + badge_w / 2, tabs_top + 16.2), glyph.lower(),
-               t("accent") if active else t("text-dim"), 7.6, mono=True, anchor="ma", bold=True)
-        c.text((x + 11 + badge_w, tabs_top + 12.5), name, t("text") if active else t("muted"), 11.5, mono=True)
+        draw_mark(canvas, mark_key, x + 8, tabs_top + 12.6, 15, mode)
+        c.text((x + 29, tabs_top + 12.5), name, t("text") if active else t("muted"), 11.5, mono=True)
         if active:
             c.circle((x + width - 12, tabs_top + 20), 2.2, t("muted"))
         x += width + 5

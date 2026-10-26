@@ -118,15 +118,19 @@ Details that matter on a phone:
   accent bar, and the gutter number for that line brightens — you always know where you are.
 - **Quiet gutter.** Line numbers are off-white/dim and only the active one is bold, so dense code
   reads first and chrome reads second.
-- **Language badges, not logos.** Every file name carries a small monogram badge — `py`, `#`,
-  `{}`, `tsx`, `c++` — so you can tell a Python file from a CSS file at a glance without eight
-  brand colours in the tab strip. The badge is grey ink until that file is the one you have open,
-  then it turns mint.
+- **Real language marks.** Every file name carries its actual logo — the React atom on `.tsx`,
+  the Python glyph on `.py`, the CSS shield on `.css`, the Rust cog on `.rs` — sourced from
+  [Simple Icons](https://simpleicons.org) so the shapes and brand colours are the official ones.
+  Colour lives *in the file icon* and nowhere else: the code surface stays monochrome, and the
+  marks are just 15px details that let you spot a file type at a glance. Languages without a
+  mark (plain text) keep a small monogram badge, and near-black marks (Rust, JSON, Markdown) are
+  mixed toward the theme ink so they stay visible on the dark theme.
+  Regenerate the table with `npm run language-icons`.
 - **One hue, not a rainbow.** The editor is a neutral ink ramp — bright for the code you read,
   dim for punctuation and properties, faint italic for comments — plus a single mint that marks
   the words that shape a program (keywords, tags, strings one step softer). One muted red exists
-  only for invalid code. Language-brand colours are gone from the tabs and file lists too: a dot
-  is a grey monogram until the file is the one you have open, then it is mint.
+  only for invalid code. Nothing else in the code area is coloured; the only colour on screen is
+  in the little file-type marks.
 - **Keyboard-aware.** When the OS keyboard opens, `visualViewport` height is measured and the rail
   docks to it (sticky) rather than being pushed off-screen. The ⌄ key dismisses the keyboard.
 - **Both themes are real.** Dark and light are separate palettes for chrome *and* syntax, including

@@ -26,6 +26,8 @@ type Props = {
   onMoveFile: (path: string, folder: string) => void
   onSetEntry: (path: string) => void
   onNotify: (message: string, tone?: 'info' | 'success' | 'error') => void
+  /** Open the project-wide find sheet (this box only filters file names). */
+  onOpenSearch: () => void
 }
 
 const QUICK_FILES = [
@@ -59,6 +61,7 @@ export default function FilesPane({
   onMoveFile,
   onSetEntry,
   onNotify,
+  onOpenSearch,
 }: Props) {
   const [filter, setFilter] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -231,6 +234,14 @@ export default function FilesPane({
             </button>
           )}
         </div>
+        <button
+          className="btn small ghost icon-only"
+          onClick={onOpenSearch}
+          aria-label="Find in files"
+          title="Find in files (⌘⇧F)"
+        >
+          <Icon name="find" size={16} />
+        </button>
         <button className="btn small ghost" onClick={() => setNewMenuOpen(true)}>
           <Icon name="plus" size={16} /> New
         </button>

@@ -59,6 +59,13 @@ const suites = [
     plugins: [],
   },
   {
+    name: 'search',
+    entry: 'scripts/test-search.ts',
+    format: 'esm',
+    out: '.test-search.mjs',
+    plugins: [],
+  },
+  {
     name: 'tree',
     entry: 'scripts/test-tree.ts',
     format: 'esm',

@@ -21,6 +21,8 @@ type Props = {
   unsaved: boolean
   recentPaths: string[]
   editorRef: MutableRefObject<CodyEditorHandle | null>
+  /** A one-shot "put the caret here" request from outside the pane (find in files). */
+  jump: { path: string; line: number; column: number; id: number } | null
   onChangeFile: (path: string, content: string) => void
   onOpenFile: (path: string) => void
   onCloseTab: (path: string) => void
@@ -108,6 +110,7 @@ export default function CodePane({
   unsaved,
   recentPaths,
   editorRef,
+  jump,
   onChangeFile,
   onOpenFile,
   onCloseTab,
@@ -178,6 +181,21 @@ export default function CodePane({
     }, 260)
     return () => clearTimeout(timer)
   }, [file, project.files])
+
+  // Find in files (and anything else outside the pane) asks for one jump. If the
+  // file has to be opened first, the editor is not there yet: park the request
+  // and let onReady apply it once the new document exists.
+  useEffect(() => {
+    if (!jump) return
+    if (file?.path === jump.path && editorRef.current) {
+      pendingJump.current = null
+      editorRef.current.goto(jump.line, jump.column)
+      return
+    }
+    pendingJump.current = { path: jump.path, line: jump.line, column: jump.column }
+    // the request is the trigger; re-running on every render would fight the caret
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jump])
 
   // The linter asks for fixes once per diagnostic. Same content, many
   // positions: compute once per version of the file and reuse.

@@ -3,6 +3,7 @@ import ProjectSwitcher from '../src/components/ProjectSwitcher'
 import ProjectView from '../src/components/ProjectView'
 import SettingsSheet from '../src/components/SettingsSheet'
 import FilesPane from '../src/components/FilesPane'
+import SearchSheet from '../src/components/SearchSheet'
 import RunPanel from '../src/components/RunPanel'
 import CodyPanel from '../src/components/CodyPanel'
 import { DEFAULT_SETTINGS, type Project, type ProjectMeta } from '../src/types'
@@ -112,6 +113,7 @@ const baseProps = {
   onImportProject: noop,
   onDeleteProject: noop,
   editorRef: editorRef as never,
+  onReplaceFiles: noop,
   onSaveNow: noop,
   onUpdateSettings: noop,
 }
@@ -145,6 +147,17 @@ render(
     onDuplicateFile={noop}
     onSetEntry={noop}
     onNotify={notify}
+    onOpenSearch={noop}
+  />,
+)
+render(
+  'SearchSheet (results)',
+  <SearchSheet
+    open
+    files={project.files}
+    onClose={noop}
+    onOpenMatch={noop}
+    onReplace={noop}
   />,
 )
 render(

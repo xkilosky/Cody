@@ -47,6 +47,7 @@ export type IconName =
   | 'zap'
   | 'alert'
   | 'bulb'
+  | 'find'
 
 const PATHS: Record<IconName, string> = {
   logo: 'M9 5 3 12l6 7M15 5l6 7-6 7',
@@ -97,6 +98,7 @@ const PATHS: Record<IconName, string> = {
   // triangle-with-bang: used for problems/errors
   alert: 'M12 4 2.5 20h19L12 4Zm0 5.5v5m0 3.2h.01',
   // lightbulb: code actions
+  find: 'M10.5 3.4a7.1 7.1 0 1 0 0 14.2 7.1 7.1 0 0 0 0-14.2ZM15.6 15.6 21 21M7.6 8h5.8M7.6 10.7h3.9',
   bulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.7.5 1.1h6c0-.4.1-.8.5-1.1A6 6 0 0 0 12 3Z',
 }
 

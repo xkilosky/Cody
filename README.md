@@ -69,6 +69,8 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
   folder…**, duplicate, delete (with confirmation), and set as project entry.
 - **Project operations**: create (name only), open, duplicate, rename (switcher or header), delete
   (from the project menu) — plus the file tree's own count badge, search filter and problem marks.
+- **Find in files** across the whole workspace — grouped results with the matched line, tap to jump,
+  match-case and regex, and a confirmed **Replace all** that writes every changed file at once.
 - Import loose files (multi-select), import a whole folder (`webkitdirectory`), or import a
   `.cody.json` project file.
 - Export a **ZIP** (dependency-free ZIP writer, no libraries) or a portable JSON project, and use
@@ -98,6 +100,30 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 - Curated, offline snippet library (20 snippets) filtered by the language of the file you are
   editing — insert at the cursor or scaffold a new file.
 - Project health at a glance: file/language/runnable counts and each language's runtime.
+
+### Find in files
+The Files tab's box filters **names**; this answers the other question — *where is this used?*
+Open it from the search button in the Files toolbar, **Find in files…** in the project menu, or
+`⌘⇧F` / `Ctrl⇧F`.
+
+- **Every file is searched at once**, and results are grouped by file with the line number and the
+  matching code — the match itself is highlighted, and the preview is a window around it, not the
+  start of the line (so deeply indented code still reads).
+- **Grouped and ordered by how much a file uses the word**, so the file that defines something is
+  usually the first one.
+- **Tap any result** to open that file with the caret already on the match, from whichever tab you
+  started in.
+- **`Aa` and `.*`** switch on match-case and regular expressions. The pattern is anchored to nothing
+  and the search is literal until you ask for regex, so `a.b` means the three characters.
+- **Replace all** is a second step behind a confirmation that names the count
+  (`Replace 7 in 2 files`): it writes every changed file, reports what it changed, and the editor
+  (if the file is open) picks up the new text immediately.
+- **Cheap by construction**: a single pass per file, zero-length matches are stepped over so a
+  pattern like `z*` cannot hang, and the result set stops early (200 matches) so a query that
+  matches everywhere still paints instantly.
+
+The matcher, the preview window and the replacement live in `src/lib/search.ts` — pure, offline, and
+covered by its own suite (50 checks) next to the diagnostics and code-action ones.
 
 ### Smart completions
 - **Suggestions built from your own code.** As you type, Cody offers the variables, functions,
@@ -263,6 +289,7 @@ src/
     ProjectSwitcher.tsx    workspace list, new workspace, rename, import, theme/settings
     ProjectView.tsx        header, tab bar, project menu & sheets
     FilesPane.tsx          file tree, search, file actions
+    SearchSheet.tsx        find in files: results, case/regex, project-wide replace
     CodePane.tsx           editor host + mobile toolbars/sheets
     RunPanel.tsx           entry picker, preview iframe, console, stdin
     CodyPanel.tsx          offline snippet library & project stats
@@ -279,6 +306,7 @@ src/
     languages.ts           28-language registry + lazy CodeMirror grammars
     starter.ts             what a new workspace starts as (three plain files)
     snippets.ts            snippet library
+    search.ts              find in files: matching, previews, replacement
     importExport.ts        ZIP / JSON import-export, share
     zip.ts                 minimal ZIP writer (store + CRC32)
     utils.ts               small shared helpers

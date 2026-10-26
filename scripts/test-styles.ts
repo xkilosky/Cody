@@ -55,6 +55,10 @@ const REQUIRED = [
   '.action-kind.create', '.action-body', '.action-title', '.action-detail', '.tool-count',
   '.cm-bulb-gutter', '.cm-bulb', '.cm-bulb.cm-bulb-fix',
   '.snippet-card', '.runtime-row', '.action-list', '.action-item', '.empty-state',
+  // find in files
+  '.find-field', '.find-field.replacement', '.find-toggle', '.find-toggle.active',
+  '.find-results', '.find-group', '.find-file', '.find-count', '.find-row', '.find-loc',
+  '.find-text', '.find-hit', '.find-empty', '.confirm-row',
 ]
 
 // the shell owns the viewport: an auto-height shell plus a locked body means

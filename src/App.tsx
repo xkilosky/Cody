@@ -367,6 +367,28 @@ export default function App() {
     [commit, notify],
   )
 
+  /** One commit for a project-wide replace: every changed file lands together. */
+  const replaceFiles = useCallback(
+    (changes: Array<{ path: string; content: string }>, total: number) => {
+      if (changes.length === 0) return
+      const next = new Map(changes.map((change) => [change.path, change.content]))
+      commit(
+        (prev) => ({
+          ...prev,
+          files: prev.files.map((file) =>
+            next.has(file.path) ? { ...file, content: next.get(file.path) as string } : file,
+          ),
+        }),
+        true,
+      )
+      notify(
+        `Replaced ${total} match${total === 1 ? '' : 'es'} in ${changes.length} file${changes.length === 1 ? '' : 's'}`,
+        'success',
+      )
+    },
+    [commit, notify],
+  )
+
   const deleteFile = useCallback(
     (path: string) => {
       const current = projectRef.current
@@ -890,6 +912,7 @@ export default function App() {
           onDeleteProject={removeProject}
           onDuplicateProject={(id) => void duplicateProject(id)}
           editorRef={editorHandleRef}
+          onReplaceFiles={replaceFiles}
           onSaveNow={() => {
             const current = projectRef.current
             if (current) {

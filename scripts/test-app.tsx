@@ -573,6 +573,90 @@ async function main() {
   check('syntax colour schemes offered', text().includes('VS Code') && text().includes('One Dark') && text().includes('GitHub'))
   await clickLabel('Close')
 
+  // --- find in files ----------------------------------------------------
+  await click('Files')
+  await wait(200)
+  check('the Files pane offers a project search', Boolean(findByLabel('Find in files')))
+  await clickLabel('Find in files')
+  await wait(250)
+  check('the find sheet opened', text().includes('Find in files'))
+  check('it starts with no results', !dom.window.document.querySelector('.find-group'))
+
+  await typeInto('.find-field input', 'addEventListener')
+  await wait(250)
+  const groups = dom.window.document.querySelectorAll('.find-group')
+  check('searching finds the file that uses the word', groups.length >= 1, `${groups.length} groups`)
+  check('the match is highlighted in the preview', Boolean(dom.window.document.querySelector('.find-hit')))
+  check('the sheet counts its matches', /\d+ match/.test(text()), text().slice(0, 120))
+  const rowLoc = dom.window.document.querySelector('.find-loc')?.textContent ?? ''
+  check('a result carries its line number', /^\d+$/.test(rowLoc.trim()), rowLoc)
+
+  // case sensitivity is a real switch, not a decoration
+  await typeInto('.find-field input', 'ADDEVENTLISTENER')
+  await wait(200)
+  check(
+    'case-insensitive unless asked',
+    dom.window.document.querySelectorAll('.find-group').length >= 1,
+    String(dom.window.document.querySelectorAll('.find-group').length),
+  )
+  await clickLabel('Match case')
+  await wait(200)
+  check(
+    'match case hides the wrong-case hit',
+    dom.window.document.querySelectorAll('.find-group').length === 0 && text().includes('No matches'),
+    String(dom.window.document.querySelectorAll('.find-group').length),
+  )
+  await clickLabel('Match case')
+  await wait(150)
+  await typeInto('.find-field input', 'addEvent')
+  await wait(200)
+  check('and off finds it again', dom.window.document.querySelectorAll('.find-group').length >= 1)
+
+  // tapping a result opens that file with the caret on the match
+  const firstRow = dom.window.document.querySelector<HTMLElement>('.find-row')
+  firstRow?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }))
+  await wait(300)
+  check('the result closed the sheet', !dom.window.document.querySelector('.find-field'))
+  check('the result opened its file', (dom.window.document.querySelector('.tab-chip.active')?.textContent ?? '').includes('app.js'))
+  const caretLine = (text().match(/Ln (\d+), Col (\d+)/) ?? [])[1]
+  check('the caret is on the matched line', Number(caretLine) > 1, `Ln ${caretLine}`)
+
+  // the shortcut is wired, not just written in the menu
+  dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'F', shiftKey: true, metaKey: true, bubbles: true }))
+  await wait(200)
+  check('⌘⇧F opens the find sheet from the editor', Boolean(dom.window.document.querySelector('.find-field')))
+
+  // replace is honest about what it will touch, then writes every file at once
+  await typeInto('.find-field input', 'addEventListener')
+  await wait(200)
+  await click('Replace')
+  await wait(150)
+  check('the replacement field appears', Boolean(dom.window.document.querySelector('.find-field.replacement')))
+  await typeInto('.find-field.replacement input', 'listenHere')
+  await wait(150)
+  await click('Replace all')
+  await wait(200)
+  const confirmLabel = [...buttons()].find((node) => /^Replace \d+ in/.test((node.textContent ?? '').trim()))
+  check('replace asks for confirmation first', Boolean(confirmLabel), confirmLabel?.textContent ?? '')
+  check('nothing was written before the confirm', dom.window.document.querySelector('.find-field') !== null)
+  confirmLabel?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }))
+  await wait(300)
+  check('the replacement closed the sheet', !dom.window.document.querySelector('.find-field'))
+  check('it reports what it changed', /Replaced \d+ match/.test(text()), text().slice(0, 160))
+
+  dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'F', shiftKey: true, metaKey: true, bubbles: true }))
+  await wait(200)
+  await typeInto('.find-field input', 'listenHere')
+  await wait(250)
+  check('the new text is really in the project', dom.window.document.querySelectorAll('.find-group').length >= 1)
+  await typeInto('.find-field input', 'addEventListener')
+  await wait(250)
+  check('and the old text is gone', dom.window.document.querySelectorAll('.find-group').length === 0)
+  await clickLabel('Close')
+  await wait(120)
+  await click('Code')
+  await wait(200)
+
   let failures = 0
   for (const [label, ok, extra] of checks) {
     if (ok) console.log('  ok  ', label)

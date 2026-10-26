@@ -1,4 +1,4 @@
-import { useRef, useState, type MutableRefObject } from 'react'
+import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import type { AppTab, LogEntry, Project, ProjectMeta, RunState, Settings } from '../types'
 import type { CodyEditorHandle } from '../editor/CodeEditor'
 import { languageForPath } from '../lib/languages'
@@ -16,6 +16,7 @@ import FilesPane from './FilesPane'
 import Icon from './Icons'
 import LangIcon from './LangIcon'
 import RunPanel from './RunPanel'
+import SearchSheet from './SearchSheet'
 import Sheet, { PromptSheet } from './Sheet'
 import ProblemMark from './ProblemMark'
 import { problemsAt, useProblemIndex } from '../lib/problemIndex'
@@ -65,6 +66,8 @@ type Props = {
   onDeleteProject: (id: string) => void
   onDuplicateProject: (id: string) => void
   editorRef: MutableRefObject<CodyEditorHandle | null>
+  /** Project-wide replace from the Find sheet; App writes every file at once. */
+  onReplaceFiles: (changes: Array<{ path: string; content: string }>, total: number) => void
   onSaveNow: () => void
   onUpdateSettings?: (patch: Partial<Settings>) => void
 }
@@ -120,6 +123,7 @@ export default function ProjectView(props: Props) {
     onDeleteProject,
     onDuplicateProject,
     editorRef,
+    onReplaceFiles,
     onSaveNow,
     onUpdateSettings,
   } = props
@@ -128,8 +132,31 @@ export default function ProjectView(props: Props) {
   const [renameOpen, setRenameOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [jump, setJump] = useState<{ path: string; line: number; column: number; id: number } | null>(null)
+  const jumpId = useRef(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const jsonInputRef = useRef<HTMLInputElement | null>(null)
+
+  /** Open a file and land the caret on a match, even from another tab. */
+  const openMatch = (path: string, line: number, column: number) => {
+    jumpId.current += 1
+    setTab('code')
+    onOpenFile(path)
+    setJump({ path, line, column, id: jumpId.current })
+  }
+
+  // ⌘⇧F / Ctrl⇧F — the one shortcut a project search deserves.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'f' || !event.shiftKey) return
+      if (!event.metaKey && !event.ctrlKey) return
+      event.preventDefault()
+      setSearchOpen(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const running =
     runState.kind === 'running' || runState.kind === 'bundling' || runState.kind === 'loading-runtime'
@@ -215,6 +242,7 @@ export default function ProjectView(props: Props) {
             onMoveFile={onMoveFile}
             onSetEntry={onSetEntry}
             onNotify={onNotify}
+            onOpenSearch={() => setSearchOpen(true)}
           />
         )}
 
@@ -229,6 +257,7 @@ export default function ProjectView(props: Props) {
             recentPaths={recentPaths}
             onCloseTab={onCloseTab}
             editorRef={editorRef}
+            jump={jump}
             onChangeFile={onChangeFile}
             onOpenFile={onOpenFile}
             onRun={() => onRun()}
@@ -271,6 +300,14 @@ export default function ProjectView(props: Props) {
         )}
       </main>
 
+      <SearchSheet
+        open={searchOpen}
+        files={project.files}
+        onClose={() => setSearchOpen(false)}
+        onOpenMatch={openMatch}
+        onReplace={onReplaceFiles}
+      />
+
       <nav className="tab-bar" role="tablist" aria-label="Project sections">
         {TABS.map((item) => (
           <button
@@ -308,6 +345,17 @@ export default function ProjectView(props: Props) {
           >
             <Icon name="files" size={18} />
             <span>Switch workspace…</span>
+          </button>
+          <button
+            className="action-item"
+            onClick={() => {
+              setMenuOpen(false)
+              setSearchOpen(true)
+            }}
+          >
+            <Icon name="find" size={18} />
+            <span>Find in files…</span>
+            <span className="muted small">⌘⇧F</span>
           </button>
           <button
             className="action-item"

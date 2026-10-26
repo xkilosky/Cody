@@ -1646,6 +1646,155 @@ ol {
   color: var(--muted);
 }
 
+/* ---- find in files ------------------------------------------------------ */
+
+.find-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  height: 42px;
+  margin-bottom: 4px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.find-field.replacement {
+  border-style: dashed;
+}
+
+.find-field input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.find-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.find-toggle {
+  flex: none;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.find-toggle.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.find-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.find-empty strong {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.find-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.find-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.find-file {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 4px 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.find-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--surface-3);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.find-row {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 9px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+}
+
+.find-row:active {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.find-loc {
+  flex: none;
+  min-width: 24px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  text-align: right;
+}
+
+.find-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.find-hit {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.confirm-row {
+  display: flex;
+  gap: 8px;
+}
+
+.confirm-row .btn {
+  flex: 1;
+  min-width: 0;
+}
+
 .problems-empty {
   display: grid;
   justify-items: center;

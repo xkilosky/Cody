@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Project } from '../types'
 import { languageForPath, runtimeLabel } from '../lib/languages'
 import Icon from './Icons'
+import LangIcon from './LangIcon'
 import Sheet, { PromptSheet } from './Sheet'
 import { fileName, normalizePath } from '../lib/utils'
 
@@ -139,7 +140,7 @@ export default function FilesPane({
           style={{ paddingLeft: 12 + depth * 14 }}
         >
           <button className="file-row-main" onClick={() => onOpenFile(node.path)}>
-            <span className="lang-dot" />
+            <LangIcon lang={lang} size={15} />
             <span className="file-name">{node.name}</span>
             {isEntry && <span className="pill tiny">entry</span>}
             {node.path.includes('/') && <span className="file-meta path-hint">{node.path}</span>}

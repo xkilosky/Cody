@@ -245,6 +245,13 @@ async function main() {
   check('file switch remounts editor', Boolean(dom.window.document.querySelector('.cm-editor')))
   check('switched file content loaded', mergedContent.includes('<main') || mergedContent.includes('doctype'), mergedContent.slice(0, 40))
   check('tab strip now has two tabs', dom.window.document.querySelectorAll('.tab-chip').length >= 2)
+  const badge = dom.window.document.querySelector('.tab-chip.active .lang-icon')
+  check('active tab carries a language badge', Boolean(badge), badge?.outerHTML ?? '')
+  check(
+    'badge shows the HTML monogram',
+    badge?.textContent === '<>' && badge.getAttribute('aria-label') === 'HTML',
+    `${badge?.textContent} / ${badge?.getAttribute('aria-label')}`,
+  )
 
   // --- settings sheet ---------------------------------------------------
   await clickLabel('Project menu')

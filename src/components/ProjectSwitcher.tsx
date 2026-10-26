@@ -5,6 +5,7 @@ import { languageForPath } from '../lib/languages'
 import { relativeTime, uid } from '../lib/utils'
 import { filesFromFileList, projectFromJson } from '../lib/importExport'
 import Icon from './Icons'
+import LangIcon from './LangIcon'
 import Sheet, { PromptSheet } from './Sheet'
 
 type Props = {
@@ -214,7 +215,7 @@ export default function ProjectSwitcher({
               const lang = languageForPath(file.path)
               return (
                 <div key={file.path} className="file-preview-row">
-                  <span className="lang-dot" />
+                  <LangIcon lang={lang} size={15} />
                   <span className="grow">{file.path}</span>
                 </div>
               )

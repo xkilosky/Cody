@@ -6,6 +6,8 @@ export type Runtime = 'web' | 'js' | 'python' | 'cloud' | 'none'
 export type LanguageDef = {
   id: string
   label: string
+  /** Two-to-four character monogram drawn in the file icon. */
+  glyph: string
   exts: string[]
   filenames?: string[]
   runtime: Runtime
@@ -15,34 +17,34 @@ export type LanguageDef = {
 }
 
 export const LANGUAGES: LanguageDef[] = [
-  { id: 'javascript', label: 'JavaScript', exts: ['.js', '.mjs', '.cjs'], runtime: 'web', cloud: 'javascript' },
-  { id: 'typescript', label: 'TypeScript', exts: ['.ts'], runtime: 'web', cloud: 'typescript' },
-  { id: 'tsx', label: 'TypeScript JSX', exts: ['.tsx'], runtime: 'web' },
-  { id: 'jsx', label: 'JavaScript JSX', exts: ['.jsx'], runtime: 'web' },
-  { id: 'html', label: 'HTML', exts: ['.html', '.htm'], runtime: 'web' },
-  { id: 'css', label: 'CSS', exts: ['.css', '.scss', '.less'], runtime: 'web' },
-  { id: 'json', label: 'JSON', exts: ['.json'], runtime: 'none' },
-  { id: 'markdown', label: 'Markdown', exts: ['.md', '.mdx'], runtime: 'none' },
-  { id: 'python', label: 'Python', exts: ['.py'], runtime: 'python', cloud: 'python' },
-  { id: 'sql', label: 'SQL', exts: ['.sql'], runtime: 'cloud', cloud: 'sqlite3' },
-  { id: 'xml', label: 'XML / SVG', exts: ['.xml', '.svg'], runtime: 'web', cloud: 'xml' },
-  { id: 'yaml', label: 'YAML', exts: ['.yaml', '.yml'], runtime: 'none' },
-  { id: 'toml', label: 'TOML', exts: ['.toml'], runtime: 'none' },
-  { id: 'shell', label: 'Shell', exts: ['.sh', '.bash', '.zsh'], filenames: ['.bashrc', '.zshrc'], runtime: 'cloud', cloud: 'bash' },
-  { id: 'c', label: 'C', exts: ['.c', '.h'], runtime: 'cloud', cloud: 'c' },
-  { id: 'cpp', label: 'C++', exts: ['.cpp', '.cc', '.cxx', '.hpp'], runtime: 'cloud', cloud: 'c++' },
-  { id: 'java', label: 'Java', exts: ['.java'], runtime: 'cloud', cloud: 'java' },
-  { id: 'csharp', label: 'C#', exts: ['.cs'], runtime: 'cloud', cloud: 'csharp' },
-  { id: 'go', label: 'Go', exts: ['.go'], runtime: 'cloud', cloud: 'go' },
-  { id: 'rust', label: 'Rust', exts: ['.rs'], runtime: 'cloud', cloud: 'rust' },
-  { id: 'php', label: 'PHP', exts: ['.php'], runtime: 'cloud', cloud: 'php' },
-  { id: 'ruby', label: 'Ruby', exts: ['.rb'], runtime: 'cloud', cloud: 'ruby' },
-  { id: 'lua', label: 'Lua', exts: ['.lua'], runtime: 'cloud', cloud: 'lua' },
-  { id: 'swift', label: 'Swift', exts: ['.swift'], runtime: 'cloud', cloud: 'swift' },
-  { id: 'kotlin', label: 'Kotlin', exts: ['.kt', '.kts'], runtime: 'cloud', cloud: 'kotlin' },
-  { id: 'dockerfile', label: 'Dockerfile', exts: ['.dockerfile'], filenames: ['Dockerfile'], runtime: 'none' },
-  { id: 'diff', label: 'Diff', exts: ['.diff', '.patch'], runtime: 'none' },
-  { id: 'text', label: 'Plain text', exts: ['.txt', '.env', '.gitignore'], filenames: ['.env', '.gitignore', 'LICENSE'], runtime: 'none' },
+  { id: 'javascript', label: 'JavaScript', glyph: 'js', exts: ['.js', '.mjs', '.cjs'], runtime: 'web', cloud: 'javascript' },
+  { id: 'typescript', label: 'TypeScript', glyph: 'ts', exts: ['.ts'], runtime: 'web', cloud: 'typescript' },
+  { id: 'tsx', label: 'TypeScript JSX', glyph: 'tsx', exts: ['.tsx'], runtime: 'web' },
+  { id: 'jsx', label: 'JavaScript JSX', glyph: 'jsx', exts: ['.jsx'], runtime: 'web' },
+  { id: 'html', label: 'HTML', glyph: '<>', exts: ['.html', '.htm'], runtime: 'web' },
+  { id: 'css', label: 'CSS', glyph: '#', exts: ['.css', '.scss', '.less'], runtime: 'web' },
+  { id: 'json', label: 'JSON', glyph: '{}', exts: ['.json'], runtime: 'none' },
+  { id: 'markdown', label: 'Markdown', glyph: 'md', exts: ['.md', '.mdx'], runtime: 'none' },
+  { id: 'python', label: 'Python', glyph: 'py', exts: ['.py'], runtime: 'python', cloud: 'python' },
+  { id: 'sql', label: 'SQL', glyph: 'sql', exts: ['.sql'], runtime: 'cloud', cloud: 'sqlite3' },
+  { id: 'xml', label: 'XML / SVG', glyph: 'xml', exts: ['.xml', '.svg'], runtime: 'web', cloud: 'xml' },
+  { id: 'yaml', label: 'YAML', glyph: 'yml', exts: ['.yaml', '.yml'], runtime: 'none' },
+  { id: 'toml', label: 'TOML', glyph: 'toml', exts: ['.toml'], runtime: 'none' },
+  { id: 'shell', label: 'Shell', glyph: '$', exts: ['.sh', '.bash', '.zsh'], filenames: ['.bashrc', '.zshrc'], runtime: 'cloud', cloud: 'bash' },
+  { id: 'c', label: 'C', glyph: 'c', exts: ['.c', '.h'], runtime: 'cloud', cloud: 'c' },
+  { id: 'cpp', label: 'C++', glyph: 'c++', exts: ['.cpp', '.cc', '.cxx', '.hpp'], runtime: 'cloud', cloud: 'c++' },
+  { id: 'java', label: 'Java', glyph: 'java', exts: ['.java'], runtime: 'cloud', cloud: 'java' },
+  { id: 'csharp', label: 'C#', glyph: 'c#', exts: ['.cs'], runtime: 'cloud', cloud: 'csharp' },
+  { id: 'go', label: 'Go', glyph: 'go', exts: ['.go'], runtime: 'cloud', cloud: 'go' },
+  { id: 'rust', label: 'Rust', glyph: 'rs', exts: ['.rs'], runtime: 'cloud', cloud: 'rust' },
+  { id: 'php', label: 'PHP', glyph: 'php', exts: ['.php'], runtime: 'cloud', cloud: 'php' },
+  { id: 'ruby', label: 'Ruby', glyph: 'rb', exts: ['.rb'], runtime: 'cloud', cloud: 'ruby' },
+  { id: 'lua', label: 'Lua', glyph: 'lua', exts: ['.lua'], runtime: 'cloud', cloud: 'lua' },
+  { id: 'swift', label: 'Swift', glyph: 'swift', exts: ['.swift'], runtime: 'cloud', cloud: 'swift' },
+  { id: 'kotlin', label: 'Kotlin', glyph: 'kt', exts: ['.kt', '.kts'], runtime: 'cloud', cloud: 'kotlin' },
+  { id: 'dockerfile', label: 'Dockerfile', glyph: 'docker', exts: ['.dockerfile'], filenames: ['Dockerfile'], runtime: 'none' },
+  { id: 'diff', label: 'Diff', glyph: '±', exts: ['.diff', '.patch'], runtime: 'none' },
+  { id: 'text', label: 'Plain text', glyph: 'txt', exts: ['.txt', '.env', '.gitignore'], filenames: ['.env', '.gitignore', 'LICENSE'], runtime: 'none' },
 ]
 
 const BY_EXT = new Map<string, LanguageDef>()

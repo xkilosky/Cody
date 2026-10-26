@@ -14,6 +14,7 @@ import CodePane from './CodePane'
 import CodyPanel from './CodyPanel'
 import FilesPane from './FilesPane'
 import Icon from './Icons'
+import LangIcon from './LangIcon'
 import RunPanel from './RunPanel'
 import Sheet, { PromptSheet } from './Sheet'
 
@@ -435,7 +436,7 @@ export default function ProjectView(props: Props) {
                 onSetRunEntry(file.path)
               }}
             >
-              <span className="lang-dot" />
+              <LangIcon path={file.path} size={15} />
               <span className="grow">{file.path}</span>
               {project.entry === file.path && <Icon name="check" size={16} />}
             </button>

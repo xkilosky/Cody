@@ -32,8 +32,8 @@ def parse_tokens() -> dict[str, dict[str, str]]:
         "dark": css[:light_at],
         "light": css[light_at : css.index("* {", light_at)],
     }
-    keys = ["bg", "bg-elevated", "surface", "surface-2", "surface-3", "border", "text",
-            "text-dim", "muted", "accent", "editor-bg", "warn", "error"]
+    keys = ["bg", "bg-elevated", "surface", "surface-2", "surface-3", "border", "border-strong",
+            "text", "text-dim", "muted", "accent", "editor-bg", "warn", "error"]
     out: dict[str, dict[str, str]] = {"dark": {}, "light": {}}
     for mode, block in blocks.items():
         for key in keys:
@@ -304,15 +304,25 @@ def draw_screen(mode: str) -> Image.Image:
     c.rect((0, tabs_top, W, tabs_top + 38), fill=t("surface"))
     c.rect((0, tabs_top + 37, W, tabs_top + 38), fill=t("border"))
 
-    tabs = [("App.tsx", True), ("Task.tsx", False), ("styles.css", False)]
+    tabs = [("App.tsx", "tsx", True), ("Task.tsx", "tsx", False), ("styles.css", "#", False)]
     x = 8.0
-    for name, active in tabs:
-        width = 36 + len(name) * 6.6
+    for name, glyph, active in tabs:
+        width = 40 + len(glyph) * 4.6 + len(name) * 6.6
         if active:
             c.rect((x, tabs_top + 5, x + width, tabs_top + 40), fill=t("editor-bg"), outline=t("border"), radius=8)
             c.rect((x + 1.2, tabs_top + 35, x + width - 1.2, tabs_top + 39), fill=t("editor-bg"))
-        c.circle((x + 12, tabs_top + 20), 3.0, t("accent") if active else t("muted"), 1.0 if active else 0.5)
-        c.text((x + 20, tabs_top + 12.5), name, t("text") if active else t("muted"), 11.5, mono=True)
+        badge_w = max(16.0, 7.0 + len(glyph) * 4.6)
+        c.rect(
+            (x + 7, tabs_top + 12, x + 7 + badge_w, tabs_top + 28),
+            fill=t("accent") if active else t("surface-2"),
+            outline=t("accent") if active else t("border-strong"),
+            radius=5,
+            width=1,
+            alpha=0.16 if active else 1.0,
+        )
+        c.text((x + 7 + badge_w / 2, tabs_top + 16.2), glyph.lower(),
+               t("accent") if active else t("text-dim"), 7.6, mono=True, anchor="ma", bold=True)
+        c.text((x + 11 + badge_w, tabs_top + 12.5), name, t("text") if active else t("muted"), 11.5, mono=True)
         if active:
             c.circle((x + width - 12, tabs_top + 20), 2.2, t("muted"))
         x += width + 5

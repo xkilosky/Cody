@@ -3,6 +3,7 @@ import type { Project } from '../types'
 import { languageForPath, runtimeLabel } from '../lib/languages'
 import { SNIPPETS, snippetsFor, type Snippet } from '../lib/snippets'
 import Icon from './Icons'
+import LangIcon from './LangIcon'
 import { copyText } from '../lib/utils'
 
 type Props = {
@@ -214,7 +215,7 @@ export default function CodyPanel({
         <div className="runtime-list">
           {[...new Set(project.files.map((file) => languageForPath(file.path)))].slice(0, 6).map((lang) => (
             <div key={lang.id} className="runtime-row">
-              <span className="lang-dot" />
+              <LangIcon lang={lang} size={15} />
               <span className="grow">{lang.label}</span>
               <span className="muted small">{runtimeLabel(lang.runtime)}</span>
             </div>

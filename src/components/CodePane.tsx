@@ -4,6 +4,7 @@ import type { CodyEditorHandle, CursorInfo } from '../editor/CodeEditor'
 import CodeEditor from '../editor/CodeEditor'
 import { languageForPath } from '../lib/languages'
 import Icon from './Icons'
+import LangIcon from './LangIcon'
 import Sheet from './Sheet'
 import { bytesOf, fileName, formatBytes } from '../lib/utils'
 
@@ -167,7 +168,7 @@ export default function CodePane({
                   setSwitcherOpen(false)
                 }}
               >
-                <span className="lang-dot" />
+                <LangIcon path={item.path} size={15} />
                 <span>{item.path}</span>
               </button>
             ))}
@@ -206,7 +207,7 @@ export default function CodePane({
                   onClick={() => onOpenFile(path)}
                   title={path}
                 >
-                  <span className="lang-dot" />
+                  <LangIcon lang={tabLang} active={isActive} size={15} />
                   <span className="tab-name">{fileName(path)}</span>
                 </button>
                 {isActive && unsaved && <span className="dirty-dot" aria-label="Unsaved changes" />}
@@ -358,7 +359,7 @@ export default function CodePane({
                 setFilter('')
               }}
             >
-              <span className="lang-dot" />
+              <LangIcon path={item.path} size={15} />
               <span className="grow">{item.path}</span>
               {runEntry === item.path && <span className="pill tiny">entry</span>}
             </button>

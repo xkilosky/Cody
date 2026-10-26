@@ -8,9 +8,9 @@ browser, real Python in the browser, a cloud sandbox for compiled languages, and
 of a runnable project.
 
 **It opens as an editor, not a landing page.** Cold start drops you straight into a workspace with
-the code on screen — no hero, no marketing, no empty dashboard. Workspaces, templates, imports and
-settings live in a switcher sheet one tap (or `⌘K` / `Ctrl+K`) away, and the app remembers the
-workspace you were in.
+the code on screen — no hero, no marketing, no empty dashboard. Workspaces, imports and settings
+live in a switcher sheet one tap (or `⌘K` / `Ctrl+K`) away, and the app remembers the workspace you
+were in.
 
 No backend. No install step. No account. Projects are stored on the device (IndexedDB) and
 nothing leaves it unless you explicitly run a cloud-sandbox language.
@@ -55,17 +55,19 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 - Autocomplete, bracket matching, bracket closing, multi-cursor, search panel, fold-aware editing.
 
 ### Workspaces & files
-- First launch creates a runnable scratch workspace (HTML + CSS + JS) and opens `index.html`.
-- Workspace switcher (header chevron or `⌘K`): open, create, duplicate, delete, import, theme,
-  settings — all as sheets over the editor.
-- Templates: Web app, React + TypeScript, Python, Node API, C, Go, Rust, Java, Three.js, blank.
+- First launch creates a runnable plain workspace (HTML + CSS + JS) and opens `index.html`.
+- Workspace switcher (header chevron or `⌘K`): open, create, duplicate, rename, delete, import,
+  theme, settings — all as sheets over the editor.
+- **No template gallery.** A new workspace is a name and one button: it starts as three plain files
+  (`index.html`, `styles.css`, `app.js`) that already run, and you delete or add from there. The
+  sheet spells the starter out before you commit, so nothing is a surprise.
 - **Folders are real objects**, not just path prefixes: create one with **Files → New → New folder**,
   and it stays even while empty (it lives in `project.folders`). Every folder row has its own
   actions: new file here, new folder inside, rename (contents move with it), duplicate (copies the
   whole subtree), collapse/expand and delete (with a warning that lists what will be lost).
 - **File operations**: create (root or inside a folder), read, rename/move by path, **move to a
   folder…**, duplicate, delete (with confirmation), and set as project entry.
-- **Project operations**: create from a template, open, duplicate, rename at the top, delete
+- **Project operations**: create (name only), open, duplicate, rename (switcher or header), delete
   (from the project menu) — plus the file tree's own count badge, search filter and problem marks.
 - Import loose files (multi-select), import a whole folder (`webkitdirectory`), or import a
   `.cody.json` project file.
@@ -258,7 +260,7 @@ fallback to `index.html`. To install it on a phone, open the deployment URL and 
 src/
   App.tsx                  app shell: routing, state, persistence, run orchestration
   components/
-    ProjectSwitcher.tsx    workspace list, new-from-template, import, theme/settings
+    ProjectSwitcher.tsx    workspace list, new workspace, rename, import, theme/settings
     ProjectView.tsx        header, tab bar, project menu & sheets
     FilesPane.tsx          file tree, search, file actions
     CodePane.tsx           editor host + mobile toolbars/sheets
@@ -275,7 +277,7 @@ src/
     cloud.ts               Piston client + runner health check
     storage.ts             IndexedDB (localStorage fallback) persistence
     languages.ts           28-language registry + lazy CodeMirror grammars
-    templates.ts           project templates
+    starter.ts             what a new workspace starts as (three plain files)
     snippets.ts            snippet library
     importExport.ts        ZIP / JSON import-export, share
     zip.ts                 minimal ZIP writer (store + CRC32)
@@ -305,7 +307,7 @@ relative import you add to the project resolves without configuration.
 
 - Projects, settings and the last-open project live in IndexedDB on your device (with a
   localStorage fallback), including "backup all" → one JSON file.
-- Browser previews run locally. React/Three.js templates fetch their packages from `esm.sh`,
+- Browser previews run locally. React projects fetch their packages from `esm.sh`,
   Python fetches Pyodide from `jsDelivr`, and cloud-sandbox languages send the single entry file to
   the configured Piston endpoint (public by default; point it at your own in Settings).
 

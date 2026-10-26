@@ -4,7 +4,7 @@
  */
 import { JSDOM } from 'jsdom'
 import { bundleProject } from '../src/lib/bundle'
-import { TEMPLATES, projectFromTemplate } from '../src/lib/templates'
+import { TEMPLATES, projectFromTemplate } from './fixtures/templates'
 
 const checks: Array<[string, boolean, string?]> = []
 const check = (label: string, ok: boolean, extra?: string) => checks.push([label, ok, extra])

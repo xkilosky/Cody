@@ -37,9 +37,10 @@ const REQUIRED = [
   // panes
   '.pane', '.pane-toolbar', '.file-row', '.file-row-main', '.file-row-wrap', '.file-name',
   '.run-pane', '.console', '.console-area', '.log-row', '.log-text', '.log-time', '.log-source',
-  // switcher + templates
-  '.switcher-list', '.switcher-row', '.switcher-main', '.switcher-emoji', '.switcher-text',
-  '.current-pill', '.template-list', '.template-row', '.project-meta',
+  // switcher + new workspace
+  '.switcher-list', '.switcher-row', '.switcher-main', '.switcher-mark', '.switcher-text',
+  '.current-pill', '.project-meta', '.new-workspace',
+  '.create-form', '.starter-list', '.starter-row',
   // generic controls
   '.chip', '.chip-row', '.field-label', '.text-input', '.search-field', '.clear-btn',
   '.segmented', '.count-badge', '.spinner', '.pill', '.icon-btn',

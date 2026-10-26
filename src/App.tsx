@@ -28,7 +28,7 @@ import {
   saveSettings,
   setValue,
 } from './lib/storage'
-import { projectFromTemplate, scratchProject, type Template } from './lib/templates'
+import { blankProject } from './lib/starter'
 
 type Cleanup = () => void
 
@@ -80,7 +80,7 @@ export default function App() {
       if (lastId) target = await loadProject(lastId)
       if (!target && metas.length > 0) target = await loadProject(metas[0].id)
       if (!target) {
-        target = scratchProject()
+        target = blankProject()
         await saveProject(target)
       }
       if (cancelled || !target) return
@@ -90,7 +90,7 @@ export default function App() {
       setBooting(false)
       if (firstRun) {
         setTimeout(
-          () => notify('Fresh workspace — tap ← for templates and other projects', 'info'),
+          () => notify('Fresh workspace — tap the workspace name to switch or start another', 'info'),
           700,
         )
       }
@@ -213,14 +213,32 @@ export default function App() {
   /* ---------------------------------------------------------------- */
 
   const createProject = useCallback(
-    async (template: Template, name?: string) => {
-      const next = projectFromTemplate(template, name)
+    async (name?: string) => {
+      const next = blankProject(name)
       await saveProject(next)
       await refreshProjects()
       enterProject(next)
       notify(`Created ${next.name}`, 'success')
     },
     [enterProject, notify, refreshProjects],
+  )
+
+  const renameProject = useCallback(
+    async (id: string, next: string) => {
+      const name = next.trim()
+      if (!name) return
+      const current = projectRef.current
+      if (current && current.id === id) {
+        commit((prev) => ({ ...prev, name }), true)
+      } else {
+        const found = await loadProject(id)
+        if (!found) return
+        await saveProject({ ...found, name, updatedAt: Date.now() })
+      }
+      await refreshProjects()
+      notify(`Renamed to ${name}`, 'success')
+    },
+    [commit, notify, refreshProjects],
   )
 
   const openProject = useCallback(
@@ -247,7 +265,7 @@ export default function App() {
         if (next) {
           enterProject(next)
         } else {
-          const scratch = scratchProject()
+          const scratch = blankProject()
           await saveProject(scratch)
           await refreshProjects()
           enterProject(scratch)
@@ -899,6 +917,7 @@ export default function App() {
         settings={settings}
         onClose={() => setSwitcherOpen(false)}
         onCreate={createProject}
+        onRename={renameProject}
         onOpen={openProject}
         onDelete={removeProject}
         onDuplicate={duplicateProject}

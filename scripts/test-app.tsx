@@ -174,47 +174,70 @@ async function main() {
   await click('Output')
   check('console recorded the run', text().includes('module') || text().includes('Browser'))
 
-  // --- workspace switcher: create a project from a template -------------
+  // --- workspace switcher: create a workspace, no template --------------
   await clickLabel('Switch workspace')
   await wait(250)
   check('switcher opened', text().includes('Workspaces'))
   check('current workspace marked', text().includes('Untitled'))
+  check('a new workspace is one tap away', Boolean(findByText('New workspace')))
 
-  await click('New')
-  await wait(200)
-  check('template list shown', text().includes('React + TypeScript'))
-
-  await click('Web app')
-  await wait(250)
-  check('template prompt opened', text().includes('New Web app project'))
-  await typeInto('.sheet input.text-input', 'Smoke app')
-  await click('Create')
-  await wait(600)
+  await click('New workspace')
+  await wait(300)
+  check('the create sheet asks for a name', Boolean(dom.window.document.querySelector('#workspace-name')))
+  check('no template gallery is offered', !text().includes('React + TypeScript') && !text().includes('Web app'))
+  const starterRows = [...dom.window.document.querySelectorAll('.starter-row')].map((row) => row.textContent ?? '')
+  check(
+    'the plain starter is spelled out before creating',
+    starterRows.length === 3 && starterRows.some((row) => row.includes('index.html')),
+    starterRows.join(' | '),
+  )
+  await typeInto('#workspace-name', 'Smoke app')
+  await click('Create workspace')
+  await wait(700)
   check('new project opened', text().includes('Smoke app'))
   check('switcher closed after create', !text().includes('Workspaces'))
   check('new project has index.html', text().includes('index.html'))
+  check('new project carries the plain starter files', text().includes('app.js') || text().includes('styles.css'))
 
   // the switcher reopens on the list and keeps the previous workspace
   await clickLabel('Switch workspace')
   await wait(250)
   check('switcher reopens on the list', text().includes('Untitled') && text().includes('Smoke app'))
 
-  // --- a React workspace transpiles + import-maps in the preview ---------
-  await click('New')
-  await wait(200)
-  await click('React + TypeScript')
-  await wait(250)
-  await typeInto('.sheet input.text-input', 'React smoke')
-  await click('Create')
+  // the starter is a real project, not a placeholder
+  const { STARTER_FILES, blankProject } = await import('../src/lib/starter')
+  const sample = blankProject('A & B')
+  check('a new workspace is exactly the three plain files', STARTER_FILES.length === 3 && sample.files.length === 3)
+  check('a nameless workspace is still named', blankProject('   ').name === 'Untitled')
+  check('the name is escaped into the page title', sample.files[0].content.includes('<title>A &amp; B</title>'))
+  check(
+    'the starter already runs: html links its own css and js',
+    sample.files[0].content.includes('./styles.css') && sample.files[0].content.includes('./app.js'),
+  )
+  check('the starter opens on index.html', sample.entry === 'index.html')
+
+  // renaming a workspace from the list
+  await clickLabel('Actions for Smoke app')
+  await wait(300)
+  await click('Rename')
+  await wait(300)
+  await typeInto('.sheet input.text-input', 'Renamed app')
+  await click('Rename')
   await wait(600)
-  check('react workspace opened', text().includes('React smoke'))
-  await clickLabel('Run project')
+  check('renaming a workspace updates the list', text().includes('Renamed app'), text().slice(0, 80))
+
+  // --- switching between workspaces --------------------------------------
+  await clickLabel('Switch workspace')
+  await wait(300)
+  await click('Untitled')
   await wait(600)
-  const reactDoc =
-    dom.window.document.querySelector<HTMLIFrameElement>('iframe.preview-frame')?.getAttribute('srcdoc') ?? ''
-  check('react preview has an import map', reactDoc.includes('type="importmap"'))
-  check('react preview maps project modules', reactDoc.includes('https://cody.local/src/main.tsx'))
-  check('react preview transpiled JSX', !reactDoc.includes('useState<Item[]>'))
+  check('picking a workspace in the list opens it', text().includes('Untitled'))
+  check('the picked workspace brings its own files', text().includes('index.html'))
+  await clickLabel('Switch workspace')
+  await wait(300)
+  await click('Renamed app')
+  await wait(600)
+  check('and back again', text().includes('Renamed app'))
 
   // --- create files and folders -----------------------------------------
   await click('Files')
@@ -329,9 +352,20 @@ async function main() {
   check('editor toolbar present', Boolean(findByLabel('Undo') && findByLabel('Find')))
 
   // --- smart autocomplete ----------------------------------------------
-  // Run the member check on a real JS file: open src/App.tsx from the tree.
+  // A .tsx file for the member check — created here, since the workspace
+  // starts as a plain three-file project with no template.
   await click('Files')
   await wait(200)
+  await click('New')
+  await wait(120)
+  await click('New file')
+  await wait(150)
+  await typeInto('.sheet input.text-input', 'src/App.tsx')
+  await click('Create file')
+  await wait(400)
+  await click('Files')
+  await wait(250)
+  check('a tsx file can be created by path', fileList().includes('App.tsx'))
   await click('App.tsx')
   await wait(500)
   check('editor rail offers a suggestions button', Boolean(findByLabel('Suggest completions')))

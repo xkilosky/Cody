@@ -1,6 +1,7 @@
-import type { Project, ProjectFile } from '../types'
-import type { Runtime } from './languages'
-import { uid } from './utils'
+/* eslint-disable */
+import type { Project, ProjectFile } from '../../src/types'
+import type { Runtime } from '../../src/lib/languages'
+import { uid } from '../../src/lib/utils'
 
 export type Template = {
   id: string

@@ -1,5 +1,5 @@
 import { bundleProject, resolveEntry, transpile } from '../src/lib/bundle'
-import { TEMPLATES, projectFromTemplate } from '../src/lib/templates'
+import { TEMPLATES, projectFromTemplate } from './fixtures/templates'
 
 let failures = 0
 function check(name: string, condition: boolean, extra?: unknown) {

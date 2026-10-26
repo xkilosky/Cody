@@ -6,7 +6,7 @@ import FilesPane from '../src/components/FilesPane'
 import RunPanel from '../src/components/RunPanel'
 import CodyPanel from '../src/components/CodyPanel'
 import { DEFAULT_SETTINGS, type Project, type ProjectMeta } from '../src/types'
-import { TEMPLATES, projectFromTemplate } from '../src/lib/templates'
+import { TEMPLATES, projectFromTemplate } from './fixtures/templates'
 import { createRef } from 'react'
 
 const noop = () => {}

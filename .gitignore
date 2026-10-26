@@ -8,3 +8,5 @@ dist-ssr/
 .vite/
 coverage/
 *.log
+__pycache__/
+*.pyc

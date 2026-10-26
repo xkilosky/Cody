@@ -45,6 +45,13 @@ const suites = [
     plugins: [],
   },
   {
+    name: 'completions',
+    entry: 'scripts/test-completions.ts',
+    format: 'esm',
+    out: '.test-completions.mjs',
+    plugins: [],
+  },
+  {
     name: 'tree',
     entry: 'scripts/test-tree.ts',
     format: 'esm',

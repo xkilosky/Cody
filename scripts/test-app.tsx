@@ -312,6 +312,57 @@ async function main() {
   check('code editor mounted', Boolean(dom.window.document.querySelector('.cm-editor')))
   check('editor toolbar present', Boolean(findByLabel('Undo') && findByLabel('Find')))
 
+  // --- smart autocomplete ----------------------------------------------
+  // Run the member check on a real JS file: open src/App.tsx from the tree.
+  await click('Files')
+  await wait(200)
+  await click('App.tsx')
+  await wait(500)
+  check('editor rail offers a suggestions button', Boolean(findByLabel('Suggest completions')))
+  await clickLabel('Suggest completions')
+  await wait(400)
+  const completions = dom.window.document.querySelectorAll('.cm-tooltip-autocomplete li')
+  check('suggestions open from the rail', completions.length > 0, `${completions.length} items`)
+  const labels = [...completions].map((li) => li.textContent ?? '')
+  check(
+    'suggestions come from the project, not a fixed list',
+    labels.some((label) => label.includes('import') || label.includes('const') || label.includes('App')),
+    labels.join(' | ').slice(0, 120),
+  )
+
+  // a dot must offer the members of that value, not the whole word list
+  const { EditorView: View2 } = await import('@codemirror/view')
+  const cmHost = dom.window.document.querySelector('.cm-content') as HTMLElement | null
+  const liveView = cmHost ? View2.findFromDOM(cmHost as never) : null
+  if (liveView) {
+    const original = liveView.state.doc.toString()
+    const extra = '\nconst demoList = [1, 2]\ndemoList.'
+    liveView.dispatch({
+      changes: { from: original.length, insert: extra },
+      selection: { anchor: original.length + extra.length },
+    })
+    await wait(150)
+    await clickLabel('Suggest completions')
+    await wait(400)
+    const memberLabels = [...dom.window.document.querySelectorAll('.cm-tooltip-autocomplete li')].map(
+      (li) => li.textContent ?? '',
+    )
+    check(
+      'a dot offers members of that value',
+      memberLabels.some((label) => label.includes('map')),
+      memberLabels.join(' | ').slice(0, 140),
+    )
+    check('members are not the whole file', memberLabels.length > 0 && memberLabels.length < 40, String(memberLabels.length))
+    liveView.dispatch({ changes: { from: 0, to: liveView.state.doc.length, insert: original } })
+    await wait(200)
+  }
+
+  // back to the entry file for the remaining checks
+  await click('Files')
+  await wait(200)
+  await click('index.html')
+  await wait(400)
+
   // --- build assist -----------------------------------------------------
   await click('Build')
   await wait(200)

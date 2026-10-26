@@ -29,13 +29,15 @@ import {
   redo as redoCommand,
   undo as undoCommand,
 } from '@codemirror/commands'
-import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
+import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, startCompletion } from '@codemirror/autocomplete'
 import { bracketMatching, indentOnInput } from '@codemirror/language'
 import { searchKeymap, openSearchPanel } from '@codemirror/search'
 import { linter, lintGutter, type Diagnostic as CmDiagnostic } from '@codemirror/lint'
 import { editorThemeFor } from './theme'
-import { loadLanguageExtension } from '../lib/languages'
+import { createCompletionSource, type CompletionOptions } from './completions'
+import { languageForPath, loadLanguageExtension } from '../lib/languages'
 import type { Diagnostic } from '../lib/diagnostics'
+import type { ProjectFile } from '../types'
 import type { Settings } from '../types'
 
 export type CursorInfo = {
@@ -59,6 +61,8 @@ export type CodyEditorHandle = {
   scrollToTop: () => void
   /** Jump to a 1-based line/column, e.g. from the problems list. */
   goto: (line: number, column?: number) => void
+  /** Open the suggestion list (the rail has no Ctrl-Space on a phone). */
+  complete: () => void
   getView: () => EditorView | null
 }
 
@@ -76,6 +80,8 @@ type Props = {
   onDirty?: () => void
   /** Returns the file's problems; used to draw squiggles and gutter markers. */
   lint?: (content: string) => Diagnostic[]
+  /** Other files in the project, so exports can be suggested by name. */
+  projectFiles?: ProjectFile[]
 }
 
 function readCursor(view: EditorView): CursorInfo {
@@ -149,6 +155,7 @@ export default function CodeEditor({
   onDestroy,
   onCursor,
   lint,
+  projectFiles,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -161,6 +168,11 @@ export default function CodeEditor({
   const onDestroyRef = useRef(onDestroy)
   const onCursorRef = useRef(onCursor)
   const lintRef = useRef(lint)
+  const completionOptions = useRef<CompletionOptions>({
+    languageId: languageForPath(path).id,
+    files: projectFiles,
+    path,
+  })
   const cursorFrame = useRef<number | null>(null)
   const [langReady, setLangReady] = useState(false)
 
@@ -170,6 +182,12 @@ export default function CodeEditor({
   onDestroyRef.current = onDestroy
   onCursorRef.current = onCursor
   lintRef.current = lint
+  completionOptions.current = { languageId: languageForPath(path).id, files: projectFiles, path }
+
+  const completionSource = useMemo(
+    () => createCompletionSource(() => completionOptions.current),
+    [],
+  )
 
   // Create the view once.
   useEffect(() => {
@@ -178,6 +196,9 @@ export default function CodeEditor({
       doc: value,
       extensions: [
         ...baseExtensions(settings),
+        // register an extra autocomplete source; the language packages keep
+        // their own (HTML tags, CSS properties) because this only adds data
+        EditorState.languageData.of(() => [{ autocomplete: completionSource }]),
         langCompartment.of([]),
         settingsCompartment.of(settingsExtensions(settings)),
         readOnlyCompartment.of(EditorState.readOnly.of(Boolean(readOnly))),
@@ -309,6 +330,7 @@ export default function CodeEditor({
       redo: () => redoCommand(view),
       openSearch: () => openSearchPanel(view),
       scrollToTop: () => view.dispatch({ selection: { anchor: 0 }, scrollIntoView: true }),
+      complete: () => startCompletion(view),
       goto: (line: number, column = 1) => {
         const target = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines))
         const anchor = Math.min(target.from + Math.max(0, column - 1), target.to)

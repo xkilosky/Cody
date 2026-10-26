@@ -97,6 +97,23 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
   editing — insert at the cursor or scaffold a new file.
 - Project health at a glance: file/language/runnable counts and each language's runtime.
 
+### Smart completions
+- **Suggestions built from your own code.** As you type, Cody offers the variables, functions,
+  classes and types this file declares — with their signatures — plus keywords, and the exports of
+  every other file in the project (tagged with `./src/utils.ts` so you know where it comes from).
+- **Members after a dot.** `cart.` offers what `Cart` declares; `items.` knows it is an array;
+  `title.` offers string methods; `user.` offers the object literal's keys; `this.` offers the
+  enclosing class; `document.` / `console.` / `Math.` / `JSON.` / `res.` (a promise) all resolve.
+  An unknown receiver still lists every member the file declares instead of nothing.
+- **Quiet in the wrong places.** No suggestions inside strings or comments, and none in markup or
+  data files, where the HTML/CSS/JSON language packages already do a better job.
+- **Touch-sized.** Rows are 9px-padded with the signature right-aligned, capped at 38vh so the
+  keyboard stays visible, and there is a ✨ button in the editor rail for when the phone keyboard
+  has no `Ctrl-Space`.
+- **How it works.** `src/editor/completions.ts` blanks out strings and comments (offsets preserved),
+  scans for declarations and class/object members, resolves the receiver left of the dot, and ranks
+  by prefix. Pure and offline: no type checker, no server, no telemetry.
+
 ### Finding bugs
 - **Live bug detection, offline, no server.** The status strip shows `No problems` or `1 error · 2 warnings`
   for the open file; tap it for the **Problems** sheet, which groups every issue by file with its

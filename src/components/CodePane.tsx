@@ -260,6 +260,7 @@ export default function CodePane({
           onRun={onRun}
           onCursor={setCursor}
           lint={(content) => lintFile(file.path, content)}
+          projectFiles={project.files}
           onReady={(instance) => {
             editorRef.current = instance
             setCursor(instance.cursor())
@@ -335,6 +336,14 @@ export default function CodePane({
             aria-label="Find"
           >
             <Icon name="search" size={18} />
+          </button>
+          <button
+            className="tool-btn"
+            onClick={() => editorRef.current?.complete()}
+            aria-label="Suggest completions"
+            title="Suggestions (Ctrl-Space)"
+          >
+            <Icon name="sparkles" size={18} />
           </button>
           <button className="tool-btn" onClick={() => setTypeOpen(true)} aria-label="Text options">
             <span className="tool-glyph">Aa</span>

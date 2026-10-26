@@ -38,6 +38,13 @@ const suites = [
     externals: ['jsdom'],
   },
   {
+    name: 'styles',
+    entry: 'scripts/test-styles.ts',
+    format: 'esm',
+    out: '.test-styles.mjs',
+    plugins: [],
+  },
+  {
     name: 'smoke',
     entry: 'scripts/test-app.tsx',
     format: 'cjs',

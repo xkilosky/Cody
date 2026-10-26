@@ -1,142 +1,92 @@
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import type { Extension } from '@codemirror/state'
 import { tags as t } from '@lezer/highlight'
+import { paletteFor, type Palette } from './syntaxThemes'
 
-type Palette = {
-  bg: string
-  fg: string
-  dim: string
-  faint: string
-  caret: string
-  selection: string
-  selectionMatch: string
-  activeLine: string
-  gutterFg: string
-  gutterActive: string
-  panel: string
-  border: string
-  /** Four syntax hues and a grey ramp. Nothing else is coloured. */
-  keyword: string
-  string: string
-  number: string
-  func: string
-  comment: string
-  property: string
-  operator: string
-  /** One muted red, reserved for invalid code. */
-  invalid: string
-}
-
-/** Two palettes, four hues.
+/** Builds the CodeMirror theme + highlight style for one real editor scheme.
  *
- *  Syntax has to be *read*: a keyword, a string, a number and a function body
- *  should not all be the same grey. But an editor on a phone is not a
- *  highlighter demo either, so the palette is deliberately small — mint for the
- *  words that shape a program (keywords, tags, `self`), warm sand for strings
- *  and literals, steel blue for things you can call or construct, mauve for
- *  numbers and constants — over a neutral ink ramp for everything else.
- *  Comments fade to italic grey, properties to dim grey, punctuation to faint
- *  grey, so structure recedes and no line turns into confetti. */
-const DARK: Palette = {
-  bg: '#0a0a0b',
-  fg: '#dcdcdf',
-  dim: '#8f8f97',
-  faint: '#61616a',
-  caret: '#5ce1b9',
-  selection: 'rgba(150, 168, 255, 0.18)',
-  selectionMatch: 'rgba(150, 168, 255, 0.1)',
-  activeLine: 'rgba(255, 255, 255, 0.04)',
-  gutterFg: '#4a4a51',
-  gutterActive: '#c8c8cd',
-  panel: '#141416',
-  border: '#27272b',
-  keyword: '#7ddcb8',
-  string: '#d6bd93',
-  number: '#c3a9e8',
-  func: '#9dc0e8',
-  comment: '#6b6b74',
-  property: '#a2a2ab',
-  operator: '#6b6b74',
-  invalid: '#e06c6c',
+ *  The token mapping is deliberately semantic, so it colours *all* languages:
+ *  whatever grammar is loaded (Lezer for JS/TS/Python/HTML/CSS/JSON/Markdown/
+ *  SQL/XML/Java/C++/Go/Rust/PHP, stream parsers for the rest) emits the same
+ *  standard tags, and each tag lands on the same colour that editor would use. */
+function highlightStyle(p: Palette) {
+  return HighlightStyle.define([
+    // keywords & control flow
+    {
+      tag: [t.keyword, t.definitionKeyword, t.moduleKeyword, t.modifier, t.self, t.standard(t.name)],
+      color: p.keyword,
+    },
+    {
+      tag: [t.controlKeyword, t.controlOperator, t.definitionOperator, t.updateOperator],
+      color: p.control,
+    },
+    // literals
+    { tag: [t.string, t.special(t.string), t.character, t.docString], color: p.string },
+    { tag: [t.regexp], color: p.regexp },
+    {
+      tag: [t.number, t.integer, t.float, t.bool, t.null, t.atom, t.constant(t.name), t.literal, t.unit],
+      color: p.number,
+    },
+    { tag: [t.escape], color: p.escape },
+    // names
+    { tag: [t.function(t.variableName), t.function(t.propertyName), t.labelName, t.macroName], color: p.func },
+    { tag: [t.typeName, t.className, t.namespace, t.definition(t.typeName)], color: p.type },
+    { tag: [t.propertyName], color: p.property },
+    { tag: [t.variableName, t.definition(t.variableName), t.local(t.variableName), t.name], color: p.variable },
+    // markup
+    { tag: [t.tagName, t.angleBracket], color: p.tag },
+    { tag: [t.attributeName], color: p.attr },
+    { tag: [t.attributeValue], color: p.string },
+    { tag: [t.heading, t.heading1, t.heading2, t.heading3, t.heading4], color: p.heading, fontWeight: '700' },
+    { tag: [t.link, t.url], color: p.link, textDecoration: 'underline' },
+    { tag: [t.monospace], color: p.string },
+    { tag: [t.list], color: p.keyword },
+    // structural
+    { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: p.comment, fontStyle: 'italic' },
+    { tag: [t.operator, t.operatorKeyword, t.derefOperator, t.arithmeticOperator, t.logicOperator, t.bitwiseOperator, t.compareOperator], color: p.operator },
+    {
+      tag: [t.punctuation, t.bracket, t.separator, t.squareBracket, t.paren, t.brace],
+      color: p.punctuation,
+    },
+    { tag: [t.meta, t.annotation, t.processingInstruction, t.documentMeta], color: p.meta },
+    // state
+    { tag: [t.invalid], color: p.invalid },
+    { tag: [t.deleted], color: p.invalid },
+    { tag: [t.inserted, t.changed], color: p.string },
+    { tag: [t.strong], fontWeight: '700' },
+    { tag: [t.emphasis], fontStyle: 'italic' },
+    { tag: [t.strikethrough], textDecoration: 'line-through' },
+  ])
 }
 
-const LIGHT: Palette = {
-  bg: '#ffffff',
-  fg: '#1c1c1f',
-  dim: '#5c5c64',
-  faint: '#8e8e96',
-  caret: '#0f9d76',
-  selection: 'rgba(59, 88, 200, 0.16)',
-  selectionMatch: 'rgba(59, 88, 200, 0.09)',
-  activeLine: '#f6f6f7',
-  gutterFg: '#b4b4bb',
-  gutterActive: '#3d3d44',
-  panel: '#f5f5f6',
-  border: '#e4e4e7',
-  keyword: '#0b7a5c',
-  string: '#8a5a1a',
-  number: '#6b3fa0',
-  func: '#2c5c9e',
-  comment: '#8a8a92',
-  property: '#4b4b52',
-  operator: '#a0a0a8',
-  invalid: '#b3403f',
-}
-
-function theme(p: Palette, dark: boolean) {
+function editorTheme(p: Palette, dark: boolean) {
   return EditorView.theme(
     {
-      '&': {
-        color: p.fg,
-        backgroundColor: p.bg,
-        height: '100%',
-        fontSize: 'inherit',
-      },
+      '&': { color: p.fg, backgroundColor: p.bg, height: '100%', fontSize: 'inherit' },
       '.cm-scroller': {
         overflow: 'auto',
         WebkitOverflowScrolling: 'touch',
         fontFamily: 'var(--mono)',
       },
-      '.cm-content': {
-        caretColor: p.caret,
-        padding: '8px 0 45vh 0',
-        lineHeight: '1.62',
-      },
+      '.cm-content': { caretColor: p.fg, padding: '8px 0 45vh 0', lineHeight: '1.62' },
       '.cm-line': { padding: '0 14px 0 6px' },
       '&.cm-focused': { outline: 'none' },
-      // caret + selection
-      '.cm-cursor, .cm-dropCursor': {
-        borderLeftColor: p.caret,
-        borderLeftWidth: '2px',
-      },
+      '.cm-cursor, .cm-dropCursor': { borderLeftColor: p.fg, borderLeftWidth: '2px' },
       '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':
         { backgroundColor: p.selection },
-      '.cm-selectionMatch': { backgroundColor: p.selectionMatch },
+      '.cm-selectionMatch': { backgroundColor: p.selection, opacity: '0.55' },
       '.cm-activeLine': { backgroundColor: p.activeLine },
-      // gutter: quiet until the active line
       '.cm-gutters': {
         backgroundColor: p.bg,
-        color: p.gutterFg,
+        color: p.gutter,
         border: 'none',
         paddingLeft: '2px',
         fontVariantNumeric: 'tabular-nums',
       },
-      '.cm-lineNumbers .cm-gutterElement': {
-        padding: '0 8px 0 6px',
-        minWidth: '22px',
-        fontSize: '0.82em',
-      },
-      '.cm-activeLineGutter': {
-        backgroundColor: 'transparent',
-        color: p.gutterActive,
-        fontWeight: '600',
-      },
-      '.cm-foldPlaceholder': {
-        backgroundColor: p.panel,
-        border: `1px solid ${p.border}`,
-        color: p.gutterFg,
-      },
-      // autocomplete + tooltips
+      '.cm-lineNumbers .cm-gutterElement': { padding: '0 8px 0 6px', minWidth: '22px', fontSize: '0.82em' },
+      '.cm-activeLineGutter': { backgroundColor: 'transparent', color: p.gutterActive, fontWeight: '600' },
+      '.cm-foldPlaceholder': { backgroundColor: p.panel, border: `1px solid ${p.border}`, color: p.gutter },
       '.cm-tooltip': {
         backgroundColor: p.panel,
         border: `1px solid ${p.border}`,
@@ -148,18 +98,12 @@ function theme(p: Palette, dark: boolean) {
       '.cm-tooltip-autocomplete > ul': { fontFamily: 'var(--mono)', fontSize: '12.5px' },
       '.cm-tooltip-autocomplete > ul > li': { padding: '7px 10px' },
       '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-        backgroundColor: dark ? '#26262b' : '#eeeeef',
+        backgroundColor: p.selection,
         color: p.fg,
       },
       '.cm-panels': { backgroundColor: p.panel, color: p.fg },
       '.cm-panels.cm-panels-top': { borderBottom: `1px solid ${p.border}` },
-      '.cm-panel.cm-search': {
-        padding: '8px 10px',
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '6px',
-        alignItems: 'center',
-      },
+      '.cm-panel.cm-search': { padding: '8px 10px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' },
       '.cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label': {
         fontSize: '12px',
         borderRadius: '8px',
@@ -179,89 +123,38 @@ function theme(p: Palette, dark: boolean) {
         color: p.fg,
         padding: '7px 10px',
       },
-      '.cm-panel.cm-search label': { color: p.gutterFg, fontSize: '11px' },
-      '.cm-searchMatch': {
-        backgroundColor: dark ? 'rgba(255, 255, 255, .14)' : 'rgba(0, 0, 0, .09)',
-        outline: `1px solid ${p.faint}`,
-        borderRadius: '2px',
-      },
-      '.cm-searchMatch.cm-searchMatch-selected': {
-        backgroundColor: dark ? 'rgba(125, 220, 184, .28)' : 'rgba(11, 122, 92, .18)',
-      },
+      '.cm-panel.cm-search label': { color: p.gutter, fontSize: '11px' },
+      '.cm-searchMatch': { backgroundColor: `${p.link}44`, outline: `1px solid ${p.link}88`, borderRadius: '2px' },
+      '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: `${p.link}77` },
       '.cm-matchingBracket, &.cm-focused .cm-matchingBracket': {
-        backgroundColor: dark ? 'rgba(125, 220, 184, .18)' : 'rgba(11, 122, 92, .14)',
-        outline: `1px solid ${dark ? 'rgba(125,220,184,.45)' : 'rgba(11,122,92,.4)'}`,
+        backgroundColor: `${p.link}33`,
+        outline: `1px solid ${p.link}aa`,
         borderRadius: '2px',
       },
       '.cm-nonmatchingBracket': { color: p.invalid },
-      '.cm-placeholder': { color: p.faint, fontStyle: 'italic' },
+      '.cm-placeholder': { color: p.gutter, fontStyle: 'italic' },
       '.cm-selectionBackground': { borderRadius: '1px' },
     },
     { dark },
   )
 }
 
-function highlight(p: Palette) {
-  return HighlightStyle.define([
-    // mint — the words that shape a program
-    {
-      tag: [
-        t.keyword, t.controlKeyword, t.moduleKeyword, t.definitionKeyword, t.modifier,
-        t.self, t.controlOperator, t.definitionOperator, t.tagName, t.angleBracket,
-      ],
-      color: p.keyword,
-    },
-    // sand — text that the program carries around
-    {
-      tag: [
-        t.string, t.special(t.string), t.character, t.regexp, t.attributeValue,
-        t.escape, t.docString,
-      ],
-      color: p.string,
-    },
-    // mauve — values and constants
-    {
-      tag: [t.number, t.integer, t.float, t.bool, t.null, t.atom, t.constant(t.name), t.literal, t.unit],
-      color: p.number,
-    },
-    // steel — things you call, construct or name as a type
-    {
-      tag: [
-        t.function(t.variableName), t.function(t.propertyName), t.labelName, t.macroName,
-        t.typeName, t.className, t.namespace, t.standard(t.name), t.definition(t.typeName),
-      ],
-      color: p.func,
-    },
-    { tag: [t.color], color: p.number },
-    { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: p.comment, fontStyle: 'italic' },
-    { tag: [t.propertyName, t.attributeName], color: p.property },
-    { tag: [t.operator, t.operatorKeyword, t.derefOperator, t.updateOperator], color: p.operator },
-    {
-      tag: [t.punctuation, t.bracket, t.separator, t.squareBracket, t.paren, t.brace, t.compareOperator, t.arithmeticOperator, t.logicOperator, t.bitwiseOperator],
-      color: p.faint,
-    },
-    { tag: [t.meta, t.annotation, t.processingInstruction, t.documentMeta], color: p.comment },
-    { tag: [t.variableName, t.name, t.definition(t.name)], color: p.fg },
-    { tag: [t.heading, t.heading1, t.heading2, t.heading3], color: p.keyword, fontWeight: '700' },
-    { tag: [t.strong], color: p.fg, fontWeight: '700' },
-    { tag: [t.emphasis], fontStyle: 'italic' },
-    { tag: [t.strikethrough], textDecoration: 'line-through' },
-    { tag: [t.link, t.url], color: p.func, textDecoration: 'underline' },
-    { tag: [t.list], color: p.keyword },
-    { tag: [t.monospace], color: p.string },
-    { tag: [t.inserted], color: p.keyword },
-    { tag: [t.deleted], color: p.invalid },
-    { tag: [t.changed], color: p.number },
-    { tag: [t.invalid], color: p.invalid },
-  ])
+export type EditorTheme = { theme: Extension; highlight: Extension }
+
+const cache = new Map<string, EditorTheme>()
+
+/** Memoised theme + highlight pair for a real syntax scheme. */
+export function editorThemeFor(syntaxThemeId: string, mode: 'dark' | 'light'): EditorTheme {
+  const key = `${syntaxThemeId}:${mode}`
+  const hit = cache.get(key)
+  if (hit) return hit
+  const palette = paletteFor(syntaxThemeId, mode)
+  const built: EditorTheme = {
+    theme: editorTheme(palette, mode === 'dark'),
+    highlight: syntaxHighlighting(highlightStyle(palette)),
+  }
+  cache.set(key, built)
+  return built
 }
 
-/** Raw highlight styles — also used by scripts/test-syntax.ts to prove tokens
- *  actually get distinct styles for every language. */
-export const codyHighlightStyleDark = highlight(DARK)
-export const codyHighlightStyleLight = highlight(LIGHT)
-
-export const codyDarkTheme = theme(DARK, true)
-export const codyLightTheme = theme(LIGHT, false)
-export const codyHighlightDark = syntaxHighlighting(codyHighlightStyleDark)
-export const codyHighlightLight = syntaxHighlighting(codyHighlightStyleLight)
+export { highlightStyle as buildHighlightStyle, editorTheme as buildEditorTheme }

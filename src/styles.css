@@ -1925,6 +1925,18 @@ ol {
   border-bottom: 0;
 }
 
+/* Rows that need their control underneath (theme pickers, long labels). */
+.setting-row.column {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: start;
+  gap: 9px;
+}
+
+.setting-row.column .chip-row {
+  width: 100%;
+}
+
 .setting-row strong {
   font-size: 13.5px;
   display: block;

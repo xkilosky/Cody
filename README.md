@@ -126,16 +126,14 @@ Details that matter on a phone:
   mark (plain text) keep a small monogram badge, and near-black marks (Rust, JSON, Markdown) are
   mixed toward the theme ink so they stay visible on the dark theme.
   Regenerate the table with `npm run language-icons`.
-- **Four hues, not a rainbow.** Syntax has to be readable: a keyword, a string, a number and a
-  function name should not all be the same grey. So the palette is a small, deliberate set —
-  **mint** for keywords, tags and `self`, **sand** for strings and text, **mauve** for numbers and
-  constants, **steel** for things you call or construct — over a neutral ink ramp (bright for
-  identifiers, dim for properties, faint for punctuation, italic grey for comments). One muted
-  red exists only for invalid code. Six colours total, all shared by both themes, which is why
-  the code reads as code instead of an ink blot or a bowl of confetti.
-  Every language gets its own grammar: JS/TS/TSX, Python, HTML, CSS, JSON, Markdown, SQL, XML,
-  YAML, TOML, Shell, C, C++, Java, C#, Go, Rust, PHP, Ruby, Lua, Swift, Kotlin, Dockerfile and
-  Diff — each lazily loaded, so a phone only downloads the grammar it opens.
+- **Real syntax colours, not a bespoke palette.** Syntax colour schemes people already read every
+  day, with their published token colours: **VS Code Dark+/Light+** (default), **One Dark** and
+  **GitHub Dark/Light** — pick one in Settings → Appearance. Because a scheme is a token mapping
+  rather than a per-language table, all 27 languages get the same, correct colours: keywords blue,
+  strings orange, comments green, function names sand-yellow, types teal (VS Code Dark+ values).
+- **A grammar for every language.** JS/TS/TSX, Python, HTML, CSS, JSON, Markdown, SQL, XML, YAML,
+  TOML, Shell, C, C++, Java, C#, Go, Rust, PHP, Ruby, Lua, Swift, Kotlin, Dockerfile and Diff —
+  each lazily loaded, so a phone only downloads the grammar it opens.
 - **Keyboard-aware.** When the OS keyboard opens, `visualViewport` height is measured and the rail
   docks to it (sticky) rather than being pushed off-screen. The ⌄ key dismisses the keyboard.
 - **Both themes are real.** Dark and light are separate palettes for chrome *and* syntax, including

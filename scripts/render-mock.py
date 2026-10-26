@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Render a high-fidelity mock of Cody's editor screen.
 
-Not a device screenshot: every colour is parsed from `src/styles.css` and
-`src/editor/theme.ts`, and the layout mirrors the real DOM (tab strip → editor
+Not a device screenshot: every colour is parsed from `src/styles.css` and the
+real VS Code Dark+/Light+ scheme in `src/editor/syntaxThemes.ts`, and the layout
+mirrors the real DOM (tab strip → editor
 → status strip → keyboard rail → tab bar), including soft-wrapped lines.
 
 Usage: python3 scripts/render-mock.py [out.png]
@@ -46,13 +47,28 @@ def parse_tokens() -> dict[str, dict[str, str]]:
     return out
 
 
+def _balanced(src: str, start: int) -> str:
+    """Return the {...} block that starts at `start`."""
+    depth = 0
+    for index in range(start, len(src)):
+        if src[index] == "{":
+            depth += 1
+        elif src[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[start + 1 : index]
+    raise ValueError("unbalanced block")
+
+
 def parse_palettes() -> dict[str, dict[str, str]]:
-    src = (ROOT / "src/editor/theme.ts").read_text()
-    sections = {
-        "dark": src[src.index("const DARK: Palette = {"): src.index("const LIGHT: Palette = {")],
-        "light": src[src.index("const LIGHT: Palette = {"): src.index("function theme(")],
-    }
-    return {mode: dict(re.findall(r"(\w+):\s*'([^']+)'", block)) for mode, block in sections.items()}
+    """Read the real syntax scheme (VS Code Dark+/Light+) out of syntaxThemes.ts."""
+    src = (ROOT / "src/editor/syntaxThemes.ts").read_text()
+    out: dict[str, dict[str, str]] = {}
+    for mode, name in (("dark", "VSCODE_DARK"), ("light", "VSCODE_LIGHT")):
+        at = src.index(f"const {name}: Palette = {{")
+        block = _balanced(src, src.index("{", at))
+        out[mode] = dict(re.findall(r"(\w+):\s*'([^']+)'", block))
+    return out
 
 
 def parse_marks() -> dict[str, dict[str, object]]:
@@ -84,9 +100,9 @@ KIND_TO_TOKEN = {
     "string": "string",
     "comment": "comment",
     "number": "number",
-    "operator": "operator",
+    "operator": "punctuation",
     "func": "func",
-    "type": "func",
+    "type": "type",
     "fg": "fg",
 }
 
@@ -482,8 +498,8 @@ def draw_screen(mode: str) -> Image.Image:
     for name, mark_key, active in tabs:
         width = 42 + len(name) * 6.6
         if active:
-            c.rect((x, tabs_top + 5, x + width, tabs_top + 40), fill=t("editor-bg"), outline=t("border"), radius=8)
-            c.rect((x + 1.2, tabs_top + 35, x + width - 1.2, tabs_top + 39), fill=t("editor-bg"))
+            c.rect((x, tabs_top + 5, x + width, tabs_top + 40), fill=p("bg"), outline=t("border"), radius=8)
+            c.rect((x + 1.2, tabs_top + 35, x + width - 1.2, tabs_top + 39), fill=p("bg"))
         draw_mark(canvas, mark_key, x + 8, tabs_top + 12.6, 15, mode)
         c.text((x + 29, tabs_top + 12.5), name, t("text") if active else t("muted"), 11.5, mono=True)
         if active:
@@ -499,7 +515,7 @@ def draw_screen(mode: str) -> Image.Image:
     STATUS_H = 26
     TABBAR_H = 62
     ed_bottom = H - TABBAR_H - STATUS_H - RAIL_H
-    c.rect((0, ed_top, W, ed_bottom), fill=t("editor-bg"))
+    c.rect((0, ed_top, W, ed_bottom), fill=p("bg"))
 
     font_size = 12.6
     line_h = 20.4
@@ -529,7 +545,7 @@ def draw_screen(mode: str) -> Image.Image:
         if first:
             is_active = number == active_line
             c.text((gutter_w - 9, y + 3.4), str(number),
-                   p("gutterActive") if is_active else p("gutterFg"), 10.2, mono=True, anchor="ra",
+                   p("gutterActive") if is_active else p("gutter"), 10.2, mono=True, anchor="ra",
                    bold=is_active)
         cx = text_x
         for text, kind in runs:
@@ -537,7 +553,7 @@ def draw_screen(mode: str) -> Image.Image:
             cx += code_font.getlength(text) / SS
         if number == active_line and part == 0:
             caret_x = text_x + char_w * (caret_col - 1)
-            c.rect((caret_x, y + 2.5, caret_x + 1.8, y + line_h - 2.5), fill=p("caret"), radius=0.6)
+            c.rect((caret_x, y + 2.5, caret_x + 1.8, y + line_h - 2.5), fill=p("fg"), radius=0.6)
 
     c.rect((gutter_w, ed_top, gutter_w + 0.7, ed_bottom), fill=t("surface-3"))
 

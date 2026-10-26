@@ -268,6 +268,7 @@ async function main() {
   await click('App settings')
   await wait(200)
   check('settings opened', text().includes('Runner') && text().includes('Piston'))
+  check('syntax colour schemes offered', text().includes('VS Code') && text().includes('One Dark') && text().includes('GitHub'))
   await clickLabel('Close')
 
   let failures = 0

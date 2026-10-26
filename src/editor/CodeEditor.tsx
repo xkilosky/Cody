@@ -32,7 +32,7 @@ import {
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
 import { bracketMatching, indentOnInput } from '@codemirror/language'
 import { searchKeymap, openSearchPanel } from '@codemirror/search'
-import { codyDarkTheme, codyLightTheme, codyHighlightDark, codyHighlightLight } from './theme'
+import { editorThemeFor } from './theme'
 import { loadLanguageExtension } from '../lib/languages'
 import type { Settings } from '../types'
 
@@ -112,8 +112,7 @@ function baseExtensions(settings: Settings): Extension[] {
 }
 
 function settingsExtensions(settings: Settings): Extension {
-  const theme = settings.theme === 'dark' ? codyDarkTheme : codyLightTheme
-  const highlight = settings.theme === 'dark' ? codyHighlightDark : codyHighlightLight
+  const { theme, highlight } = editorThemeFor(settings.syntaxTheme, settings.theme)
   const font = settings.fontFamily === 'serif' ? 'Georgia, "Iowan Old Style", "Times New Roman", serif' : 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
   return [
     theme,

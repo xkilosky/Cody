@@ -29,6 +29,8 @@ export type ThemeName = 'dark' | 'light'
 
 export type Settings = {
   theme: ThemeName
+  /** Syntax colour scheme: 'vscode' | 'onedark' | 'github'. */
+  syntaxTheme: string
   fontFamily: 'mono' | 'serif'
   fontSize: number
   tabSize: number
@@ -42,6 +44,7 @@ export type Settings = {
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'dark',
+  syntaxTheme: 'vscode',
   fontFamily: 'mono',
   fontSize: 13,
   tabSize: 2,

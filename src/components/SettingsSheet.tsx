@@ -5,6 +5,7 @@ import { downloadText, formatBytes } from '../lib/utils'
 import { loadProject } from '../lib/storage'
 import { projectToJson } from '../lib/importExport'
 import Icon from './Icons'
+import { SYNTAX_THEMES } from '../editor/syntaxThemes'
 import Sheet from './Sheet'
 
 type Props = {
@@ -107,6 +108,24 @@ export default function SettingsSheet({ open, settings, projects, onChange, onCl
             >
               <Icon name="sun" size={14} /> Light
             </button>
+          </div>
+        </div>
+        <div className="setting-row column">
+          <div>
+            <strong>Syntax colors</strong>
+            <p>Real editor palettes, applied to every language.</p>
+          </div>
+          <div className="chip-row wrap">
+            {Object.entries(SYNTAX_THEMES).map(([id, scheme]) => (
+              <button
+                key={id}
+                className={`chip${settings.syntaxTheme === id ? ' active' : ''}`}
+                aria-pressed={settings.syntaxTheme === id}
+                onClick={() => onChange({ syntaxTheme: id })}
+              >
+                {scheme.label}
+              </button>
+            ))}
           </div>
         </div>
         <div className="setting-row">
@@ -225,6 +244,7 @@ export default function SettingsSheet({ open, settings, projects, onChange, onCl
             onClick={() => {
               onChange({
                 theme: 'dark',
+                syntaxTheme: 'vscode',
                 fontFamily: 'mono',
                 fontSize: 13,
                 tabSize: 2,

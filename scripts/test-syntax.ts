@@ -10,7 +10,8 @@ import { EditorState } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
 import { highlightTree } from '@lezer/highlight'
 import { LANGUAGES, loadLanguageExtension } from '../src/lib/languages'
-import { codyHighlightStyleDark, codyHighlightStyleLight } from '../src/editor/theme'
+import { buildHighlightStyle, editorThemeFor } from '../src/editor/theme'
+import { SYNTAX_THEMES, paletteFor } from '../src/editor/syntaxThemes'
 
 let failed = 0
 function check(name: string, ok: boolean, detail = '') {
@@ -56,10 +57,15 @@ const SAMPLES: Record<string, string> = {
 /** Tokens whose styling this suite insists on seeing per language family. */
 type Sample = { code: string; classes: Set<string>; text: Map<string, Set<string>> }
 
-async function style(code: string, languageId: string, light = false): Promise<Sample> {
+async function style(
+  code: string,
+  languageId: string,
+  scheme = 'vscode',
+  mode: 'dark' | 'light' = 'dark',
+): Promise<Sample> {
   const lang = await loadLanguageExtension(languageId)
   const state = EditorState.create({ doc: code, extensions: [lang] })
-  const style_ = light ? codyHighlightStyleLight : codyHighlightStyleDark
+  const style_ = buildHighlightStyle(paletteFor(scheme, mode))
   const classes = new Set<string>()
   const text = new Map<string, Set<string>>()
   highlightTree(syntaxTree(state), style_, (from, to, cls) => {
@@ -106,10 +112,49 @@ check('json: keys and strings differ from numbers', CLASS_OF(json, '"name"') !==
 const md = await style(SAMPLES.markdown, 'markdown')
 check('markdown: heading styled', Boolean(CLASS_OF(md, 'Cody')), 'Cody (heading text)')
 
-const lightPy = await style(SAMPLES.python, 'python', true)
+const lightPy = await style(SAMPLES.python, 'python', 'vscode', 'light')
 check('light theme styles too', lightPy.classes.size >= 2 && [...lightPy.classes].join() !== [...py.classes].join(), [...lightPy.classes].join(','))
 
 check('every advertised language has a sample', Object.keys(SAMPLES).length === LANGUAGES.filter((l) => l.id !== 'text').length)
+
+// --- real schemes, not a bespoke palette ------------------------------
+const schemeIds = Object.keys(SYNTAX_THEMES)
+check('ships known editor schemes', schemeIds.join(',') === 'vscode,onedark,github', schemeIds.join(','))
+
+for (const id of schemeIds) {
+  let styled = 0
+  let worst = ''
+  for (const language of LANGUAGES) {
+    const sample = SAMPLES[language.id]
+    if (!sample) continue
+    const result = await style(sample, language.id, id)
+    if (result.classes.size >= 2) styled += 1
+    else worst ||= language.id
+  }
+  check(`${id}: styles every language (${styled}/${Object.keys(SAMPLES).length})`, styled === Object.keys(SAMPLES).length, worst)
+
+  const dark = paletteFor(id, 'dark')
+  check(`${id}: has distinct keyword/string/comment colours`, new Set([dark.keyword, dark.string, dark.comment, dark.number, dark.func]).size === 5, JSON.stringify([dark.keyword, dark.string, dark.comment]))
+}
+
+// VS Code's published Dark+ values must survive edits to the table.
+const vscode = paletteFor('vscode', 'dark')
+check(
+  'vscode dark+ uses its real token colours',
+  vscode.keyword === '#569cd6' && vscode.string === '#ce9178' && vscode.comment === '#6a9955' && vscode.func === '#dcdcaa' && vscode.type === '#4ec9b0',
+  JSON.stringify(vscode),
+)
+const vscodeLight = paletteFor('vscode', 'light')
+check(
+  'vscode light+ uses its real token colours',
+  vscodeLight.keyword === '#0000ff' && vscodeLight.string === '#a31515' && vscodeLight.comment === '#008000',
+  JSON.stringify(vscodeLight),
+)
+
+// The CodeMirror theme must actually expose those colours to the DOM.
+const built = editorThemeFor('vscode', 'dark')
+check('theme builds for the live editor', Boolean(built.theme && built.highlight))
+check('theme is memoised', editorThemeFor('vscode', 'dark') === built)
 
 console.log(failed === 0 ? '\nAll syntax checks passed' : `\n${failed} syntax check(s) failed`)
 process.exit(failed === 0 ? 0 : 1)

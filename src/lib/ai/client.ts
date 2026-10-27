@@ -70,6 +70,12 @@ const providerCooldown = new Map<string, number>()
  * guaranteed 400 on every later turn.
  */
 const toolNudge = new Set<string>()
+/**
+ * What `/models` said last time, per provider. The curated ids are hints and
+ * hints go stale; this is the provider's own answer, reused so a rescue does
+ * not cost a listing on every turn.
+ */
+const discoveredCache = new Map<ProviderId, string[]>()
 
 /** A retired model stays retired for five minutes; an exhausted provider, one. */
 const MODEL_COOLDOWN_MS = 5 * 60_000
@@ -79,6 +85,7 @@ export function resetCooldowns() {
   modelCooldown.clear()
   providerCooldown.clear()
   toolNudge.clear()
+  discoveredCache.clear()
 }
 
 function cooling(key: string, map: Map<string, number>, now: number): boolean {
@@ -488,6 +495,7 @@ async function callOne(
  * there were none to begin with.
  */
 export async function callAi(options: CallOptions): Promise<ChatResult> {
+  const { config } = options
   const keys = options.keys ?? (getKeys() as Record<string, string | undefined>)
   const { targets, reason } = selectTargets(options.config, keys, options.role ?? null)
 
@@ -510,13 +518,45 @@ export async function callAi(options: CallOptions): Promise<ChatResult> {
 
   let lastError: AiError | null = null
   let attempt = 0
+  let rescued = false
+  // Providers whose hints turned out to be retired. Their live `/models` list
+  // is the only thing that can save the turn.
+  const dead = new Set<ProviderId>()
+  const tried = new Set<string>()
 
-  for (const target of usable) {
+  /** Ask the providers with dead hints what they actually serve right now. */
+  const rescueTargets = async (): Promise<ModelTarget[]> => {
+    const found: ModelTarget[] = []
+    for (const provider of dead) {
+      const listed =
+        discoveredCache.get(provider) ??
+        (await discoverModels(provider, keys[provider] ?? '', config.customBaseUrl, {
+          signal: options.signal,
+          fetchImpl: options.fetchImpl,
+        })).models
+      for (const model of rankDiscovered(listed)) {
+        if (found.length >= 3) break
+        if (tried.has(`${provider}:${model}`)) continue
+        if (options.config.freeOnly && !isFreeModel(provider, model)) continue
+        if (found.some((target) => target.provider === provider && target.model === model)) continue
+        found.push(targetOf(provider, model))
+      }
+    }
+    return found
+  }
+
+  const queue: ModelTarget[] = [...usable]
+
+  for (let index = 0; index < queue.length; index += 1) {
+    const target = queue[index]
+    const key = `${target.provider}:${target.model}`
+    if (tried.has(key)) continue
     // A provider that just rejected its key is out for this run: do not spend
     // one request per model on it before moving on.
     if (!options.ignoreCooldown && isCoolingDown(target.provider, target.model)) continue
+    tried.add(key)
     attempt += 1
-    options.onEvent?.({ kind: 'try', target, attempt, total: usable.length })
+    options.onEvent?.({ kind: 'try', target, attempt, total: queue.length })
     try {
       const result = await callOne(target, options, keys[target.provider] ?? '')
       options.onEvent?.({ kind: 'ok', target, ms: result.ms })
@@ -527,7 +567,16 @@ export async function callAi(options: CallOptions): Promise<ChatResult> {
           ? error
           : new AiError(String(error), { provider: target.provider, model: target.model })
       lastError = failure
-      const canContinue = options.config.fallback && failure.retryable && attempt < usable.length
+      if (failure.status === 404 || MODEL_GONE.test(failure.message)) dead.add(target.provider)
+
+      // The list ran out on hints that no longer exist. Before giving up, ask
+      // the provider for the truth and walk that.
+      if (index + 1 >= queue.length && !rescued && dead.size > 0 && options.config.fallback) {
+        rescued = true
+        queue.push(...(await rescueTargets()))
+      }
+
+      const canContinue = options.config.fallback && failure.retryable && index + 1 < queue.length
       options.onEvent?.({
         kind: 'fail',
         target,
@@ -555,6 +604,28 @@ export async function callAi(options: CallOptions): Promise<ChatResult> {
 
 const NOT_CHAT = /embed|embedding|whisper|tts|speech|audio|rerank|moderation|guard|image|vision-only|dall|stable-diffusion|sdxl/i
 
+/**
+ * "Model not available" in the many dialects: Google says `models/x is not
+ * found for API version v1beta`, Groq says `model_not_found`, OpenAI says
+ * `does not exist`. A 404 is the usual status but not the only one.
+ */
+const MODEL_GONE = /is not found|not found for|model_not_found|no such model|does not exist|unknown model|invalid model|not supported for generateContent/i
+
+/**
+ * Rank a list we just discovered, best-first. A provider returns ids
+ * alphabetically, which would put `flash-lite` ahead of `flash`; the small and
+ * preview variants are demoted and the newest version wins.
+ */
+const WEAK_MODEL = /(lite|mini|small|nano|preview|thinking|flash-8b|-(?:1|3|7|8)b\b)/i
+
+export function rankDiscovered(ids: string[]): string[] {
+  return [...ids].sort((a, b) => {
+    const weak = Number(WEAK_MODEL.test(a)) - Number(WEAK_MODEL.test(b))
+    if (weak !== 0) return weak
+    return b.localeCompare(a, 'en', { numeric: true })
+  })
+}
+
 export type DiscoveryResult = { models: string[]; error: string | null }
 
 /** Ask a provider what it actually serves. Cheap, and it is the only list that stays true. */
@@ -580,7 +651,10 @@ export async function discoverModels(
     const ids = (body.data ?? body.models ?? [])
       .map((entry) => entry.id ?? entry.name ?? '')
       .filter((id) => id && !NOT_CHAT.test(id))
-    return { models: [...new Set(ids)].sort(), error: null }
+    const unique = [...new Set(ids)].sort()
+    // The provider's own answer is the best one we will get; keep it.
+    if (unique.length > 0) discoveredCache.set(provider, unique)
+    return { models: unique, error: null }
   } catch (error) {
     return { models: [], error: (error as Error)?.message ?? 'Could not reach the provider' }
   }

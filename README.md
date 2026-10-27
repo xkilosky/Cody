@@ -122,6 +122,12 @@ Anthropic, xAI, or any OpenAI-compatible endpoint such as Ollama, LM Studio or v
   planner, code for the coders, fast for the tester) *within the free set*, and `/models` discovery
   is what keeps the ids honest — the curated list is only a starting point. If nothing free is
   configured, the app says so plainly ("no free model · paid") instead of quietly spending.
+- **Retired ids recover themselves.** A hard-coded id goes stale (Google's `gemini-3-flash` became
+  a 404). When every candidate for a provider comes back "model not found", Cody asks that
+  provider's `/models` what it actually serves, ranks the answer best-first (small and preview
+  variants demoted, newest version first), keeps the free rule — a Google Flash counts as free, a
+  Pro does not — and answers the turn with a real id. The list is remembered for the session, so it
+  costs one extra request, not one per turn.
 - **Failover.** A rejected or out-of-credit key cools the whole provider for a minute and the run
   continues on the next one; a retired model (404) is remembered for five minutes; a rate limit
   costs one retry. Pressing *Stop* is not a failure and never triggers a fallback.

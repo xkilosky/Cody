@@ -63,6 +63,12 @@ export type Provider = {
   freeTier?: boolean
   /** One line in the settings card about the free path. */
   freeNote?: string
+  /**
+   * For ids we have never seen (typically from `/models` discovery): an id that
+   * matches is covered by this provider's free tier. Keep it non-global — a
+   * `g` flag makes `test` stateful.
+   */
+  freePattern?: RegExp
 }
 
 export const PROVIDERS: Provider[] = [
@@ -216,9 +222,13 @@ export const PROVIDERS: Provider[] = [
     keysUrl: 'https://aistudio.google.com/apikey',
     freeTier: true,
     freeNote: 'An AI Studio key is free, and Flash runs on the free tier.',
+    // Anything Flash-shaped is covered by the free tier; Pro is not.
+    freePattern: /flash/i,
     models: [
-      { id: 'gemini-3-flash', tier: 'reasoning', label: 'Gemini 3 Flash', cost: 'free' },
-      { id: 'gemini-3-pro', tier: 'reasoning', label: 'Gemini 3 Pro', cost: 'paid' },
+      { id: 'gemini-3.8-flash', tier: 'reasoning', label: 'Gemini 3.8 Flash', cost: 'free' },
+      { id: 'gemini-3.5-flash', tier: 'code', label: 'Gemini 3.5 Flash', cost: 'free' },
+      { id: 'gemini-3.5-flash-lite', tier: 'fast', label: 'Gemini 3.5 Flash-Lite', cost: 'free' },
+      { id: 'gemini-3.1-pro-preview', tier: 'reasoning', label: 'Gemini 3.1 Pro (preview)', cost: 'paid' },
     ],
   },
   {
@@ -286,6 +296,10 @@ export function isFreeModel(id: ProviderId, model: string): boolean {
   if (hint?.cost === 'free') return true
   if (hint?.cost === 'paid') return false
   if (/:free$/i.test(model)) return true
+  // An id discovered from /models that the provider's free tier covers, e.g.
+  // any Gemini Flash. Without this, a stale hint would leave a free-only setup
+  // with nothing it is allowed to call.
+  if (providerOf(id).freePattern?.test(model)) return true
   return id === 'custom'
 }
 

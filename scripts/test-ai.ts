@@ -33,6 +33,7 @@ import {
   isToolQuirk,
   needsToolNudge,
   probeProvider,
+  rankDiscovered,
   resetCooldowns,
   selectTargets,
   withNoToolNote,
@@ -413,6 +414,89 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
   const noted = withNoToolNote([{ role: 'user', content: 'hi' }])
   check('the note becomes a system message when there is none', noted[0].role === 'system' && noted.length === 2)
   check('the original messages are not mutated', !JSON.stringify(messages).includes('NO function-calling tools'))
+}
+
+{
+  // The curated ids are hints, and hints go stale: Google retired
+  // `gemini-3-flash`. A 404 on every candidate must ask the provider what it
+  // really serves rather than ending the turn.
+  resetCooldowns()
+  const mock = mockFetch(({ url, body }) => {
+    if (url.endsWith('/models')) {
+      return { models: ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-pro-preview'] }
+    }
+    if (body.model === 'gemini-3-flash') {
+      return {
+        status: 404,
+        message: 'models/gemini-3-flash is not found for API version v1main, or is not supported for generateContent.',
+      }
+    }
+    return reply(`answered by ${String(body.model)}`)
+  })
+  const result = await callAi({
+    config: config({ auto: false, provider: 'google', model: 'gemini-3-flash' }),
+    keys: { google: 'k' },
+    messages,
+    fetchImpl: mock.impl,
+  })
+  check('a retired id is replaced by one that exists', result.text === 'answered by gemini-3.8-flash', result.text)
+  check('…found by asking the provider for its list', mock.calls.some((call) => call.url.endsWith('/models')))
+  check('…the dead id is only tried once', mock.calls.filter((call) => call.body.model === 'gemini-3-flash').length === 1)
+  check('…and a paid id on that list is left alone', !mock.calls.some((call) => call.body.model === 'gemini-3.1-pro-preview'))
+
+  // Second turn with another dead id: the list is remembered, so no extra request.
+  const second = mockFetch(({ url, body }) =>
+    url.endsWith('/models')
+      ? { models: ['gemini-3.8-flash'] }
+      : body.model === 'gemini-3-pro'
+        ? { status: 404, message: 'models/gemini-3-pro is not found for API version v1main' }
+        : reply('answered again'),
+  )
+  const again = await callAi({
+    config: config({ auto: false, provider: 'google', model: 'gemini-3-pro' }),
+    keys: { google: 'k' },
+    messages,
+    fetchImpl: second.impl,
+  })
+  check('the remembered list saves a second listing', !second.calls.some((call) => call.url.endsWith('/models')), `${second.calls.length} calls`)
+  check('…and the turn still answers', again.text === 'answered again', again.text)
+  check('…from a real model', again.target.model === 'gemini-3.8-flash', again.target.model)
+}
+
+{
+  // The rescue must not break the free rule just because it found something.
+  resetCooldowns()
+  const mock = mockFetch(({ url }) =>
+    url.endsWith('/models')
+      ? { models: ['gemini-3.1-pro-preview'] }
+      : { status: 404, message: 'models/gemini-3-pro is not found for API version v1main' },
+  )
+  let threw = ''
+  try {
+    await callAi({
+      config: config({ auto: false, provider: 'google', model: 'gemini-3-pro' }),
+      keys: { google: 'k' },
+      messages,
+      fetchImpl: mock.impl,
+    })
+  } catch (error) {
+    threw = (error as Error).message
+  }
+  check('a paid model found by discovery is not spent on a free-only setup', !mock.calls.some((call) => call.body.model === 'gemini-3.1-pro-preview'))
+  check('…and the turn fails with the honest reason', /Model not available/.test(threw), threw)
+}
+
+{
+  const googleIds = providerOf('google').models.map((hint) => hint.id)
+  check('the retired Google ids are gone from the table', !googleIds.includes('gemini-3-flash') && !googleIds.includes('gemini-3-pro'), googleIds.join(','))
+  check('…and the first Google model is a free Flash', isFreeModel('google', googleIds[0]) && /flash/.test(googleIds[0]), googleIds[0])
+  check('a Flash id the table has never seen still counts as free', isFreeModel('google', 'gemini-9.9-flash'))
+  check('…but a Pro id does not', !isFreeModel('google', 'gemini-9.9-pro'))
+  check(
+    'a discovered list is ranked best-first',
+    rankDiscovered(['gemini-3.1-pro-preview', 'gemini-3.5-flash-lite', 'gemini-3.8-flash'])[0] === 'gemini-3.8-flash',
+    rankDiscovered(['gemini-3.1-pro-preview', 'gemini-3.5-flash-lite', 'gemini-3.8-flash']).join(','),
+  )
 }
 
 {

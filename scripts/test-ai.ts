@@ -70,7 +70,8 @@ const config = (patch: Partial<AiConfig> = {}): AiConfig => {
 /* a fake provider                                                     */
 /* ------------------------------------------------------------------ */
 
-type Answer = { status?: number; text?: string; message?: string; models?: string[] }
+type CatalogEntry = { id: string; access_tier?: string; pricing?: { input?: number; output?: number } | number }
+type Answer = { status?: number; text?: string; message?: string; models?: string[]; catalog?: CatalogEntry[] }
 type Handler = (request: { url: string; headers: Record<string, string>; body: Record<string, unknown> }) => Answer
 
 function mockFetch(handler: Handler) {
@@ -88,7 +89,8 @@ function mockFetch(handler: Handler) {
     calls.push(request)
     const answer = handler(request)
     if (url.endsWith('/models')) {
-      return new Response(JSON.stringify({ data: (answer.models ?? []).map((id) => ({ id })) }), {
+      const data = answer.catalog ?? (answer.models ?? []).map((id) => ({ id }))
+      return new Response(JSON.stringify({ data }), {
         status: answer.status ?? 200,
         headers: { 'content-type': 'application/json' },
       })
@@ -414,6 +416,62 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
   const noted = withNoToolNote([{ role: 'user', content: 'hi' }])
   check('the note becomes a system message when there is none', noted[0].role === 'system' && noted.length === 2)
   check('the original messages are not mutated', !JSON.stringify(messages).includes('NO function-calling tools'))
+}
+
+{
+  // A free-only setup with only an xKiro key used to have nothing it was
+  // allowed to call: every curated xKiro id is a paid flagship, so selection
+  // produced zero candidates and the provider was never touched. The catalog
+  // knows which 47 are free — ask it once, then use them.
+  resetCooldowns()
+  const mock = mockFetch(({ url, body }) => {
+    if (url.endsWith('/models')) {
+      return {
+        catalog: [
+          { id: 'z-ai/glm-5.3', access_tier: 'paid', pricing: { input: 0.44, output: 1.86 } },
+          { id: 'openai/gpt-6.1-sol', access_tier: 'premium' },
+          { id: 'deepseek/v4-flash', access_tier: 'free' },
+          { id: 'moonshotai/kimi-k3', access_tier: 'free' },
+          // No tier, but the price says free.
+          { id: 'mistral/codestral', pricing: { input: 0, output: 0 } },
+          // No tier and a real price: must stay out of a free-only run.
+          { id: 'cohere/command-a-plus', pricing: { input: 2.5, output: 10 } },
+        ],
+      }
+    }
+    return reply(`answered by ${String(body.model)}`)
+  })
+  const result = await callAi({
+    config: config({ auto: true, provider: 'xkiro' }),
+    keys: { xkiro: 'k' },
+    messages,
+    fetchImpl: mock.impl,
+  })
+  const chatCalls = mock.calls.filter((call) => !call.url.endsWith('/models'))
+  check('xKiro is actually used on a free-only setup', chatCalls.length > 0 && /xkiro/.test(result.target.provider), result.target.provider)
+  check('…by asking its catalog first', mock.calls.some((call) => call.url.endsWith('/models')))
+  check('…and only calling a model it marks free', ['deepseek/v4-flash', 'moonshotai/kimi-k3', 'mistral/codestral'].includes(String(chatCalls[0]?.body.model)), String(chatCalls[0]?.body.model))
+  check('a paid or premium id is never called', !mock.calls.some((call) => ['z-ai/glm-5.3', 'openai/gpt-6.1-sol', 'cohere/command-a-plus'].includes(String(call.body.model))))
+  check('the catalog answer is remembered', isFreeModel('xkiro', 'deepseek/v4-flash'))
+  check('…including a model with no tier but a zero price', isFreeModel('xkiro', 'mistral/codestral'))
+  check('…and a priced model stays paid', !isFreeModel('xkiro', 'cohere/command-a-plus'))
+  const listed = selectTargets(config({ auto: true, provider: 'xkiro' }), { xkiro: 'k' })
+  check('later selection offers the free xKiro ids', listed.targets.some((target) => target.provider === 'xkiro' && target.model === 'deepseek/v4-flash'), listed.targets.map((t) => t.model).join(','))
+  check('…and none of the paid ones', listed.targets.every((target) => !['z-ai/glm-5.3', 'openai/gpt-6.1-sol'].includes(target.model)))
+}
+
+{
+  // A provider whose free models the table already knows must not cost a listing.
+  resetCooldowns()
+  const mock = mockFetch(() => reply('straight through'))
+  await callAi({
+    config: config({ auto: true, provider: 'groq' }),
+    keys: { groq: 'k' },
+    messages,
+    fetchImpl: mock.impl,
+  })
+  check('a provider with known free models is not listed', !mock.calls.some((call) => call.url.endsWith('/models')), `${mock.calls.length} calls`)
+  check('…and the first request is the chat itself', mock.calls[0].url.endsWith('/chat/completions'), mock.calls[0]?.url)
 }
 
 {

@@ -117,6 +117,12 @@ Anthropic, xAI, or any OpenAI-compatible endpoint such as Ollama, LM Studio or v
   it (Groq, Cerebras), the free plan models (Gemini Flash, Mistral Small), or a model running on
   your own machine. Providers with a free path are marked in AI settings, and a *Free models only*
   switch turns the rule off when you want the bigger models.
+- **The catalog decides what is free.** A gateway can run dozens of free models behind
+  `vendor/model` ids that no hard-coded table could list — xKiro marks 47 of its 97 that way
+  (`access_tier: free`, or `pricing` at zero). Cody reads that catalog once per session (cached
+  24 h), registers those ids as free, and *then* selects. Before this, a free-only setup with an
+  xKiro key had nothing it was allowed to call: every curated xKiro id is a paid flagship, so
+  selection produced zero candidates and the provider was never touched.
 - **Automatic model selection.** The preferred provider is the head of the list; every other
   provider that has a key follows. The model for each job is picked by tier (reasoning for the
   planner, code for the coders, fast for the tester) *within the free set*, and `/models` discovery

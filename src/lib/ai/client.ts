@@ -15,7 +15,17 @@
 import type { AiConfig, AiRole } from './config'
 import { ROLES } from './config'
 import type { ProviderId } from './providers'
-import { authHeaders, baseUrlOf, hintsFor, isConfigured, isFreeModel, providerOf } from './providers'
+import {
+  authHeaders,
+  baseUrlOf,
+  hintsFor,
+  isConfigured,
+  isFreeModel,
+  providerOf,
+  PROVIDERS,
+  registerFreeModels,
+  registeredFreeModels,
+} from './providers'
 import { getKeys } from './keys'
 
 export type ChatRole = 'system' | 'user' | 'assistant'
@@ -77,6 +87,55 @@ const toolNudge = new Set<string>()
  */
 const discoveredCache = new Map<ProviderId, string[]>()
 
+/**
+ * Which ids the provider's catalog marks free — remembered across sessions.
+ * Without this a free-only setup had nothing to call on a gateway whose free
+ * models are only discoverable at runtime (xKiro: 47 free ids, `vendor/model`).
+ */
+const CATALOG_STORE = 'cody:ai:catalog:v1'
+const CATALOG_TTL_MS = 24 * 60 * 60_000
+
+type CatalogEntry = { free: string[]; all: string[]; at: number }
+
+function readCatalog(): Partial<Record<ProviderId, CatalogEntry>> {
+  try {
+    const raw = localStorage.getItem(CATALOG_STORE)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as unknown
+    return parsed && typeof parsed === 'object' ? (parsed as Partial<Record<ProviderId, CatalogEntry>>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeCatalog(all: Partial<Record<ProviderId, CatalogEntry>>) {
+  try {
+    localStorage.setItem(CATALOG_STORE, JSON.stringify(all))
+  } catch {
+    /* private mode / quota — the catalog just will not survive a reload */
+  }
+}
+
+function rememberCatalog(provider: ProviderId, models: string[], free: string[]) {
+  const store = readCatalog()
+  store[provider] = { free, all: models, at: Date.now() }
+  writeCatalog(store)
+}
+
+/** Put a cached catalog back into the selection table at startup. */
+function hydrateCatalog() {
+  const now = Date.now()
+  const store = readCatalog()
+  for (const [provider, entry] of Object.entries(store)) {
+    if (!entry || !Array.isArray(entry.free)) continue
+    if (now - (entry.at ?? 0) > CATALOG_TTL_MS) continue
+    discoveredCache.set(provider as ProviderId, [...entry.all, ...entry.free])
+    registerFreeModels(provider as ProviderId, entry.free)
+  }
+}
+
+hydrateCatalog()
+
 /** A retired model stays retired for five minutes; an exhausted provider, one. */
 const MODEL_COOLDOWN_MS = 5 * 60_000
 const PROVIDER_COOLDOWN_MS = 60_000
@@ -86,6 +145,8 @@ export function resetCooldowns() {
   providerCooldown.clear()
   toolNudge.clear()
   discoveredCache.clear()
+  catalogChecked.clear()
+  for (const provider of PROVIDERS) registerFreeModels(provider.id, [])
 }
 
 function cooling(key: string, map: Map<string, number>, now: number): boolean {
@@ -256,6 +317,15 @@ export function selectTargets(
       if (!configured(provider) && provider !== 'custom') continue
       const chosen = modelForProvider(config, provider, role, ignoreFreeOnly)
       if (chosen) targets.push(targetOf(provider, chosen))
+      // Ids the provider's own catalog calls free. A gateway can run dozens of
+      // free models behind `vendor/model` ids; the table cannot list them all.
+      for (const id of registeredFreeModels(provider)) {
+        if (targets.length >= 8) break
+        if (config.freeOnly && !ignoreFreeOnly && !isFreeModel(provider, id)) continue
+        if (!targets.some((target) => target.provider === provider && target.model === id)) {
+          targets.push(targetOf(provider, id))
+        }
+      }
       if (!config.auto) continue
       // …then this provider's other hints, so one retired model is not fatal.
       const tier = role ? ROLES.find((entry) => entry.id === role)?.tier : 'any'
@@ -489,6 +559,37 @@ async function callOne(
 }
 
 /**
+ * Which free ids exist, for providers the table cannot describe.
+ *
+ * A free-only setup with only an xKiro key had nothing to call: every curated
+ * xKiro id is a paid flagship, so selection produced zero candidates and the
+ * provider was never touched. Its own catalog knows better — 47 free ids,
+ * `access_tier: free` — so ask once, up front, and remember the answer.
+ */
+const catalogChecked = new Set<ProviderId>()
+
+async function ensureFreeCatalog(
+  options: CallOptions,
+  keys: Record<string, string | undefined>,
+): Promise<void> {
+  const { config } = options
+  if (!config.freeOnly) return
+  for (const provider of PROVIDERS) {
+    if (provider.custom || !provider.freeTier) continue
+    if (!isConfigured(provider.id, keys[provider.id], config.customBaseUrl)) continue
+    if (catalogChecked.has(provider.id)) continue
+    // Anything free already known is enough; this is only for blind spots.
+    if (registeredFreeModels(provider.id).length > 0) continue
+    if (hintsFor(provider.id).some((hint) => isFreeModel(provider.id, hint.id))) continue
+    catalogChecked.add(provider.id)
+    await discoverModels(provider.id, keys[provider.id] ?? '', config.customBaseUrl, {
+      signal: options.signal,
+      fetchImpl: options.fetchImpl,
+    })
+  }
+}
+
+/**
  * Run one completion, walking the candidate list until something answers.
  *
  * Throws the *last* error when every candidate fails, and an explanation when
@@ -497,6 +598,7 @@ async function callOne(
 export async function callAi(options: CallOptions): Promise<ChatResult> {
   const { config } = options
   const keys = options.keys ?? (getKeys() as Record<string, string | undefined>)
+  await ensureFreeCatalog(options, keys)
   const { targets, reason } = selectTargets(options.config, keys, options.role ?? null)
 
   const usable = targets.filter(
@@ -609,6 +711,30 @@ const NOT_CHAT = /embed|embedding|whisper|tts|speech|audio|rerank|moderation|gua
  * found for API version v1beta`, Groq says `model_not_found`, OpenAI says
  * `does not exist`. A 404 is the usual status but not the only one.
  */
+/** One entry from a provider's `/models` list — only the fields we read. */
+type CatalogModel = {
+  id?: string
+  name?: string
+  /** xKiro: 'free' | 'paid' | 'premium'. */
+  access_tier?: string
+  pricing?: { input?: number; output?: number } | number
+  free?: boolean
+}
+
+/** Is this catalog entry free to call? Two signals, either one is enough. */
+export function isFreeEntry(entry: CatalogModel): boolean {
+  if (entry.free === true) return true
+  const tier = String(entry.access_tier ?? '').toLowerCase()
+  if (tier === 'free') return true
+  if (tier === 'paid' || tier === 'premium') return false
+  const pricing = entry.pricing
+  if (typeof pricing === 'number') return pricing === 0
+  if (pricing && typeof pricing === 'object') {
+    return Number(pricing.input ?? 1) === 0 && Number(pricing.output ?? 1) === 0
+  }
+  return false
+}
+
 const MODEL_GONE = /is not found|not found for|model_not_found|no such model|does not exist|unknown model|invalid model|not supported for generateContent/i
 
 /**
@@ -645,15 +771,23 @@ export async function discoverModels(
     })
     if (!response.ok) return { models: [], error: `Model list unavailable (${response.status})` }
     const body = (await response.json()) as {
-      data?: Array<{ id?: string; name?: string }>
-      models?: Array<{ id?: string; name?: string }>
+      data?: CatalogModel[]
+      models?: CatalogModel[]
     }
-    const ids = (body.data ?? body.models ?? [])
+    const entries = body.data ?? body.models ?? []
+    const ids = entries
       .map((entry) => entry.id ?? entry.name ?? '')
       .filter((id) => id && !NOT_CHAT.test(id))
     const unique = [...new Set(ids)].sort()
+    const free = entries
+      .filter((entry) => entry.id && !NOT_CHAT.test(entry.id) && isFreeEntry(entry))
+      .map((entry) => entry.id as string)
     // The provider's own answer is the best one we will get; keep it.
     if (unique.length > 0) discoveredCache.set(provider, unique)
+    if (free.length > 0) {
+      registerFreeModels(provider, rankDiscovered(free))
+      rememberCatalog(provider, unique, rankDiscovered(free))
+    }
     return { models: unique, error: null }
   } catch (error) {
     return { models: [], error: (error as Error)?.message ?? 'Could not reach the provider' }

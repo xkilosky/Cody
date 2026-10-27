@@ -103,7 +103,7 @@ export const PROVIDERS: Provider[] = [
     // xKiro closes a blocking request at 95 s; stop just before it does.
     timeoutMs: 90_000,
     freeTier: true,
-    freeNote: '47 free models on every account (500K tokens/day). List the models to load them.',
+    freeNote: '47 free models on every account (500K tokens/day). Cody reads the live catalog to find them.',
     models: [
       { id: 'anthropic/claude-opus-5.5', tier: 'code', label: 'Opus 5.5', cost: 'paid' },
       { id: 'openai/gpt-6.1-sol', tier: 'reasoning', label: 'GPT-6.1 Sol', cost: 'paid' },
@@ -285,6 +285,25 @@ export function authHeaders(id: ProviderId, apiKey: string): Record<string, stri
 }
 
 /**
+ * Free ids learned from a provider's own `/models` catalog.
+ *
+ * The table below cannot keep up with a gateway that runs 47 free models across
+ * 13 vendors behind `vendor/model` ids — xKiro marks each entry with
+ * `access_tier: free`, and that is a better answer than any list we could
+ * write. Registration is per provider and replaced wholesale on each listing.
+ */
+const freeCatalog = new Map<ProviderId, Set<string>>()
+
+export function registerFreeModels(id: ProviderId, models: string[]) {
+  freeCatalog.set(id, new Set(models))
+}
+
+/** Free ids the catalog reported, best-first as the caller registered them. */
+export function registeredFreeModels(id: ProviderId): string[] {
+  return [...(freeCatalog.get(id) ?? [])]
+}
+
+/**
  * Does this model cost money?
  *
  * Three ways to be free, in order of certainty: the hint says so, the id wears
@@ -300,6 +319,8 @@ export function isFreeModel(id: ProviderId, model: string): boolean {
   // any Gemini Flash. Without this, a stale hint would leave a free-only setup
   // with nothing it is allowed to call.
   if (providerOf(id).freePattern?.test(model)) return true
+  // The provider's own catalog said so.
+  if (freeCatalog.get(id)?.has(model)) return true
   return id === 'custom'
 }
 

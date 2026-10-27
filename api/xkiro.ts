@@ -65,11 +65,12 @@ function readBody(req: NodeRequest): Promise<string> {
 export default async function handler(req: NodeRequest, res: NodeResponse) {
   const url = new URL(req.url ?? '/', 'http://cody.local')
   // /api/xkiro/v1/chat/completions → ['', 'api', 'xkiro', 'v1', 'chat', 'completions']
-  const [, , provider, ...rest] = url.pathname.split('/')
+  const [, , provider, ...fromPath] = url.pathname.split('/')
   // The rewrite hands the real path in `?path=`, since only `/api/xkiro`
-  // itself reaches this function.
+  // itself reaches this function. Use one or the other — never both, or the
+  // path is doubled into `/v1/models/v1/models`.
   const viaRewrite = url.searchParams.get('path')
-  if (viaRewrite) rest.push(...viaRewrite.split('/'))
+  const rest = viaRewrite ? viaRewrite.split('/') : fromPath
   const upstreamBase = UPSTREAM[provider]
   if (!upstreamBase) {
     res.statusCode = 404

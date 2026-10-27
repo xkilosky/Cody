@@ -30,6 +30,7 @@ import {
   NO_TOOL_NOTE,
   callAi,
   discoverModels,
+  endpointFor,
   isCoolingDown,
   isToolQuirk,
   needsToolNudge,
@@ -73,7 +74,15 @@ const config = (patch: Partial<AiConfig> = {}): AiConfig => {
 /* ------------------------------------------------------------------ */
 
 type CatalogEntry = { id: string; access_tier?: string; pricing?: { input?: number; output?: number } | number }
-type Answer = { status?: number; text?: string; message?: string; models?: string[]; catalog?: CatalogEntry[] }
+type Answer = {
+  status?: number
+  text?: string
+  message?: string
+  models?: string[]
+  catalog?: CatalogEntry[]
+  /** A plain-text/HTML body, as a host without functions answers. */
+  html?: string
+}
 type Handler = (request: { url: string; headers: Record<string, string>; body: Record<string, unknown> }) => Answer
 
 function mockFetch(handler: Handler) {
@@ -90,6 +99,12 @@ function mockFetch(handler: Handler) {
     const request = { url, headers, body }
     calls.push(request)
     const answer = handler(request)
+    if (answer.html !== undefined) {
+      return new Response(answer.html, {
+        status: answer.status ?? 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      })
+    }
     if (url.endsWith('/models')) {
       const data = answer.catalog ?? (answer.models ?? []).map((id) => ({ id }))
       return new Response(JSON.stringify({ data }), {
@@ -418,6 +433,37 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
   const noted = withNoToolNote([{ role: 'user', content: 'hi' }])
   check('the note becomes a system message when there is none', noted[0].role === 'system' && noted.length === 2)
   check('the original messages are not mutated', !JSON.stringify(messages).includes('NO function-calling tools'))
+}
+
+{
+  // xKiro sends no CORS headers, so a browser cannot call it directly. Its
+  // requests go to our own origin, where api/xkiro.ts forwards them.
+  check('xKiro is reached through the same-origin forwarder', '/api/xkiro/v1/chat/completions' === endpointFor('xkiro', '', '/chat/completions'), endpointFor('xkiro', '', '/chat/completions'))
+  check('…including the model list', '/api/xkiro/v1/models' === endpointFor('xkiro', '', '/models'), endpointFor('xkiro', '', '/models'))
+  check('…and the direct URL is still available as a fallback', 'https://api.xkiro.com/v1/chat/completions' === endpointFor('xkiro', '', '/chat/completions', true), endpointFor('xkiro', '', '/chat/completions', true))
+  check('a provider that does send CORS headers is called directly', 'https://api.groq.com/openai/v1/chat/completions' === endpointFor('groq', '', '/chat/completions'), endpointFor('groq', '', '/chat/completions'))
+  check('a custom endpoint is called directly', 'http://box:8080/v1/chat/completions' === endpointFor('custom', 'http://box:8080/v1', '/chat/completions'), endpointFor('custom', 'http://box:8080/v1', '/chat/completions'))
+  check('the provider table marks which ones need forwarding', PROVIDERS.filter((provider) => provider.proxy).map((provider) => provider.id).join(',') === 'xkiro', PROVIDERS.filter((provider) => provider.proxy).map((provider) => provider.id).join(','))
+
+  // A host without functions answers the forwarder path with 404 HTML; the
+  // call must fall back to the provider rather than reporting a failure.
+  resetCooldowns()
+  const mock = mockFetch(({ url }) => {
+    if (url.startsWith('/api/')) return { status: 404, html: '<!doctype html><title>Cody</title>' }
+    return reply('answered directly')
+  })
+  const result = await callAi({
+    config: config({ auto: false, provider: 'xkiro', model: 'deepseek/v4-flash' }),
+    keys: { xkiro: 'k' },
+    messages,
+    fetchImpl: mock.impl,
+  })
+  check('a missing forwarder falls back to the provider itself', result.text === 'answered directly', result.text)
+  check('…after trying the forwarder first', mock.calls[0].url.startsWith('/api/xkiro/'), mock.calls[0]?.url)
+  check('…and then the real endpoint', mock.calls.at(-1)?.url === 'https://api.xkiro.com/v1/chat/completions', mock.calls.at(-1)?.url)
+
+  // The key still rides in the header, not the URL.
+  check('the key never appears in a URL', mock.calls.every((call) => !call.url.includes('k') || !call.url.includes('key')), mock.calls.map((call) => call.url).join(' '))
 }
 
 {

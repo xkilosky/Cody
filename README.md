@@ -117,6 +117,17 @@ Anthropic, xAI, or any OpenAI-compatible endpoint such as Ollama, LM Studio or v
   it (Groq, Cerebras), the free plan models (Gemini Flash, Mistral Small), or a model running on
   your own machine. Providers with a free path are marked in AI settings, and a *Free models only*
   switch turns the rule off when you want the bigger models.
+- **Providers that block browsers get a forwarder.** A page can only read a cross-origin
+  response that carries `Access-Control-Allow-Origin`, and xKiro sends none — every call died as
+  *"Failed to fetch"* before the key was even checked. `api/xkiro.ts` is a 60-line Vercel function
+  that forwards that provider's calls from our own origin: it checks the provider against a fixed
+  allowlist (a caller-supplied URL is never followed, so it can't become an open relay), copies
+  only `authorization` / `x-api-key` / `content-type` / `accept`, makes one request, and returns
+  the response untouched. No storage, no logging, `cache-control: no-store`, and the key travels in
+  a header exactly as it would have gone straight to the provider. Everything else in the table
+  (OpenRouter, Groq, Google, Mistral, Cerebras, DeepSeek, Together, OpenAI, Anthropic) is called
+  directly, browser-to-provider. If a host has no functions at all, the client notices the 404 and
+  falls back to the direct URL, so the app still works on plain static hosting.
 - **The catalog decides what is free.** A gateway can run dozens of free models behind
   `vendor/model` ids that no hard-coded table could list — xKiro marks 47 of its 97 that way
   (`access_tier: free`, or `pricing` at zero). Cody reads that catalog once per session (cached

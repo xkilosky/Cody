@@ -397,6 +397,32 @@ export function selectTargets(
 }
 
 /* ------------------------------------------------------------------ */
+/* where a request actually goes                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The URL to fetch for a provider.
+ *
+ * Normally the provider's own base. For a provider that sends no CORS headers
+ * (xKiro), the same call goes to our origin instead — `/api/xkiro/v1/chat/…` —
+ * where `api/xkiro.ts` forwards it. `direct` asks for the upstream URL, which
+ * is the fallback when the forwarder is not deployed (a static-only host).
+ */
+export function endpointFor(id: ProviderId, customBaseUrl: string, path: string, direct = false): string {
+  const base = baseUrlOf(id, customBaseUrl).replace(/\/+$/, '')
+  if (!base) return ''
+  const proxy = providerOf(id).proxy
+  if (!proxy || direct) return `${base}${path}`
+  try {
+    // https://api.xkiro.com/v1 + /chat/completions → /api/xkiro/v1/chat/completions
+    const prefix = new URL(base).pathname.replace(/\/+$/, '')
+    return `${proxy}${prefix}${path}`
+  } catch {
+    return `${base}${path}`
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* one request                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -463,7 +489,8 @@ async function callOne(
       retryable: true,
     })
   }
-  const url = `${base.replace(/\/+$/, '')}/chat/completions`
+  let url = endpointFor(target.provider, config.customBaseUrl, '/chat/completions')
+  let viaProxy = Boolean(providerOf(target.provider).proxy)
   const doFetch = options.fetchImpl ?? fetch
 
   const controller = new AbortController()
@@ -498,6 +525,14 @@ async function callOne(
           stream: false,
         }),
       })
+
+      // A host with no functions (or a preview build) answers 404 HTML here.
+      // Go straight to the provider instead of reporting that as its failure.
+      if (viaProxy && response.status === 404 && !(response.headers.get('content-type') ?? '').includes('json')) {
+        viaProxy = false
+        url = endpointFor(target.provider, config.customBaseUrl, '/chat/completions', true)
+        continue
+      }
 
       if (response.ok) {
         const body = (await response.json()) as CompletionBody
@@ -781,10 +816,17 @@ export async function discoverModels(
   if (!base) return { models: [], error: 'No base URL' }
   const doFetch = options.fetchImpl ?? fetch
   try {
-    const response = await doFetch(`${base.replace(/\/+$/, '')}/models`, {
+    let endpoint = endpointFor(provider, customBaseUrl, '/models')
+    let viaProxy = Boolean(providerOf(provider).proxy)
+    let response = await doFetch(endpoint, {
       headers: authHeaders(provider, apiKey),
       signal: options.signal,
     })
+    if (viaProxy && response.status === 404 && !(response.headers.get('content-type') ?? '').includes('json')) {
+      viaProxy = false
+      endpoint = endpointFor(provider, customBaseUrl, '/models', true)
+      response = await doFetch(endpoint, { headers: authHeaders(provider, apiKey), signal: options.signal })
+    }
     if (!response.ok) return { models: [], error: `Model list unavailable (${response.status})` }
     const body = (await response.json()) as {
       data?: CatalogModel[]

@@ -64,6 +64,18 @@ export type Provider = {
   /** One line in the settings card about the free path. */
   freeNote?: string
   /**
+   * Same-origin prefix that forwards to this provider.
+   *
+   * A browser will not read a cross-origin response that has no
+   * `Access-Control-Allow-Origin`, and several gateways send none — the call
+   * dies as "Failed to fetch" before the key is even looked at. For those the
+   * request goes to our own origin instead, where `api/<id>.ts` forwards it
+   * once (and stores nothing).
+   */
+  proxy?: string
+  /** The header the function may forward to. */
+  proxyHost?: string
+  /**
    * For ids we have never seen (typically from `/models` discovery): an id that
    * matches is covered by this provider's free tier. Keep it non-global — a
    * `g` flag makes `test` stateful.
@@ -100,6 +112,9 @@ export const PROVIDERS: Provider[] = [
     blurb: 'xkiro.com — one key for 97 models from 13 labs, on very cheap plans.',
     baseUrl: 'https://api.xkiro.com/v1',
     keysUrl: 'https://xkiro.com/dashboard/api/keys',
+    // xKiro sends no CORS headers, so the browser cannot call it directly.
+    proxy: '/api/xkiro',
+    proxyHost: 'api.xkiro.com',
     // xKiro closes a blocking request at 95 s; stop just before it does.
     timeoutMs: 90_000,
     freeTier: true,

@@ -9,6 +9,16 @@ export default defineConfig({
     strictPort: false,
     allowedHosts: true,
     hmr: { clientPort: 443 },
+    // The same forwarder the deployed app uses, so `npm run dev` behaves like
+    // production for providers that send no CORS headers (xKiro).
+    proxy: {
+      '/api/xkiro': {
+        target: 'https://api.xkiro.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path: string) => path.replace(/^\/api\/xkiro/, ''),
+      },
+    },
   },
   preview: { host: '0.0.0.0' },
   build: {

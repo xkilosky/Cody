@@ -31,6 +31,12 @@ const ROLE_GLYPH: Record<string, string> = {
   system: '!',
 }
 
+/** `read_console` → `Read console`, so a chip reads like an action. */
+function sentence(name: string): string {
+  const words = name.replace(/_/g, ' ')
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`
+}
+
 function modelLine(turn: UiTurn): string | null {
   return turn.model ?? null
 }
@@ -45,7 +51,7 @@ function ToolActivity({ activity }: { activity: AiSession['activity'] }) {
       {visible.map((entry) => (
         <span key={entry.id} className={`ai-tool${entry.ok ? '' : ' failed'}`} title={entry.summary}>
           <Icon name={entry.ok ? 'check' : 'alert'} size={11} />
-          <span className="ai-tool-name">{entry.tool.replace(/_/g, ' ')}</span>
+          <span className="ai-tool-name">{sentence(entry.tool)}</span>
           <span className="ai-tool-desc">{entry.summary}</span>
         </span>
       ))}
@@ -85,6 +91,8 @@ function TurnRow({ turn }: { turn: UiTurn }) {
       </div>
     )
   }
+  // A turn with nothing to say is not a bubble; the tool chips carry it.
+  if (!turn.text.trim()) return null
   const glyph = ROLE_GLYPH[turn.speaker] ?? '✧'
   return (
     <div className="ai-msg agent" data-role={turn.speaker}>

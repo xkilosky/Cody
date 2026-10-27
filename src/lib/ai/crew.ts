@@ -17,7 +17,16 @@ import type { AiConfig, AiRole } from './config'
 import { ROLES } from './config'
 import type { AiEvent, ChatMessage, ModelTarget } from './client'
 import { AiError, callAi } from './client'
-import { executeTool, stripToolBlocks, toolCatalogText, WRITE_TOOLS, type ToolCall, type ToolResult, type ToolWorkspace } from './tools'
+import {
+  executeTool,
+  stripToolBlocks,
+  stripToolEcho,
+  toolCatalogText,
+  WRITE_TOOLS,
+  type ToolCall,
+  type ToolResult,
+  type ToolWorkspace,
+} from './tools'
 import { parseToolCalls } from './tools'
 
 export type Speaker = 'user' | AiRole | 'assistant' | 'system'
@@ -243,7 +252,7 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
       }
 
       target = answer.target
-      const prose = stripToolBlocks(answer.text)
+      const prose = stripToolEcho(stripToolBlocks(answer.text))
       if (prose) collected.push(prose)
 
       const calls = parseToolCalls(answer.text)
@@ -297,10 +306,14 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
     if (ended && speaker === 'tester') stops = true
 
     turnsUsed += 1
-    const text = collected.join('\n\n').trim() || (target ? '(no comment)' : '')
+    const text = collected.join('\n\n').trim()
     const turn: Turn = { speaker, label, text, target }
-    turns.push(turn)
-    emit({ kind: 'message', speaker, label, text: turn.text, target })
+    // Nothing to say is a legitimate turn — the tool chips already told the
+    // story. Do not invent a bubble for it.
+    if (text) {
+      turns.push(turn)
+      emit({ kind: 'message', speaker, label, text, target })
+    }
     return turn
   }
 
@@ -380,7 +393,7 @@ export async function runChat(options: RunOptions): Promise<RunResult> {
     }
 
     target = answer.target
-    const prose = stripToolBlocks(answer.text)
+    const prose = stripToolEcho(stripToolBlocks(answer.text))
     if (prose) collected.push(prose)
 
     const calls = parseToolCalls(answer.text)
@@ -412,7 +425,7 @@ export async function runChat(options: RunOptions): Promise<RunResult> {
     if (summary) break
   }
 
-  const text = collected.join('\n\n').trim() || (error ? '' : '(no comment)')
+  const text = collected.join('\n\n').trim()
   if (text) {
     const turn: Turn = { speaker: 'assistant', label: 'Cody', text, target }
     turns.push(turn)

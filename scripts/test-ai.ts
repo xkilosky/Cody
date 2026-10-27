@@ -27,7 +27,16 @@ import {
 } from '../src/lib/ai/providers'
 import { callAi, discoverModels, isCoolingDown, probeProvider, resetCooldowns, selectTargets } from '../src/lib/ai/client'
 import { maskKey } from '../src/lib/ai/keys'
-import { cleanPath, executeTool, parseToolCalls, stripToolBlocks, TOOLS, WRITE_TOOLS, type ToolWorkspace } from '../src/lib/ai/tools'
+import {
+  cleanPath,
+  executeTool,
+  parseToolCalls,
+  stripToolBlocks,
+  stripToolEcho,
+  TOOLS,
+  WRITE_TOOLS,
+  type ToolWorkspace,
+} from '../src/lib/ai/tools'
 import { runAgent, runChat, turnsToMessages } from '../src/lib/ai/crew'
 import type { ProjectFile } from '../src/types'
 
@@ -548,6 +557,45 @@ Flat arguments work too:
   check('ordinary code fences are not tool calls', parseToolCalls(prose).length === 0)
   check('and they survive stripping', stripToolBlocks(prose).includes('const x = 1'))
 
+  // the report: a model pasting its tool output back into the chat
+  const echoed = 'List projects\n\n[Tool Output]\n[\n  {\n    "id": "1",\n    "name": "Core.ai",\n    "fileCount": 0\n  }\n]'
+  check('a tool-output restatement is removed', stripToolEcho(echoed) === 'List projects', JSON.stringify(stripToolEcho(echoed)))
+  check(
+    'an echo on its own leaves nothing to say',
+    stripToolEcho('[Tool Output]\n[{"id":"1","name":"Core.ai","fileCount":0}]') === '',
+    JSON.stringify(stripToolEcho('[Tool Output]\n[{"id":"1","name":"Core.ai","fileCount":0}]')),
+  )
+  check(
+    'the same marker in a fenced block is removed too',
+    stripToolEcho('[Tool output]\n```json\n{"ok": true}\n```\nNext I will write the file.') === 'Next I will write the file.',
+    JSON.stringify(stripToolEcho('[Tool output]\n```json\n{"ok": true}\n```\nNext I will write the file.')),
+  )
+  check(
+    'a Tool Result: line with a payload goes',
+    stripToolEcho('Tool Result: {"ok":true}\nDone.') === 'Done.',
+    JSON.stringify(stripToolEcho('Tool Result: {"ok":true}\nDone.')),
+  )
+  check(
+    'an ordinary JSON block survives',
+    stripToolEcho('The project looks like this:\n\n```json\n{"id": "1"}\n```') === 'The project looks like this:\n\n```json\n{"id": "1"}\n```',
+    JSON.stringify(stripToolEcho('The project looks like this:\n\n```json\n{"id": "1"}\n```')),
+  )
+  check('an unterminated echo is cut cleanly', stripToolEcho('[Tool Output]\n[{"id": "1"') === '')
+  check(
+    'harmony control tokens never reach the screen',
+    !stripToolEcho('hello <|channel|>final world').includes('<|'),
+    stripToolEcho('hello <|channel|>final world'),
+  )
+  check(
+    'a harmony tool call is still understood',
+    (() => {
+      const calls = parseToolCalls(
+        '<|start|>assistant<|channel|>commentary to=functions.list_projects <|constrain|>json<|message|>{"limit":3}<|call|>',
+      )
+      return calls.length === 1 && calls[0].tool === 'list_projects' && calls[0].args.limit === 3
+    })(),
+  )
+
   check('backslash paths normalise', cleanPath('./src/App.tsx') === 'src/App.tsx')
   check('leading slashes are stripped', cleanPath('/index.html') === 'index.html')
   check('escaping the project is refused', cleanPath('../secret') === null)
@@ -933,6 +981,42 @@ const call = (tool: string, args: Record<string, unknown> = {}) =>
     fetchImpl: mockFetch(() => reply('It prints hi.')).impl,
   })
   check('a follow-up keeps the earlier turns', followed.turns[0].text === 'It prints hi.')
+}
+
+{
+  // The reported bug, end to end: the model answers a tool result by restating it.
+  resetCooldowns()
+  const workspace = fakeWorkspace()
+  let step = 0
+  const mock = mockFetch(() => {
+    step += 1
+    if (step === 1) return reply(`Listing them now.\n${call('list_projects')}`)
+    if (step === 2) return reply('[Tool Output]\n[\n  {\n    "id": "1",\n    "name": "Demo",\n    "fileCount": 1\n  }\n]')
+    return reply('')
+  })
+  const result = await runChat({
+    config: config({ auto: false, provider: 'groq' }),
+    keys: { groq: 'k' },
+    workspace,
+    task: 'list projects',
+    fetchImpl: mock.impl,
+  })
+  const spoken = result.turns.map((turn) => turn.text).join('\n')
+  check('the raw tool output never reaches the transcript', !/Tool Output|fileCount|\[\s*\{/.test(spoken), spoken.slice(0, 120))
+  check('the tool itself did run', result.actions.some((action) => action.tool === 'list_projects'))
+  check('what the model did say is kept or dropped cleanly', result.turns.length <= 1, String(result.turns.length))
+
+  resetCooldowns()
+  const onlyEcho = mockFetch(() => reply('[Tool Output]\n[{"id":"1","name":"Demo","fileCount":1}]'))
+  const quiet = await runChat({
+    config: config({ auto: false, provider: 'groq' }),
+    keys: { groq: 'k' },
+    workspace,
+    task: 'list projects again',
+    fetchImpl: onlyEcho.impl,
+  })
+  check('an echo-only answer produces no bubble at all', quiet.turns.length === 0, JSON.stringify(quiet.turns.map((t) => t.text)))
+  check('and no error either', quiet.error === null, String(quiet.error))
 }
 
 {

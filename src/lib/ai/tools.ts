@@ -606,6 +606,26 @@ export function parseToolCalls(text: string): ToolCall[] {
     match = FENCE.exec(text)
   }
 
+  // gpt-oss and friends emit their tool calls as harmony control tokens when
+  // they are not given a native `tools` array:
+  //   <|channel|>commentary to=functions.list_projects <|constrain|>json<|message|>{"x":1}<|call|>
+  const harmony = /to=functions\.([a-zA-Z0-9_.-]+)[\s\S]{0,120}?<\|message\|>([\s\S]*?)(?:<\|call\|>|<\|end\|>|<\|start\|>|$)/g
+  let token = harmony.exec(text)
+  while (token) {
+    const args = token[2].trim()
+    let parsedArgs: Record<string, unknown> = {}
+    if (args) {
+      try {
+        const value = JSON.parse(args) as unknown
+        if (value && typeof value === 'object' && !Array.isArray(value)) parsedArgs = value as Record<string, unknown>
+      } catch {
+        parsedArgs = {}
+      }
+    }
+    calls.push({ tool: token[1].split('.').pop() ?? token[1], args: parsedArgs, raw: token[0].trim() })
+    token = harmony.exec(text)
+  }
+
   // A last-resort shape some models fall into: <tool>{...}</tool>
   const tagged = /<tool[^>]*>\s*([\s\S]*?)\s*<\/tool>/gi
   let tag = tagged.exec(text)
@@ -642,6 +662,96 @@ export function stripToolBlocks(text: string): string {
       }
     })
     .replace(/<tool[^>]*>[\s\S]*?<\/tool>/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/* ------------------------------------------------------------------ */
+/* tool echoes                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A cheap model will sometimes answer a tool result by *restating* it in the
+ * chat: `[Tool Output]` followed by the JSON it thinks it received. That is
+ * not an answer, it is a copy of what the app already shows as a chip — so it
+ * is cut before it reaches the transcript.
+ *
+ * Only marker-then-payload is removed. An ordinary JSON block in an ordinary
+ * answer ("show me the shape of a project") stays exactly where it is.
+ */
+const ECHO_MARKER =
+  /^[ \t>*#_`-]*(?:\[[^\]\n]{0,24}(?:tool|function)[ \t_-]?(?:output|result|response|call)[^\]\n]{0,12}\]|\((?:tool|function)[ \t_-]?(?:output|result|response)\)|(?:tool|function)[ \t_-]?(?:output|result|response)[ \t]*:)/gim
+
+/** Index just past a balanced JSON object/array starting at `start`. */
+function skipBalanced(text: string, start: number): number {
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') inString = false
+      continue
+    }
+    if (char === '"') inString = true
+    else if (char === '[' || char === '{') depth += 1
+    else if (char === ']' || char === '}') {
+      depth -= 1
+      if (depth === 0) return index + 1
+    }
+  }
+  return -1
+}
+
+/** Remove `[Tool Output] …` restatements and stray control tokens. */
+export function stripToolEcho(input: string): string {
+  let text = String(input ?? '')
+  if (!text.trim()) return ''
+  text = text
+    .replace(/<tool[_-](?:output|result)>[\s\S]*?<\/tool[_-](?:output|result)>/gi, ' ')
+    // harmony-style control tokens some OpenAI-compatible providers leak
+    .replace(/<\|[^|\n]{0,40}\|>/g, ' ')
+
+  let result = ''
+  let cursor = 0
+  for (;;) {
+    ECHO_MARKER.lastIndex = cursor
+    const match = ECHO_MARKER.exec(text)
+    if (!match) {
+      result += text.slice(cursor)
+      break
+    }
+    result += text.slice(cursor, match.index)
+
+    const markerEnd = match.index + match[0].length
+    const lineEnd = text.indexOf('\n', markerEnd)
+    const inline = text.slice(markerEnd, lineEnd === -1 ? text.length : lineEnd).trim()
+
+    // Where does the payload start? Same line, or after the marker line.
+    let payloadAt = markerEnd
+    while (payloadAt < text.length && /\s/.test(text[payloadAt])) payloadAt += 1
+    const isPayload =
+      text.startsWith('```', payloadAt) || text[payloadAt] === '[' || text[payloadAt] === '{'
+    // A marker followed by a plain sentence is prose: only the marker goes.
+    const skipPayload = isPayload && (inline === '' || /^[[{`]/.test(inline))
+
+    let after = markerEnd
+    if (skipPayload) {
+      if (text.startsWith('```', payloadAt)) {
+        const close = text.indexOf('```', payloadAt + 3)
+        after = close === -1 ? text.length : close + 3
+      } else {
+        const end = skipBalanced(text, payloadAt)
+        after = end === -1 ? text.length : end
+      }
+    }
+    cursor = Math.max(after, markerEnd)
+  }
+
+  return result
+    .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }

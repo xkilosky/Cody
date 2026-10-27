@@ -17,10 +17,11 @@
  *
  *     POST /api/xkiro/v1/chat/completions  →  https://api.xkiro.com/v1/chat/completions
  *
- * The `[...path]` filename is what makes Vercel route every sub-path here —
- * `api/xkiro.ts` alone would answer only `/api/xkiro` and 404 the rest, which
- * the client would then read as "no forwarder" and retry directly, failing on
- * CORS again.
+ * Routing is done with an explicit rewrite in `vercel.json` — every
+ * `/api/xkiro/<rest>` lands here as `/api/xkiro?path=<rest>`. (A nested
+ * catch-all file, `api/xkiro/[...path].ts`, is *supposed* to do the same and
+ * did not route on this project; a plain file at `api/` plus a rewrite is the
+ * shape that provably works.)
  */
 
 /** The only destinations this forwarder will talk to. */
@@ -65,6 +66,10 @@ export default async function handler(req: NodeRequest, res: NodeResponse) {
   const url = new URL(req.url ?? '/', 'http://cody.local')
   // /api/xkiro/v1/chat/completions → ['', 'api', 'xkiro', 'v1', 'chat', 'completions']
   const [, , provider, ...rest] = url.pathname.split('/')
+  // The rewrite hands the real path in `?path=`, since only `/api/xkiro`
+  // itself reaches this function.
+  const viaRewrite = url.searchParams.get('path')
+  if (viaRewrite) rest.push(...viaRewrite.split('/'))
   const upstreamBase = UPSTREAM[provider]
   if (!upstreamBase) {
     res.statusCode = 404
@@ -85,7 +90,11 @@ export default async function handler(req: NodeRequest, res: NodeResponse) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 100_000)
   try {
-    const upstream = await fetch(`${upstreamBase}/${rest.filter(Boolean).join('/')}${url.search}`, {
+    // Any query the caller sent is forwarded, minus our own routing parameter.
+    const forward = new URLSearchParams(url.search)
+    forward.delete('path')
+    const query = forward.toString() ? `?${forward.toString()}` : ''
+    const upstream = await fetch(`${upstreamBase}/${rest.filter(Boolean).join('/')}${query}`, {
       method,
       headers: outbound,
       body,

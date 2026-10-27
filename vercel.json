@@ -10,18 +10,40 @@
   "headers": [
     {
       "source": "/assets/(.*)",
-      "headers": [{ "key": "cache-control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "cache-control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
       "source": "/sw.js",
       "headers": [
-        { "key": "cache-control", "value": "public, max-age=0, must-revalidate" },
-        { "key": "service-worker-allowed", "value": "/" }
+        {
+          "key": "cache-control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "service-worker-allowed",
+          "value": "/"
+        }
       ]
     },
     {
       "source": "/manifest.webmanifest",
-      "headers": [{ "key": "content-type", "value": "application/manifest+json" }]
+      "headers": [
+        {
+          "key": "content-type",
+          "value": "application/manifest+json"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/xkiro/:path*",
+      "destination": "/api/xkiro?path=:path*"
     }
   ]
 }

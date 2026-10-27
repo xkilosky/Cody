@@ -25,7 +25,18 @@ import {
   isFreeModel,
   providerOf,
 } from '../src/lib/ai/providers'
-import { callAi, discoverModels, isCoolingDown, probeProvider, resetCooldowns, selectTargets } from '../src/lib/ai/client'
+import {
+  NO_TOOL_NOTE,
+  callAi,
+  discoverModels,
+  isCoolingDown,
+  isToolQuirk,
+  needsToolNudge,
+  probeProvider,
+  resetCooldowns,
+  selectTargets,
+  withNoToolNote,
+} from '../src/lib/ai/client'
 import { maskKey } from '../src/lib/ai/keys'
 import {
   cleanPath,
@@ -324,6 +335,84 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
       return true
     }
   })())
+}
+
+{
+  // Groq's gpt-oss answers a text-protocol prompt with a *native* tool call,
+  // and Groq rejects the whole request: 400 tool_use_failed. The same model
+  // answers once the text protocol is spelled out, so no turn is lost.
+  resetCooldowns()
+  let call = 0
+  const mock = mockFetch(() => {
+    call += 1
+    return call === 1
+      ? { status: 400, message: 'Tool choice is none, but model called a tool' }
+      : reply('here is your answer')
+  })
+  const original = [{ role: 'system' as const, content: 'You are Cody.' }, ...messages]
+  const result = await callAi({
+    config: config({ auto: false, provider: 'groq', model: 'openai/gpt-oss-120b' }),
+    keys: { groq: 'k' },
+    messages: original,
+    fetchImpl: mock.impl,
+  })
+  check('a native tool call is retried on the same model', result.text === 'here is your answer', result.text)
+  check('and the retry stays on that model', mock.calls.length === 2 && mock.calls[1].body.model === mock.calls[0].body.model, `${mock.calls.length} calls`)
+  check('the first attempt carried the prompt untouched', JSON.stringify(mock.calls[0].body.messages) === JSON.stringify(original))
+  const retried = (mock.calls[1].body.messages ?? []) as Array<{ role: string; content: string }>
+  check('the retry spells out the text tool protocol', retried[0].content.includes(NO_TOOL_NOTE.trim()))
+  check('the note rides on the existing system message, not a new one', retried.filter((message) => message.role === 'system').length === 1 && retried.length === original.length)
+  check('the model is remembered as needing the note', needsToolNudge('groq', 'openai/gpt-oss-120b'))
+
+  // The next turn must not pay for the same 400 again.
+  const again = mockFetch(() => reply('second turn'))
+  await callAi({
+    config: config({ auto: false, provider: 'groq', model: 'openai/gpt-oss-120b' }),
+    keys: { groq: 'k' },
+    messages: original,
+    fetchImpl: again.impl,
+  })
+  check('the next turn nudges up front instead of failing first', again.calls.length === 1, `${again.calls.length} calls`)
+  check('and the note is already in the system message', String(((again.calls[0].body.messages ?? []) as Array<{ content: string }>)[0].content).includes('NO function-calling tools'))
+}
+
+{
+  // A model that will not take the hint must not take the run down with it.
+  resetCooldowns()
+  const mock = mockFetch(({ body }) =>
+    body.model === 'openai/gpt-oss-120b'
+      ? { status: 400, message: 'Tool choice is none, but model called a tool' }
+      : reply('answered by another model'),
+  )
+  const failures: string[] = []
+  const result = await callAi({
+    config: config({ auto: true, provider: 'groq' }),
+    keys: { groq: 'k' },
+    messages,
+    fetchImpl: mock.impl,
+    onEvent: (event) => {
+      if (event.kind === 'fail') failures.push(event.message)
+    },
+  })
+  const stubborn = mock.calls.filter((request) => request.body.model === 'openai/gpt-oss-120b')
+  check('a model that keeps calling tools is left behind', result.text === 'answered by another model', result.text)
+  check('…on a different model', result.target.model !== 'openai/gpt-oss-120b', result.target.model)
+  check('…after being given the note and one more chance', stubborn.length === 2, `${stubborn.length} calls to gpt-oss`)
+  check('the failure says what happened', /native tool call/.test(failures[0] ?? ''), failures[0] ?? '')
+  check('the turn still produced an answer', result.text.length > 0)
+}
+
+{
+  check('the Groq refusal is recognised', isToolQuirk(400, 'Tool choice is none, but model called a tool'))
+  check('…also when only the code says so', isToolQuirk(400, 'Bad request', 'tool_use_failed'))
+  check('…and when a tool schema failed to validate', isToolQuirk(400, 'tool call validation failed: parameters did not match schema'))
+  check('a genuine bad request is not', !isToolQuirk(400, 'messages: field required'))
+  check('a rate limit is not', !isToolQuirk(429, 'Tool choice is none, but model called a tool'))
+  check('with no status, the message alone still counts', isToolQuirk(null, 'Tool choice is none, but model called a tool'))
+  check('a server error is not', !isToolQuirk(500, 'Tool choice is none, but model called a tool'))
+  const noted = withNoToolNote([{ role: 'user', content: 'hi' }])
+  check('the note becomes a system message when there is none', noted[0].role === 'system' && noted.length === 2)
+  check('the original messages are not mutated', !JSON.stringify(messages).includes('NO function-calling tools'))
 }
 
 {
@@ -875,6 +964,7 @@ const call = (tool: string, args: Record<string, unknown> = {}) =>
   const systemPrompts = mock.calls.map((request) => ((request.body.messages ?? []) as Array<{ content: string }>)[0]?.content ?? '')
   check('the planner gets the planner prompt', systemPrompts.some((prompt) => prompt.includes('PLANNER')))
   check('each agent gets the tool manual', systemPrompts.every((prompt) => prompt.includes('patch_file(') && prompt.includes('```tool')))
+  check('the prompt forbids native tool calls up front', systemPrompts.every((prompt) => /no native function-calling/i.test(prompt)), systemPrompts[0].slice(0, 60))
   check('later agents see what came before', ((mock.calls.at(-1)?.body.messages ?? []) as Array<{ content: string }>).some((message) => message.content.includes('[Coder A]')))
   check('events were emitted in order', events[0] === 'start' && events.includes('tool') && events.includes('done'), events.slice(0, 6).join(','))
 }

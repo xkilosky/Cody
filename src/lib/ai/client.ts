@@ -64,6 +64,12 @@ export class AiError extends Error {
 
 const modelCooldown = new Map<string, number>()
 const providerCooldown = new Map<string, number>()
+/**
+ * Models that have already tried to make a native tool call in a request that
+ * had no tools attached — see `withNoToolNote`. Remembering them saves a
+ * guaranteed 400 on every later turn.
+ */
+const toolNudge = new Set<string>()
 
 /** A retired model stays retired for five minutes; an exhausted provider, one. */
 const MODEL_COOLDOWN_MS = 5 * 60_000
@@ -72,6 +78,7 @@ const PROVIDER_COOLDOWN_MS = 60_000
 export function resetCooldowns() {
   modelCooldown.clear()
   providerCooldown.clear()
+  toolNudge.clear()
 }
 
 function cooling(key: string, map: Map<string, number>, now: number): boolean {
@@ -87,6 +94,58 @@ function cooling(key: string, map: Map<string, number>, now: number): boolean {
 export function isCoolingDown(provider: ProviderId, model: string): boolean {
   const now = Date.now()
   return cooling(`${provider}:${model}`, modelCooldown, now) || cooling(provider, providerCooldown, now)
+}
+
+/* ------------------------------------------------------------------ */
+/* models that call tools we never offered                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Groq refuses the whole request when a gpt-oss model emits a *native* tool
+ * call while `tool_choice` is none (400 `tool_use_failed`, "Tool choice is
+ * none, but model called a tool"). Cody never sends a `tools` array — the
+ * protocol is a ```tool fence in the reply — but a model that was trained on
+ * function calling reaches for it anyway, usually because the prompt talks
+ * about tools.
+ *
+ * Two cures, both here: a note that spells out the text protocol before the
+ * model starts writing, and a single retry with that note when a provider
+ * still refuses. The turn is never lost.
+ */
+const TOOL_QUIRK = /tool_use_failed|tool choice is none|model called a tool|did not match schema/i
+
+export function isToolQuirk(status: number | null, message: string, code = ''): boolean {
+  if (status !== null && status !== 400 && status !== 422) return false
+  return TOOL_QUIRK.test(`${code} ${message}`)
+}
+
+export const NO_TOOL_NOTE = `
+
+HOW TO CALL A TOOL IN THIS REQUEST (read this before replying):
+This request has NO function-calling tools attached. Do not emit a native tool call, and never write function-call or harmony syntax — no <|channel|>, no "recipient=", no {"name": ..., "arguments": ...}.
+The only way to call a tool is a fenced block inside your ordinary text reply:
+
+\`\`\`tool
+{"tool": "read_file", "args": {"path": "index.html"}}
+\`\`\`
+
+Anything you want to read, write or check goes in that block. Everything else is normal prose.`
+
+/** True when this model has already needed the note once. */
+export function needsToolNudge(provider: ProviderId, model: string): boolean {
+  return toolNudge.has(`${provider}:${model}`)
+}
+
+/**
+ * Add the note to the *existing* system message — a second system message
+ * mid-conversation is rejected by some providers, and appending is enough.
+ */
+export function withNoToolNote(messages: ChatMessage[]): ChatMessage[] {
+  const at = messages.findIndex((message) => message.role === 'system')
+  if (at === -1) return [{ role: 'system', content: NO_TOOL_NOTE.trim() }, ...messages]
+  return messages.map((message, index) =>
+    index === at ? { role: message.role, content: `${message.content}${NO_TOOL_NOTE}` } : message,
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -271,8 +330,21 @@ type CompletionBody = {
   message?: string
 }
 
-function classify(status: number, detail: string): { message: string; retryable: boolean; providerWide: boolean } {
+function classify(
+  status: number,
+  detail: string,
+  code = '',
+): { message: string; retryable: boolean; providerWide: boolean } {
   const trimmed = detail.trim().slice(0, 220)
+  // Not our key, not our quota, not our prompt shape — just a model that wants
+  // function calling. Another model will answer, so keep walking the list.
+  if (isToolQuirk(status, trimmed, code)) {
+    return {
+      message: 'This model writes native tool calls, which the provider blocks (a known Groq/gpt-oss quirk).',
+      retryable: true,
+      providerWide: false,
+    }
+  }
   if (status === 401 || status === 403) {
     return { message: `Key rejected (${status}). ${trimmed}`, retryable: true, providerWide: true }
   }
@@ -316,30 +388,68 @@ async function callOne(
   const timeout = setTimeout(() => controller.abort(), budgetMs)
   const started = Date.now()
 
-  try {
-    const response = await doFetch(url, {
-      method: 'POST',
-      headers: authHeaders(target.provider, apiKey),
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: target.model,
-        messages: options.messages,
-        temperature: options.temperature ?? config.temperature,
-        max_tokens: options.maxTokens ?? config.maxTokens,
-        stream: false,
-      }),
-    })
+  const key = `${target.provider}:${target.model}`
+  // A model that has fallen for this before gets the note up front.
+  let outgoing = needsToolNudge(target.provider, target.model) ? withNoToolNote(options.messages) : options.messages
+  let nudged = needsToolNudge(target.provider, target.model)
 
-    if (!response.ok) {
+  try {
+    for (;;) {
+      const response = await doFetch(url, {
+        method: 'POST',
+        headers: authHeaders(target.provider, apiKey),
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: target.model,
+          messages: outgoing,
+          temperature: options.temperature ?? config.temperature,
+          max_tokens: options.maxTokens ?? config.maxTokens,
+          stream: false,
+        }),
+      })
+
+      if (response.ok) {
+        const body = (await response.json()) as CompletionBody
+        const text = body.choices?.[0]?.message?.content ?? body.choices?.[0]?.text ?? ''
+        if (!text.trim()) {
+          throw new AiError('The model returned an empty answer', {
+            provider: target.provider,
+            model: target.model,
+            retryable: true,
+          })
+        }
+        return {
+          text,
+          target,
+          ms: Date.now() - started,
+          usage: {
+            prompt: body.usage?.prompt_tokens,
+            completion: body.usage?.completion_tokens,
+          },
+        }
+      }
+
       const detail = await response.text().catch(() => '')
       let parsed = ''
+      let code = ''
       try {
         const json = JSON.parse(detail) as CompletionBody
         parsed = json.error?.message ?? json.message ?? ''
+        code = String(json.error?.code ?? '')
       } catch {
         parsed = detail
       }
-      const info = classify(response.status, parsed || detail)
+
+      // The model reached for a native tool call we never offered. Say the
+      // protocol out loud and try this same model once more before failing over.
+      if (!nudged && isToolQuirk(response.status, parsed || detail, code)) {
+        nudged = true
+        toolNudge.add(key)
+        outgoing = withNoToolNote(outgoing)
+        continue
+      }
+
+      const info = classify(response.status, parsed || detail, code)
       const error = new AiError(info.message, {
         status: response.status,
         provider: target.provider,
@@ -349,25 +459,6 @@ async function callOne(
       if (info.providerWide) providerCooldown.set(target.provider, Date.now() + PROVIDER_COOLDOWN_MS)
       if (response.status === 404) modelCooldown.set(`${target.provider}:${target.model}`, Date.now() + MODEL_COOLDOWN_MS)
       throw error
-    }
-
-    const body = (await response.json()) as CompletionBody
-    const text = body.choices?.[0]?.message?.content ?? body.choices?.[0]?.text ?? ''
-    if (!text.trim()) {
-      throw new AiError('The model returned an empty answer', {
-        provider: target.provider,
-        model: target.model,
-        retryable: true,
-      })
-    }
-    return {
-      text,
-      target,
-      ms: Date.now() - started,
-      usage: {
-        prompt: body.usage?.prompt_tokens,
-        completion: body.usage?.completion_tokens,
-      },
     }
   } catch (error) {
     if (error instanceof AiError) throw error

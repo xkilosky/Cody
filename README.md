@@ -125,6 +125,12 @@ Anthropic, xAI, or any OpenAI-compatible endpoint such as Ollama, LM Studio or v
 - **Failover.** A rejected or out-of-credit key cools the whole provider for a minute and the run
   continues on the next one; a retired model (404) is remembered for five minutes; a rate limit
   costs one retry. Pressing *Stop* is not a failure and never triggers a fallback.
+- **Models that insist on function calling.** Tool calls here are a fenced ```` ```tool ```` block in
+  the reply, so no `tools` array is ever sent. Some models — Groq's gpt-oss above all — reach for a
+  native tool call anyway, and Groq then refuses the entire request (`400 tool_use_failed`, "Tool
+  choice is none, but model called a tool"). Cody appends a note that spells the text protocol out
+  and retries the same model once; if it happens again the model is remembered, later turns start
+  with the note already in place, and the run moves on to the next candidate instead of dying.
 - **Chat.** One assistant, the same tools, minimal chrome. It reads, writes and patches the real
   files, and each change is a chip you can follow. Answers render as light markdown — bold, lists,
   inline and fenced code, http(s) links — through a ~150-line renderer with no dependency and no

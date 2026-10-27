@@ -88,6 +88,7 @@ Call a tool by writing a fenced block exactly like this:
 \`\`\`
 
 Rules:
+- There is no native function-calling here: the fenced block above is the only way to call a tool. Never emit a native tool call or harmony syntax (\`<|channel|>\`, \`recipient=\`, or \`{"name": …, "arguments": …}\`) — providers that parse it reject the whole request.
 - One block per tool call. You may write several blocks; they run in order.
 - \`read_file\` before \`patch_file\`. Copy the text to patch exactly, including indentation.
 - Prefer \`patch_file\` for edits and \`write_file\` for new or fully rewritten files. Never paste a whole file in prose.

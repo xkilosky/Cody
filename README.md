@@ -122,7 +122,10 @@ Anthropic, xAI, or any OpenAI-compatible endpoint such as Ollama, LM Studio or v
   (`access_tier: free`, or `pricing` at zero). Cody reads that catalog once per session (cached
   24 h), registers those ids as free, and *then* selects. Before this, a free-only setup with an
   xKiro key had nothing it was allowed to call: every curated xKiro id is a paid flagship, so
-  selection produced zero candidates and the provider was never touched.
+  selection produced zero candidates and the provider was never touched. The AI sheet loads each
+  keyed provider's catalog when it opens, shows *“47 free models found”* on the card, lists those ids
+  first in the picker, and has a **Use xKiro first** button — a provider you cannot choose is a
+  provider you cannot use.
 - **Automatic model selection.** The preferred provider is the head of the list; every other
   provider that has a key follows. The model for each job is picked by tier (reasoning for the
   planner, code for the coders, fast for the tester) *within the free set*, and `/models` discovery

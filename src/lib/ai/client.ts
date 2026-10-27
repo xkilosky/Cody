@@ -144,9 +144,18 @@ export function resetCooldowns() {
   modelCooldown.clear()
   providerCooldown.clear()
   toolNudge.clear()
+  // Session knowledge survives a reset: which models a provider says are free
+  // is not a failure, and forgetting it here made the settings sheet show a
+  // provider with no usable models.
   discoveredCache.clear()
   catalogChecked.clear()
+}
+
+/** Forget which models are free — a real reset, used by tests and by Recovery. */
+export function resetCatalog() {
   for (const provider of PROVIDERS) registerFreeModels(provider.id, [])
+  discoveredCache.clear()
+  catalogChecked.clear()
 }
 
 function cooling(key: string, map: Map<string, number>, now: number): boolean {
@@ -319,21 +328,26 @@ export function selectTargets(
       if (chosen) targets.push(targetOf(provider, chosen))
       // Ids the provider's own catalog calls free. A gateway can run dozens of
       // free models behind `vendor/model` ids; the table cannot list them all.
+      // Capped per provider, not globally: a budget shared across providers
+      // let the first two use it all up and the third never ran.
+      let perProvider = targets.filter((target) => target.provider === provider).length
       for (const id of registeredFreeModels(provider)) {
-        if (targets.length >= 8) break
+        if (perProvider >= 3) break
         if (config.freeOnly && !ignoreFreeOnly && !isFreeModel(provider, id)) continue
         if (!targets.some((target) => target.provider === provider && target.model === id)) {
           targets.push(targetOf(provider, id))
+          perProvider += 1
         }
       }
       if (!config.auto) continue
       // …then this provider's other hints, so one retired model is not fatal.
       const tier = role ? ROLES.find((entry) => entry.id === role)?.tier : 'any'
       for (const hint of hintsFor(provider, tier ?? 'any')) {
-        if (targets.length >= 8) break
+        if (perProvider >= 4) break
         if (config.freeOnly && !ignoreFreeOnly && !isFreeModel(provider, hint.id)) continue
         if (!targets.some((target) => target.provider === provider && target.model === hint.id)) {
           targets.push(targetOf(provider, hint.id))
+          perProvider += 1
         }
       }
     }
@@ -549,7 +563,9 @@ async function callOne(
       })
     }
     throw new AiError(
-      aborted ? `Timed out after ${Math.round(budgetMs / 1000)}s` : `Network error: ${(error as Error)?.message ?? 'unknown'}`,
+      aborted
+        ? `Timed out after ${Math.round(budgetMs / 1000)}s`
+        : `Could not reach ${target.provider} from this browser (${(error as Error)?.message ?? 'network error'}). A provider that blocks cross-origin requests fails this way.`,
       { provider: target.provider, model: target.model, retryable: true },
     )
   } finally {

@@ -24,6 +24,7 @@ import {
   isConfigured,
   isFreeModel,
   providerOf,
+  registerFreeModels,
 } from '../src/lib/ai/providers'
 import {
   NO_TOOL_NOTE,
@@ -34,6 +35,7 @@ import {
   needsToolNudge,
   probeProvider,
   rankDiscovered,
+  resetCatalog,
   resetCooldowns,
   selectTargets,
   withNoToolNote,
@@ -456,8 +458,26 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
   check('…including a model with no tier but a zero price', isFreeModel('xkiro', 'mistral/codestral'))
   check('…and a priced model stays paid', !isFreeModel('xkiro', 'cohere/command-a-plus'))
   const listed = selectTargets(config({ auto: true, provider: 'xkiro' }), { xkiro: 'k' })
+  // Opening AI settings calls resetCooldowns; that must not forget the catalog,
+  // or the sheet shows a provider with nothing it can use.
+  resetCooldowns()
+  check('opening settings keeps what the catalog said', isFreeModel('xkiro', 'deepseek/v4-flash'))
+  resetCatalog()
+  check('and a real reset forgets it', !isFreeModel('xkiro', 'deepseek/v4-flash'))
+
   check('later selection offers the free xKiro ids', listed.targets.some((target) => target.provider === 'xkiro' && target.model === 'deepseek/v4-flash'), listed.targets.map((t) => t.model).join(','))
   check('…and none of the paid ones', listed.targets.every((target) => !['z-ai/glm-5.3', 'openai/gpt-6.1-sol'].includes(target.model)))
+
+  // A later provider must not be starved by a preferred one that fills the list.
+  registerFreeModels('xkiro', ['deepseek/v4-flash', 'moonshotai/kimi-k3'])
+  const mixed = selectTargets(config({ auto: true, provider: 'openrouter' }), { openrouter: 'k', xkiro: 'k' })
+  check('a later provider still gets candidates', mixed.targets.some((target) => target.provider === 'xkiro'), mixed.targets.map((t) => `${t.provider}:${t.model}`).join(' '))
+  check('…and the preferred provider leads', mixed.targets[0]?.provider === 'openrouter')
+  // …even when the preferred provider alone could fill the old global cap.
+  registerFreeModels('openrouter', Array.from({ length: 10 }, (_, index) => `lab/model-${index}:free`))
+  const crowded = selectTargets(config({ auto: true, provider: 'openrouter' }), { openrouter: 'k', xkiro: 'k' })
+  check('…even when the preferred provider is crowded', crowded.targets.some((target) => target.provider === 'xkiro'), crowded.targets.map((t) => `${t.provider}:${t.model}`).join(' '))
+  check('…and the list stays small', crowded.targets.length <= 10, String(crowded.targets.length))
 }
 
 {

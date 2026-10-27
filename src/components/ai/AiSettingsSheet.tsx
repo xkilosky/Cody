@@ -1,8 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AiConfig, AiRole } from '../../lib/ai/config'
 import { ROLES } from '../../lib/ai/config'
-import { PROVIDERS, freeHintsFor, hintsFor, isFreeModel, providerOf, type ProviderId } from '../../lib/ai/providers'
-import { discoverModels, probeProvider, resetCooldowns, selectTargets, type ProbeResult } from '../../lib/ai/client'
+import {
+  PROVIDERS,
+  hintsFor,
+  isFreeModel,
+  providerOf,
+  registeredFreeModels,
+  type ProviderId,
+} from '../../lib/ai/providers'
+import {
+  discoverModels,
+  probeProvider,
+  resetCooldowns,
+  selectTargets,
+  type ProbeResult,
+} from '../../lib/ai/client'
 import { clearKeys, getKeys, maskKey, setKey } from '../../lib/ai/keys'
 import { TOOLS, toolGroups } from '../../lib/ai/tools'
 import Icon from '../Icons'
@@ -26,13 +39,41 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
   const [probes, setProbes] = useState<Partial<Record<ProviderId, ProbeState>>>({})
   const [discovered, setDiscovered] = useState<Partial<Record<ProviderId, string[]>>>({})
   const [showTools, setShowTools] = useState(false)
+  // Catalogues are module state; this just makes React re-read them.
+  const [, setCatalogTick] = useState(0)
 
   useEffect(() => {
     if (!open) return
-    setKeys(getKeys() as Record<string, string>)
+    const saved = getKeys() as Record<string, string>
+    setKeys(saved)
     setProbes({})
     resetCooldowns()
-  }, [open])
+
+    // Ask each provider that has a key what it serves — its free models are a
+    // fact only it knows, and a provider whose free ids are invisible cannot be
+    // chosen, listed or trusted here.
+    let cancelled = false
+    const blind = PROVIDERS.filter(
+      (provider) =>
+        !provider.custom &&
+        Boolean(saved[provider.id]) &&
+        registeredFreeModels(provider.id).length === 0 &&
+        hintsFor(provider.id).every((hint) => !isFreeModel(provider.id, hint.id)),
+    )
+    void Promise.all(
+      blind.map(async (provider) => {
+        const result = await discoverModels(provider.id, saved[provider.id], config.customBaseUrl)
+        if (cancelled) return
+        if (result.models.length > 0) {
+          setDiscovered((prev) => ({ ...prev, [provider.id]: result.models }))
+        }
+        setCatalogTick((tick) => tick + 1)
+      }),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [open, config.customBaseUrl])
 
   const saveKey = (id: ProviderId, value: string) => {
     setKeys((prev) => ({ ...prev, [id]: value }))
@@ -69,14 +110,15 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
 
   const modelOptions = (id: ProviderId): string[] => {
     const hints = hintsFor(id, 'any').map((hint) => hint.id)
-    return [...new Set([...hints, ...(discovered[id] ?? [])])]
+    // Catalog-model first: those are the ones this account can call for free.
+    return [...new Set([...registeredFreeModels(id), ...hints, ...(discovered[id] ?? [])])]
   }
 
   /** Free first, so the datalist itself steers towards the cheap end. */
   const freeFirst = (id: ProviderId): string[] => {
-    const free = new Set(freeHintsFor(id, 'any').map((hint) => hint.id))
     const options = modelOptions(id)
-    return [...options.filter((option) => free.has(option)), ...options.filter((option) => !free.has(option))]
+    const free = options.filter((option) => isFreeModel(id, option))
+    return [...free, ...options.filter((option) => !free.includes(option))]
   }
 
   return (
@@ -191,7 +233,13 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
                   <strong>{provider.label}</strong>
                   <span className="ai-provider-blurb">{provider.blurb}</span>
                 </span>
-                {provider.freeTier && <span className="ai-free-chip">free</span>}
+                {provider.freeTier && (
+                  <span className="ai-free-chip">
+                    {registeredFreeModels(provider.id).length > 0
+                      ? `${registeredFreeModels(provider.id).length} free`
+                      : 'free'}
+                  </span>
+                )}
                 <span className="ai-provider-state">{saved ? maskKey(saved) : 'not set'}</span>
                 <Icon name={isOpen ? 'chevron-down' : 'chevron-right'} size={14} />
               </button>
@@ -312,9 +360,7 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
                           className="text-input"
                           list={`ai-models-${provider.id}`}
                           value={config.provider === provider.id ? config.model : ''}
-                          placeholder={
-                            (config.freeOnly ? freeHintsFor(provider.id)[0]?.id : hintsFor(provider.id)[0]?.id) ?? 'auto'
-                          }
+                          placeholder={freeFirst(provider.id)[0] ?? 'auto'}
                           autoCapitalize="off"
                           autoCorrect="off"
                           spellCheck={false}
@@ -331,10 +377,31 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
                           <option key={model} value={model} />
                         ))}
                       </datalist>
+                      <div className="ai-provider-links">
+                        <button
+                          className="btn small ghost"
+                          onClick={() => onChange({ provider: provider.id, model: '' })}
+                          disabled={config.provider === provider.id}
+                        >
+                          {config.provider === provider.id ? 'Preferred ✓' : `Use ${provider.label} first`}
+                        </button>
+                        {registeredFreeModels(provider.id).length > 0 && (
+                          <span className="muted small">
+                            {registeredFreeModels(provider.id).length} free models found
+                          </span>
+                        )}
+                      </div>
                       <p className="muted small">
                         Empty means automatic — free models first. Model ids change often; “List” asks the
                         provider what it serves.
                       </p>
+                      {!selection.targets.some((target) => target.provider === provider.id) && (
+                        <p className="ai-probe bad">
+                          {config.freeOnly
+                            ? 'Not in the candidate list: no free model known here yet. Press List, or turn off “Free models only”.'
+                            : 'Not in the candidate list — check the key and press List.'}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -407,7 +474,7 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
                   placeholder={
                     choice.provider
                       ? (config.freeOnly
-                          ? freeHintsFor(choice.provider, role.tier)[0]?.id
+                          ? (freeFirst(choice.provider)[0] ?? '')
                           : hintsFor(choice.provider, role.tier)[0]?.id) ?? 'auto'
                       : 'auto'
                   }

@@ -1,0 +1,535 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { EditorState, Compartment, RangeSet, RangeSetBuilder, StateEffect, StateField, type Extension } from '@codemirror/state'
+import {
+  EditorView,
+  keymap,
+  lineNumbers,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  drawSelection,
+  dropCursor,
+  rectangularSelection,
+  crosshairCursor,
+  highlightSpecialChars,
+  GutterMarker,
+  gutter,
+  placeholder as cmPlaceholder,
+} from '@codemirror/view'
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+  toggleComment,
+  indentMore,
+  indentLess,
+  copyLineDown,
+  moveLineUp,
+  moveLineDown,
+  deleteLine,
+  selectLine,
+  redo as redoCommand,
+  undo as undoCommand,
+} from '@codemirror/commands'
+import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, startCompletion } from '@codemirror/autocomplete'
+import { bracketMatching, indentOnInput } from '@codemirror/language'
+import { searchKeymap, openSearchPanel } from '@codemirror/search'
+import { linter, lintGutter, type Diagnostic as CmDiagnostic } from '@codemirror/lint'
+import { editorThemeFor } from './theme'
+import { createCompletionSource, type CompletionOptions } from './completions'
+import { applyTextEdits } from './edits'
+import { languageForPath, loadLanguageExtension } from '../lib/languages'
+import type { Diagnostic } from '../lib/diagnostics'
+import type { ProjectFile } from '../types'
+import type { ActionMarker, TextEdit } from '../lib/codeActions'
+import type { Settings } from '../types'
+
+export type CursorInfo = {
+  line: number
+  column: number
+  lines: number
+  selected: number
+}
+
+export type CodyEditorHandle = {
+  cursor: () => CursorInfo
+  focus: () => void
+  insert: (text: string) => void
+  wrapSelection: (before: string, after?: string) => void
+  toggleComment: () => void
+  indent: () => void
+  outdent: () => void
+  undo: () => void
+  redo: () => void
+  openSearch: () => void
+  scrollToTop: () => void
+  /** Jump to a 1-based line/column, e.g. from the problems list. */
+  goto: (line: number, column?: number) => void
+  /** Open the suggestion list (the rail has no Ctrl-Space on a phone). */
+  complete: () => void
+  /** Apply code-action edits (absolute offsets in the current document). */
+  applyEdits: (edits: TextEdit[]) => void
+  /** The selected range, for selection-driven refactors. */
+  selection: () => { from: number; to: number }
+  getView: () => EditorView | null
+}
+
+type Props = {
+  value: string
+  path: string
+  settings: Settings
+  onChange: (value: string) => void
+  onSave?: () => void
+  onRun?: () => void
+  readOnly?: boolean
+  onReady?: (handle: CodyEditorHandle) => void
+  onDestroy?: () => void
+  onCursor?: (info: CursorInfo) => void
+  onDirty?: () => void
+  /** Returns the file's problems; used to draw squiggles and gutter markers. */
+  lint?: (content: string) => Diagnostic[]
+  /** Other files in the project, so exports can be suggested by name. */
+  projectFiles?: ProjectFile[]
+  /** Quick fixes to offer inside the problems tooltip. */
+  fixes?: (content: string, pos: number) => Array<{ title: string; edits: TextEdit[] }>
+  /** Called for Mod-. (the phone UI opens the actions sheet instead). */
+  onRequestCodeActions?: () => void
+  /** Lines that have something to offer — drawn as a small bulb in the gutter. */
+  bulbs?: ActionMarker[]
+  /** Tapping a bulb: open the actions for that line. */
+  onBulb?: (line: number, column: number) => void
+}
+
+/* ------------------------------------------------------------------------ */
+/* the lightbulb gutter                                                      */
+/* ------------------------------------------------------------------------ */
+
+const setBulbs = StateEffect.define<RangeSet<GutterMarker>>()
+
+/** Markers live in state so they re-render with the view and survive edits. */
+const bulbField = StateField.define<RangeSet<GutterMarker>>({
+  create: () => RangeSet.empty,
+  update(bulbs, transaction) {
+    for (const effect of transaction.effects) if (effect.is(setBulbs)) return effect.value
+    return transaction.docChanged ? bulbs.map(transaction.changes) : bulbs
+  },
+})
+
+const BULB_PATH = 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.7.5 1.1h6c0-.4.1-.8.5-1.1A6 6 0 0 0 12 3Z'
+
+function bulbSvg(): SVGElement {
+  const ns = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(ns, 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', '2')
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  const path = document.createElementNS(ns, 'path')
+  path.setAttribute('d', BULB_PATH)
+  svg.appendChild(path)
+  return svg
+}
+
+class BulbMarker extends GutterMarker {
+  constructor(readonly hasFix: boolean, readonly count: number) {
+    super()
+  }
+  eq(other: GutterMarker) {
+    return other instanceof BulbMarker && other.hasFix === this.hasFix && other.count === this.count
+  }
+  toDOM() {
+    const el = document.createElement('span')
+    el.className = `cm-bulb${this.hasFix ? ' cm-bulb-fix' : ''}`
+    el.setAttribute('aria-hidden', 'true')
+    if (this.count > 1) el.dataset.count = String(this.count)
+    el.appendChild(bulbSvg())
+    return el
+  }
+}
+
+function readCursor(view: EditorView): CursorInfo {
+  const { state } = view
+  const head = state.selection.main.head
+  const line = state.doc.lineAt(head)
+  const sel = state.selection.ranges.reduce((sum, range) => sum + (range.to - range.from), 0)
+  return {
+    line: line.number,
+    column: head - line.from + 1,
+    lines: state.doc.lines,
+    selected: sel,
+  }
+}
+
+function baseExtensions(settings: Settings, onCodeActions?: () => void): Extension[] {
+  return [
+    highlightSpecialChars(),
+    history(),
+    drawSelection(),
+    dropCursor(),
+    EditorState.allowMultipleSelections.of(true),
+    indentOnInput(),
+    bracketMatching(),
+    closeBrackets(),
+    autocompletion({ activateOnTyping: true, maxRenderedOptions: 12 }),
+    rectangularSelection(),
+    crosshairCursor(),
+    highlightActiveLine(),
+    highlightActiveLineGutter(),
+    keymap.of([
+      ...closeBracketsKeymap,
+      ...defaultKeymap,
+      ...searchKeymap,
+      ...historyKeymap,
+      ...completionKeymap,
+      indentWithTab,
+      {
+        key: 'Mod-.',
+        run: () => {
+          onCodeActions?.()
+          return true
+        },
+      },
+    ]),
+  ]
+}
+
+function settingsExtensions(settings: Settings): Extension {
+  const { theme, highlight } = editorThemeFor(settings.syntaxTheme, settings.theme)
+  const font = settings.fontFamily === 'serif' ? 'Georgia, "Iowan Old Style", "Times New Roman", serif' : 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
+  return [
+    theme,
+    highlight,
+    EditorView.theme({
+      '&': { fontSize: `${settings.fontSize}px` },
+      '.cm-content': { fontFamily: font, lineHeight: '1.65' },
+      '.cm-gutters': { fontFamily: font },
+    }),
+    settings.showLineNumbers ? [lineNumbers(), highlightActiveLineGutter()] : [],
+    settings.lineWrap ? EditorView.lineWrapping : [],
+    settings.tabSize
+      ? EditorState.tabSize.of(settings.tabSize)
+      : [],
+    EditorView.contentAttributes.of({ spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off' }),
+  ]
+}
+
+export default function CodeEditor({
+  value,
+  path,
+  settings,
+  onChange,
+  onSave,
+  onRun,
+  readOnly,
+  onReady,
+  onDestroy,
+  onCursor,
+  lint,
+  projectFiles,
+  fixes,
+  onRequestCodeActions,
+  bulbs,
+  onBulb,
+}: Props) {
+  const hostRef = useRef<HTMLDivElement | null>(null)
+  const viewRef = useRef<EditorView | null>(null)
+  const langCompartment = useMemo(() => new Compartment(), [])
+  const settingsCompartment = useMemo(() => new Compartment(), [])
+  const readOnlyCompartment = useMemo(() => new Compartment(), [])
+  const onChangeRef = useRef(onChange)
+  const onSaveRef = useRef(onSave)
+  const onRunRef = useRef(onRun)
+  const onDestroyRef = useRef(onDestroy)
+  const onCursorRef = useRef(onCursor)
+  const lintRef = useRef(lint)
+  const fixesRef = useRef(fixes)
+  const codeActionsRequest = useRef(onRequestCodeActions)
+  const bulbLines = useRef(new Map<number, ActionMarker>())
+  const onBulbRef = useRef(onBulb)
+  const completionOptions = useRef<CompletionOptions>({
+    languageId: languageForPath(path).id,
+    files: projectFiles,
+    path,
+  })
+  const cursorFrame = useRef<number | null>(null)
+  const [langReady, setLangReady] = useState(false)
+
+  onChangeRef.current = onChange
+  onSaveRef.current = onSave
+  onRunRef.current = onRun
+  onDestroyRef.current = onDestroy
+  onCursorRef.current = onCursor
+  lintRef.current = lint
+  fixesRef.current = fixes
+  codeActionsRequest.current = onRequestCodeActions
+  onBulbRef.current = onBulb
+  completionOptions.current = { languageId: languageForPath(path).id, files: projectFiles, path }
+
+  const completionSource = useMemo(
+    () => createCompletionSource(() => completionOptions.current),
+    [],
+  )
+
+  // Create the view once.
+  useEffect(() => {
+    if (!hostRef.current || viewRef.current) return
+    const state = EditorState.create({
+      doc: value,
+      extensions: [
+        ...baseExtensions(settings, () => codeActionsRequest.current?.()),
+        // register an extra autocomplete source; the language packages keep
+        // their own (HTML tags, CSS properties) because this only adds data
+        EditorState.languageData.of(() => [{ autocomplete: completionSource }]),
+        langCompartment.of([]),
+        settingsCompartment.of(settingsExtensions(settings)),
+        readOnlyCompartment.of(EditorState.readOnly.of(Boolean(readOnly))),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) onChangeRef.current(update.state.doc.toString())
+          if (update.docChanged && update.transactions.some((tr) => tr.isUserEvent('input'))) {
+            document.dispatchEvent(new CustomEvent('cody:typing'))
+          }
+          if (update.docChanged || update.selectionSet) {
+            if (cursorFrame.current) cancelAnimationFrame(cursorFrame.current)
+            cursorFrame.current = requestAnimationFrame(() => {
+              cursorFrame.current = null
+              onCursorRef.current?.(readCursor(update.view))
+            })
+          }
+        }),
+        keymap.of([
+          {
+            key: 'Mod-s',
+            preventDefault: true,
+            run: () => {
+              onSaveRef.current?.()
+              return true
+            },
+          },
+          {
+            key: 'Mod-Enter',
+            preventDefault: true,
+            run: () => {
+              onRunRef.current?.()
+              return true
+            },
+          },
+          {
+            key: 'Mod-/',
+            preventDefault: true,
+            run: toggleComment,
+          },
+          {
+            key: 'Tab',
+            preventDefault: true,
+            run: indentMore,
+          },
+          {
+            key: 'Shift-Tab',
+            preventDefault: true,
+            run: indentLess,
+          },
+          {
+            key: 'Mod-d',
+            preventDefault: true,
+            run: copyLineDown,
+          },
+          {
+            key: 'Alt-ArrowUp',
+            preventDefault: true,
+            run: moveLineUp,
+          },
+          {
+            key: 'Alt-ArrowDown',
+            preventDefault: true,
+            run: moveLineDown,
+          },
+          {
+            key: 'Mod-Shift-k',
+            preventDefault: true,
+            run: deleteLine,
+          },
+          {
+            key: 'Mod-l',
+            preventDefault: true,
+            run: selectLine,
+          },
+        ]),
+        bulbField,
+        gutter({
+          class: 'cm-bulb-gutter',
+          markers: (view) => view.state.field(bulbField),
+          domEventHandlers: {
+            mousedown: (view, block) => {
+              const line = view.state.doc.lineAt(block.from).number
+              const mark = bulbLines.current.get(line)
+              if (!mark) return false
+              onBulbRef.current?.(mark.line, mark.column)
+              return true
+            },
+          },
+        }),
+        lintGutter(),
+        linter(
+          (view): CmDiagnostic[] => {
+            const source = lintRef.current
+            if (!source) return []
+            const doc = view.state.doc
+            return source(doc.toString()).map((problem, problemIndex) => {
+              const line = doc.line(Math.min(Math.max(1, problem.line), doc.lines))
+              const from = Math.min(line.from + Math.max(0, problem.column - 1), line.to)
+              const to = Math.min(line.from + Math.max(problem.endColumn - 1, problem.column), line.to)
+              // a hopelessly broken file should not run the fix engine 60 times
+              const offered = problemIndex < 8 ? fixesRef.current?.(doc.toString(), from) ?? [] : []
+              return {
+                from,
+                to: Math.max(from, to),
+                severity: problem.severity,
+                message: problem.message,
+                source: `Cody · ${problem.rule}`,
+                actions: offered.slice(0, 3).map((fix) => ({
+                  name: fix.title,
+                  apply: (target: EditorView) => applyTextEdits(target, fix.edits),
+                })),
+              }
+            })
+          },
+          { delay: 350 },
+        ),
+        cmPlaceholder('Start writing…'),
+      ],
+    })
+    const view = new EditorView({ state, parent: hostRef.current })
+    viewRef.current = view
+    const handle: CodyEditorHandle = {
+      cursor: () => readCursor(view),
+      focus: () => view.focus(),
+      insert: (text: string) => {
+        const { from, to } = view.state.selection.main
+        view.dispatch({
+          changes: { from, to, insert: text },
+          selection: { anchor: from + text.length },
+          scrollIntoView: true,
+        })
+        view.focus()
+      },
+      wrapSelection: (before: string, after = before) => {
+        const { from, to } = view.state.selection.main
+        const selected = view.state.sliceDoc(from, to)
+        view.dispatch({
+          changes: { from, to, insert: `${before}${selected}${after}` },
+          selection: { anchor: from + before.length, head: from + before.length + selected.length },
+        })
+        view.focus()
+      },
+      toggleComment: () => {
+        toggleComment(view)
+        view.focus()
+      },
+      indent: () => indentMore(view),
+      outdent: () => indentLess(view),
+      undo: () => undoCommand(view),
+      redo: () => redoCommand(view),
+      openSearch: () => openSearchPanel(view),
+      scrollToTop: () => view.dispatch({ selection: { anchor: 0 }, scrollIntoView: true }),
+      complete: () => startCompletion(view),
+      applyEdits: (edits: TextEdit[]) => {
+        applyTextEdits(view, edits)
+        view.focus()
+      },
+      selection: () => {
+        const range = view.state.selection.main
+        return { from: range.from, to: range.to }
+      },
+      goto: (line: number, column = 1) => {
+        const target = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines))
+        const anchor = Math.min(target.from + Math.max(0, column - 1), target.to)
+        view.dispatch({ selection: { anchor }, scrollIntoView: true })
+        view.focus()
+      },
+      getView: () => view,
+    }
+    onReady?.(handle)
+    return () => {
+      if (cursorFrame.current) cancelAnimationFrame(cursorFrame.current)
+      onDestroyRef.current?.()
+      view.destroy()
+      viewRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Sync external value changes (file switch, undo from outside).
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    const current = view.state.doc.toString()
+    if (current === value) return
+    view.dispatch({
+      changes: { from: 0, to: current.length, insert: value },
+      annotations: [],
+    })
+  }, [value])
+
+  // Load the language extension when the file changes.
+  useEffect(() => {
+    let cancelled = false
+    setLangReady(false)
+    const id = path.includes('.') ? undefined : undefined
+    void id
+    import('../lib/languages').then(async ({ languageForPath }) => {
+      const lang = languageForPath(path)
+      const ext = await loadLanguageExtension(lang.id)
+      if (cancelled) return
+      const view = viewRef.current
+      if (!view) return
+      view.dispatch({ effects: langCompartment.reconfigure(ext) })
+      setLangReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [path, langCompartment])
+
+  // Apply settings live.
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    view.dispatch({ effects: settingsCompartment.reconfigure(settingsExtensions(settings)) })
+  }, [settings, settingsCompartment])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    view.dispatch({ effects: readOnlyCompartment.reconfigure(EditorState.readOnly.of(Boolean(readOnly))) })
+  }, [readOnly, readOnlyCompartment])
+
+  // Place the bulbs. Lines are re-read from the document, so a marker can never
+  // point past the end of the file.
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    const builder = new RangeSetBuilder<GutterMarker>()
+    const lookup = new Map<number, ActionMarker>()
+    const ordered = [...(bulbs ?? [])].sort((a, b) => a.line - b.line)
+    for (const mark of ordered) {
+      const number = Math.min(Math.max(1, mark.line), view.state.doc.lines)
+      if (lookup.has(number)) continue
+      const line = view.state.doc.line(number)
+      lookup.set(number, { ...mark, line: number })
+      builder.add(line.from, line.from, new BulbMarker(mark.hasFix, mark.count))
+    }
+    bulbLines.current = lookup
+    view.dispatch({ effects: setBulbs.of(builder.finish()) })
+  }, [bulbs])
+
+  return (
+    <div
+      className="editor-host"
+      ref={hostRef}
+      data-lang-ready={langReady ? 'true' : 'false'}
+      data-testid="code-editor"
+    />
+  )
+}

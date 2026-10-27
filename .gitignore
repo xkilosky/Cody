@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-ssr/
+.DS_Store
+*.local
+*.test-*.cjs
+*.test-*.mjs
+.vite/
+coverage/
+*.log
+__pycache__/
+*.pyc

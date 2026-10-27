@@ -1,0 +1,123 @@
+/**
+ * Stylesheet integrity.
+ *
+ * The UI is plain CSS, so a bad edit can silently delete a whole section of
+ * rules — nothing type-checks, nothing throws, the screen just falls apart.
+ * This suite asserts that every component's load-bearing selectors still exist,
+ * and that the file has not shrunk the way an over-broad edit makes it shrink.
+ */
+import { readFileSync, readdirSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// bundled to the repo root by scripts/run-tests.mjs; run directly from scripts/
+const here = dirname(fileURLToPath(import.meta.url))
+const root = here.endsWith('scripts') ? resolve(here, '..') : here
+const css = readFileSync(join(root, 'src/styles.css'), 'utf8')
+
+let failed = 0
+function check(name: string, ok: boolean, detail = '') {
+  if (ok) {
+    console.log(`  ok   ${name}`)
+  } else {
+    failed += 1
+    console.log(`  FAIL ${name}${detail ? ` — ${detail}` : ''}`)
+  }
+}
+
+/** Selectors that each screen and sheet depends on. If one disappears the UI breaks. */
+const REQUIRED = [
+  // shell + navigation
+  '.app-root', '.app-header', '.project-shell', '.tab-bar', '.tab-btn',
+  // editor pane chrome
+  '.code-pane', '.editor-tabs', '.tab-chip', '.tab-chip-main', '.tab-name', '.tab-close',
+  '.dirty-dot', '.tabs-more', '.lang-icon', '.editor-host', '.editor-status', '.status-lang',
+  '.status-save', '.editor-toolbar', '.rail-row', '.rail-actions', '.rail-keys', '.tool-btn',
+  '.rail-key', '.rail-run', '.symbol-grid', '.symbol-key',
+  // panes
+  '.pane', '.pane-toolbar', '.file-row', '.file-row-main', '.file-row-wrap', '.file-name',
+  '.run-pane', '.console', '.console-area', '.log-row', '.log-text', '.log-time', '.log-source',
+  // switcher + new workspace
+  '.switcher-list', '.switcher-row', '.switcher-main', '.switcher-mark', '.switcher-text',
+  '.current-pill', '.project-meta', '.new-workspace',
+  '.create-form', '.starter-list', '.starter-row',
+  // generic controls
+  '.chip', '.chip-row', '.field-label', '.text-input', '.search-field', '.clear-btn',
+  '.segmented', '.count-badge', '.spinner', '.pill', '.icon-btn',
+  // sheets, settings, toasts, cody panel
+  '.sheet', '.sheet-layer', '.sheet-scrim', '.sheet-grabber', '.sheet-quick-actions',
+  '.setting-row', '.switch', '.toast', '.toast-stack', '.cody-pane', '.cody-hero',
+  '.status-problems', '.problem-list', '.problem-group', '.problem-row', '.problem-file',
+  '.problem-loc', '.problem-msg', '.problem-rule', '.problem-count', '.problems-empty',
+  '.problem-flag', '.problem-flag.warning', '.tab-badge', '.tab-badge.warning',
+  '.folder-wrap', '.folder-empty', '.delete-list', '.folder-row',
+  '.action-kind', '.action-kind.quickfix', '.action-kind.import', '.action-kind.refactor',
+  '.action-kind.create', '.action-body', '.action-title', '.action-detail', '.tool-count',
+  '.cm-bulb-gutter', '.cm-bulb', '.cm-bulb.cm-bulb-fix',
+  '.snippet-card', '.runtime-row', '.action-list', '.action-item', '.empty-state',
+  // find in files
+  '.find-field', '.find-field.replacement', '.find-toggle', '.find-toggle.active',
+  '.find-results', '.find-group', '.find-file', '.find-count', '.find-row', '.find-loc',
+  '.find-text', '.find-hit', '.find-empty', '.confirm-row',
+  // Build AI: chat, crew and its settings sheet
+  '.ai-pane', '.ai-head', '.ai-mode', '.ai-status', '.ai-dot', '.ai-scroll',
+  '.ai-setup', '.ai-setup-mark', '.ai-provider-chips', '.ai-roles', '.ai-role',
+  '.ai-role-step', '.ai-examples', '.ai-example', '.ai-tools-line',
+  '.ai-thread', '.ai-msg', '.ai-msg.user', '.ai-msg.agent', '.ai-avatar', '.ai-msg-body',
+  '.ai-msg-head', '.ai-model', '.ai-msg-text', '.ai-note', '.ai-summary', '.ai-thinking',
+  '.ai-activity', '.ai-activity-more', '.ai-tool', '.ai-tool-name', '.ai-tool-desc',
+  '.ai-composer', '.ai-input-row', '.ai-input', '.ai-send', '.ai-foot', '.ai-revert',
+  '.ai-approval', '.ai-privacy', '.ai-chain', '.ai-chain-item', '.ai-chain-index',
+  '.ai-provider', '.ai-provider-head', '.ai-provider-body', '.ai-provider-state',
+  '.ai-provider-blurb', '.ai-key-row', '.ai-provider-links', '.ai-probe', '.ai-model-row',
+  '.ai-clear-keys', '.ai-role-row', '.ai-role-id', '.ai-role-controls', '.ai-select',
+  '.ai-role-model', '.ai-range', '.ai-tools-toggle', '.ai-tool-list', '.ai-tool-group',
+  '.ai-tool-line', '.ai-free-chip', '.ai-free-note', '.ai-cost', '.ai-chain-item',
+  // the transcript's markdown renderer
+  '.ai-md', '.ai-md p', '.ai-md ul', '.ai-md ol', '.ai-md li', '.ai-md strong', '.ai-md em',
+  '.ai-md code', '.ai-md pre', '.ai-md a', '.ai-md .ai-md-h', '.ai-md .ai-md-quote',
+]
+
+// the shell owns the viewport: an auto-height shell plus a locked body means
+// nothing scrolls at all
+{
+  const shell = css.slice(css.indexOf('.project-shell {'), css.indexOf('.app-header {'))
+  check('the shell has a definite height', /height:\s*100vh/.test(shell) && /height:\s*calc\(100dvh/.test(shell), shell.slice(0, 120))
+  check('the shell clips instead of growing', /overflow:\s*hidden/.test(shell))
+  check('the keyboard inset shrinks the shell', shell.includes('var(--kb-inset, 0px)'))
+}
+
+for (const selector of REQUIRED) {
+  check(`css has ${selector}`, css.includes(`\n${selector} `) || css.includes(`\n${selector},`) || css.includes(`\n${selector}{`) || css.includes(`\n${selector}:`))
+}
+
+/** Every `className="…"` literal in the components should resolve to a rule. */
+const walk = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)],
+  )
+
+const components = walk(join(root, 'src/components'))
+  .filter((file) => file.endsWith('.tsx'))
+  .map((file) => readFileSync(file, 'utf8'))
+  .join('\n')
+  .concat(readFileSync(join(root, 'src/App.tsx'), 'utf8'))
+
+const literals = new Set<string>()
+// semantic hooks that intentionally carry no styles
+const HOOK_ONLY = new Set(['files-pane'])
+
+for (const match of components.matchAll(/className="([^"{}\n]+)"/g)) {
+  for (const token of match[1].split(/\s+/)) {
+    if (/^[a-z][a-z0-9-]*$/.test(token) && !HOOK_ONLY.has(token)) literals.add(token)
+  }
+}
+
+const unstyled = [...literals].filter((token) => !new RegExp(`\\.${token}(?![a-z0-9-])`).test(css))
+check('every literal className has a rule', unstyled.length === 0, unstyled.join(', '))
+
+const rules = (css.match(/\{/g) ?? []).length
+check(`stylesheet still has its bulk (${rules} rules)`, rules > 240, 'the stylesheet lost whole sections')
+
+console.log(failed === 0 ? '\nAll style checks passed' : `\n${failed} style check(s) failed`)
+process.exit(failed === 0 ? 0 : 1)

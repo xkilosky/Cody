@@ -129,6 +129,27 @@ const SYNTAX: Record<string, SyntaxConfig> = {
   text: { line: [], block: [], quotes: [] },
   html: { line: [], block: [['<!--', '-->']], quotes: [] },
   xml: { line: [], block: [['<!--', '-->']], quotes: [] },
+  // --- second wave -----------------------------------------------------
+  // Square brackets belong to the language, not the string: each entry names
+  // the comment markers and the quotes that can legally span code, so bracket
+  // counting is neither fooled by prose nor by a comment.
+  dart: C_LIKE,
+  scala: C_LIKE,
+  groovy: C_LIKE,
+  d: C_LIKE,
+  haskell: { line: ['--'], block: [['{-', '-}']], quotes: ['"'] },
+  elm: { line: ['--'], block: [['{-', '-}']], quotes: ['"'] },
+  erlang: { line: ['%'], block: [], quotes: ['"'] },
+  julia: { line: ['#'], block: [['#=', '=#']], quotes: ['"'] },
+  ocaml: { line: [], block: [['(*', '*)']], quotes: ['"'] },
+  fsharp: { line: ['//'], block: [['(*', '*)']], quotes: ['"'] },
+  perl: { line: ['#'], block: [], quotes: ["'", '"'] },
+  r: { line: ['#'], block: [], quotes: ["'", '"'] },
+  clojure: { line: [';'], block: [], quotes: ['"'] },
+  pascal: { line: ['//'], block: [['{', '}'], ['(*', '*)']], quotes: ["'"] },
+  fortran: { line: ['!'], block: [], quotes: ["'", '"'] },
+  cobol: { line: ['*>'], block: [], quotes: ["'", '"'] },
+  octave: { line: ['%', '#'], block: [['%{', '%}']], quotes: ["'", '"'] },
 }
 
 const PAIRS: Record<string, string> = { '(': ')', '[': ']', '{': '}' }

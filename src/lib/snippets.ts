@@ -3,7 +3,7 @@ export type Snippet = {
   title: string
   description: string
   languages: string[]
-  category: 'UI' | 'Data' | 'Layout' | 'Async' | 'Python' | 'Systems' | 'Docs'
+  category: 'UI' | 'Data' | 'Layout' | 'Async' | 'Python' | 'Systems' | 'Docs' | 'Hello'
   code: string
 }
 
@@ -501,6 +501,207 @@ npm run dev
   <link rel="manifest" href="./manifest.webmanifest" />
   <title>My app</title>
 </head>`,
+  },
+  {
+    id: 'dart-hello',
+    title: 'Dart: hello',
+    description: 'Dart',
+    languages: ['dart'],
+    category: 'Hello',
+    code: `void main() {
+  final name = 'Cody';
+  print('Hello, $name');
+}`,
+  },
+  {
+    id: 'scala-hello',
+    title: 'Scala: hello',
+    description: 'Scala 3',
+    languages: ['scala'],
+    category: 'Hello',
+    code: `object Main extends App {
+  val name = "Cody"
+  println(s"Hello, $name")
+}`,
+  },
+  {
+    id: 'haskell-hello',
+    title: 'Haskell: hello',
+    description: 'A typed greeting',
+    languages: ['haskell'],
+    category: 'Hello',
+    code: `main :: IO ()
+main = do
+  let name = "Cody"
+  putStrLn ("Hello, " ++ name)`,
+  },
+  {
+    id: 'erlang-hello',
+    title: 'Erlang: hello',
+    description: 'A module with an entry point',
+    languages: ['erlang'],
+    category: 'Hello',
+    code: `-module(main).
+-export([start/0]).
+
+start() ->
+    io:format("Hello, ~s~n", ["Cody"]).`,
+  },
+  {
+    id: 'julia-hello',
+    title: 'Julia: hello',
+    description: 'Functions and interpolation',
+    languages: ['julia'],
+    category: 'Hello',
+    code: `function main()
+    name = "Cody"
+    println("Hello, $name")
+end
+
+main()`,
+  },
+  {
+    id: 'ocaml-hello',
+    title: 'OCaml: hello',
+    description: 'A module that prints on load',
+    languages: ['ocaml'],
+    category: 'Hello',
+    code: `let () =
+  let name = "Cody" in
+  print_endline ("Hello, " ^ name)`,
+  },
+  {
+    id: 'fsharp-hello',
+    title: 'F#: hello',
+    description: 'An entry point that returns 0',
+    languages: ['fsharp'],
+    category: 'Hello',
+    code: `[<EntryPoint>]
+let main _ =
+    let name = "Cody"
+    printfn "Hello, %s" name
+    0`,
+  },
+  {
+    id: 'perl-hello',
+    title: 'Perl: hello',
+    description: 'Strict and warnings, the safe way',
+    languages: ['perl'],
+    category: 'Hello',
+    code: `use strict;
+use warnings;
+
+my $name = 'Cody';
+print "Hello, $name\\n";`,
+  },
+  {
+    id: 'r-hello',
+    title: 'R: hello',
+    description: 'A function and a print',
+    languages: ['r'],
+    category: 'Hello',
+    code: `greet <- function(name) {
+  paste("Hello,", name)
+}
+
+cat(greet("Cody"), "\\n")`,
+  },
+  {
+    id: 'groovy-hello',
+    title: 'Groovy: hello',
+    description: 'String interpolation',
+    languages: ['groovy'],
+    category: 'Hello',
+    code: `def name = 'Cody'
+println "Hello, \${name}"`,
+  },
+  {
+    id: 'clojure-hello',
+    title: 'Clojure: hello',
+    description: 'A function and a call',
+    languages: ['clojure'],
+    category: 'Hello',
+    code: `(defn greet [name]
+  (str "Hello, " name))
+
+(println (greet "Cody"))`,
+  },
+  {
+    id: 'elm-hello',
+    title: 'Elm: hello',
+    description: 'A page with no build step',
+    languages: ['elm'],
+    category: 'Hello',
+    code: `module Main exposing (main)
+
+import Html exposing (text)
+
+main =
+    text "Hello, Cody"`,
+  },
+  {
+    id: 'd-hello',
+    title: 'D: hello',
+    description: 'writeln through std.stdio',
+    languages: ['d'],
+    category: 'Hello',
+    code: `import std.stdio;
+
+void main() {
+    string name = "Cody";
+    writeln("Hello, ", name);
+}`,
+  },
+  {
+    id: 'pascal-hello',
+    title: 'Pascal: hello',
+    description: 'program / begin / end',
+    languages: ['pascal'],
+    category: 'Hello',
+    code: `program Hello;
+var
+  name: string;
+begin
+  name := 'Cody';
+  writeln('Hello, ', name);
+end.`,
+  },
+  {
+    id: 'fortran-hello',
+    title: 'Fortran: hello',
+    description: 'Fixed declarations, one print',
+    languages: ['fortran'],
+    category: 'Hello',
+    code: `program hello
+  implicit none
+  character(len=4) :: name
+  name = 'Cody'
+  print *, 'Hello, ', trim(name)
+end program hello`,
+  },
+  {
+    id: 'cobol-hello',
+    title: 'COBOL: hello',
+    description: 'The four divisions, minimal',
+    languages: ['cobol'],
+    category: 'Hello',
+    code: `IDENTIFICATION DIVISION.
+PROGRAM-ID. hello.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+01 NAME PIC X(4) VALUE 'CODY'.
+PROCEDURE DIVISION.
+    DISPLAY 'HELLO, ' NAME.
+    STOP RUN.`,
+  },
+  {
+    id: 'octave-hello',
+    title: 'Octave: hello',
+    description: 'Works in MATLAB too',
+    languages: ['octave'],
+    category: 'Hello',
+    code: `name = 'Cody';
+printf('Hello, %s\\n', name);`,
   },
 ]
 

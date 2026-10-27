@@ -271,11 +271,47 @@ if __name__ == "__main__":
     ['Main.kt', 'fun greet(name: String): String { return "hi $name" }\n'],
     ['Dockerfile', 'FROM node:22\nRUN npm install\n'],
     ['notes.md', '# Cody\n\nSome **bold** text.\n'],
+    // second wave: the same promise for the new syntaxes
+    ['main.dart', "String greet(String name) => 'hi $name';\n\nvoid main() {\n  print(greet('cody'));\n}\n"],
+    ['Main.scala', 'object Main extends App {\n  val name = "cody"\n  println(s"hi $name")\n}\n'],
+    ['Main.hs', '-- greet\ngreet :: String -> String\ngreet name = "hi " ++ name\n\nmain = putStrLn (greet "cody")\n'],
+    ['main.erl', '% greet\nstart() ->\n    io:format(\"hi ~s~n\", [\"cody\"]).\n'],
+    ['greet.jl', '# greet\nfunction greet(name)\n    return "hi $name"\nend\n'],
+    ['greet.ml', '(* greet *)\nlet greet name = "hi " ^ name\n\nlet () = print_endline (greet "cody")\n'],
+    ['Program.fs', '// greet\nlet greet name = sprintf "hi %s" name\n'],
+    ['greet.pl', "#!/usr/bin/perl\n# greet\nuse strict;\nmy $name = 'cody';\nprint \"hi $name\\n\";\n"],
+    ['greet.r', '# greet\ngreet <- function(name) {\n  paste("hi", name)\n}\n'],
+    ['Greet.groovy', "// greet\ndef name = 'cody'\nprintln \"hi ${name}\"\n"],
+    ['greet.clj', ';; greet\n(defn greet [name]\n  (str "hi " name))\n'],
+    ['Main.elm', '-- greet\nmodule Main exposing (main)\n\nmain = text (greet "cody")\n'],
+    ['greet.d', '// greet\nimport std.stdio;\n\nvoid main() {\n    writeln("hi ");\n}\n'],
+    ['greet.pas', "program Greet;\n{ say hi }\nvar\n  name: string;\nbegin\n  name := 'cody';\n  writeln('hi ', name);\nend.\n"],
+    ['greet.f90', "! greet\nprogram greet\n  print *, 'hi '\nend program greet\n"],
+    ['GREET.cob', ">* greet\nIDENTIFICATION DIVISION.\nPROGRAM-ID. greet.\n    DISPLAY 'HI '.\n    STOP RUN.\n"],
+    ['greet.m', "% greet\nname = 'cody';\nprintf('hi %s\\n', name);\n"],
   ]
   for (const [path, content] of samples) {
     const { found, ok } = silent(path, content)
     check(`no false positives: ${path}`, ok, describe(found))
   }
+}
+
+/* ---------------- the new syntaxes catch real mistakes ---------- */
+{
+  check('scala: unbalanced brace is flagged', expectOne('Main.scala', 'object Main {\n  def run() = 1\n', 'brackets').ok, describe(expectOne('Main.scala', 'object Main {\n  def run() = 1\n', 'brackets').found))
+  check('haskell: unterminated block comment is flagged', expectOne('Main.hs', 'main = putStrLn "hi"\n{- never closed\n', 'unterminated').ok, describe(expectOne('Main.hs', 'main = putStrLn "hi"\n{- never closed\n', 'unterminated').found))
+  check('perl: unterminated string is flagged', expectOne('greet.pl', 'my $name = "cody\n', 'unterminated').ok, describe(expectOne('greet.pl', 'my $name = "cody\n', 'unterminated').found))
+  check('r: unbalanced paren is flagged', expectOne('greet.r', 'greet <- function(name) {\n  paste("hi", name)\n', 'brackets').ok, describe(expectOne('greet.r', 'greet <- function(name) {\n  paste("hi", name)\n', 'brackets').found))
+  check('pascal: unterminated brace comment is flagged', expectOne('greet.pas', 'begin\n{ never closed\n', 'unterminated').ok, describe(expectOne('greet.pas', 'begin\n{ never closed\n', 'unterminated').found))
+  check('clojure: unbalanced paren is flagged', expectOne('greet.clj', '(defn greet [name]\n  (str "hi " name)\n', 'brackets').ok, describe(expectOne('greet.clj', '(defn greet [name]\n  (str "hi " name)\n', 'brackets').found))
+  check('octave: unbalanced bracket is flagged', expectOne('greet.m', 'x = [1, 2, 3\n', 'brackets').ok, describe(expectOne('greet.m', 'x = [1, 2, 3\n', 'brackets').found))
+  check('fortran: unbalanced paren is flagged', expectOne('greet.f90', "print *, trim(name\n", 'brackets').ok, describe(expectOne('greet.f90', "print *, trim(name\n", 'brackets').found))
+
+  // and the comment markers of those languages really are understood
+  check('haskell: a bracket inside a comment is not a bracket', silent('Main.hs', '{- ( [ { -}\nmain = putStrLn "hi"\n').ok)
+  check('erlang: % comments are ignored', silent('main.erl', '% ( [ {\nstart() -> ok.\n').ok)
+  check('cobol: *> comments are ignored', silent('GREET.cob', '*> ( [ {\n    DISPLAY \'HI \'.\n').ok)
+  check('julia: #= =# comments are ignored', silent('greet.jl', '#= ( [ { =#\nprintln("hi")\n').ok)
 }
 
 /* ---------------- the shared file-list index ---------------- */

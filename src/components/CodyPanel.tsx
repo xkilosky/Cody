@@ -15,7 +15,7 @@ type Props = {
   onNotify: (message: string, tone?: 'info' | 'success' | 'error') => void
 }
 
-const CATEGORIES = ['For this file', 'All', 'UI', 'Layout', 'Data', 'Async', 'Python', 'Systems', 'Docs'] as const
+const CATEGORIES = ['For this file', 'All', 'Hello', 'UI', 'Layout', 'Data', 'Async', 'Python', 'Systems', 'Docs'] as const
 
 const EXT_FOR_SNIPPET: Record<string, string> = {
   javascript: 'js',
@@ -33,6 +33,24 @@ const EXT_FOR_SNIPPET: Record<string, string> = {
   sql: 'sql',
   markdown: 'md',
   text: 'txt',
+  // second wave — so a hello-world snippet scaffolds the right extension
+  dart: 'dart',
+  scala: 'scala',
+  haskell: 'hs',
+  erlang: 'erl',
+  julia: 'jl',
+  ocaml: 'ml',
+  fsharp: 'fs',
+  perl: 'pl',
+  r: 'r',
+  groovy: 'groovy',
+  clojure: 'clj',
+  elm: 'elm',
+  d: 'd',
+  pascal: 'pas',
+  fortran: 'f90',
+  cobol: 'cob',
+  octave: 'm',
 }
 
 export default function CodyPanel({

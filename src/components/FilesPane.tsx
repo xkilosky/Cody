@@ -41,6 +41,12 @@ const QUICK_FILES = [
   'main.c',
   'Main.java',
   'main.rs',
+  'Main.hs',
+  'main.dart',
+  'main.jl',
+  'Main.scala',
+  'script.pl',
+  'greet.r',
   'README.md',
 ]
 

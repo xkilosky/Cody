@@ -66,6 +66,13 @@ const suites = [
     plugins: [],
   },
   {
+    name: 'languages',
+    entry: 'scripts/test-languages.ts',
+    format: 'esm',
+    out: '.test-languages.mjs',
+    plugins: [],
+  },
+  {
     name: 'tree',
     entry: 'scripts/test-tree.ts',
     format: 'esm',

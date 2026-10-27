@@ -52,6 +52,24 @@ const SAMPLES: Record<string, string> = {
   kotlin: "// greet\nfun greet(name: String): String { return \"hi $name\" }\n",
   dockerfile: "# image\nFROM node:22\nRUN npm install\n",
   diff: "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n",
+  // --- second wave ---
+  dart: "// greet\nString greet(String name) => 'hi $name';\n\nvoid main() {\n  print(greet('cody'));\n}\n",
+  scala: "// greet\nobject Main extends App {\n  val name = \"cody\"\n  def greet(who: String): String = s\"hi $who\"\n}\n",
+  haskell: "-- greet\ngreet :: String -> String\ngreet name = \"hi \" ++ name\n\nmain :: IO ()\nmain = putStrLn (greet \"cody\")\n",
+  erlang: "% greet\n-module(main).\n-export([start/0]).\n\nstart() ->\n    io:format(\"hi ~s~n\", [\"cody\"]).\n",
+  julia: "# greet\nfunction greet(name)\n    return \"hi $name\"\nend\n\nprintln(greet(\"cody\"))\n",
+  ocaml: "(* greet *)\nlet greet name = \"hi \" ^ name\n\nlet () = print_endline (greet \"cody\")\n",
+  fsharp: "// greet\nlet greet name = sprintf \"hi %s\" name\n\n[<EntryPoint>]\nlet main _ =\n    printfn \"%s\" (greet \"cody\")\n    0\n",
+  perl: "#!/usr/bin/perl\n# greet\nuse strict;\nmy $name = 'cody';\nprint \"hi $name\\n\";\n",
+  r: "# greet\ngreet <- function(name) {\n  paste(\"hi\", name)\n}\n\nprint(greet(\"cody\"))\n",
+  groovy: "// greet\ndef name = 'cody'\nprintln \"hi ${name}\"\n",
+  clojure: ";; greet\n(defn greet [name]\n  (str \"hi \" name))\n\n(println (greet \"cody\"))\n",
+  elm: "-- greet\nmodule Main exposing (main)\n\nimport Html exposing (text)\n\nmain =\n    text (greet \"cody\")\n",
+  d: "// greet\nimport std.stdio;\n\nvoid main() {\n    string name = \"cody\";\n    writeln(\"hi \", name);\n}\n",
+  pascal: "program Greet;\n{ say hi }\nvar\n  name: string;\nbegin\n  name := 'cody';\n  writeln('hi ', name);\nend.\n",
+  fortran: "! greet\nprogram greet\n  implicit none\n  character(len=4) :: name\n  name = 'cody'\n  print *, 'hi ', trim(name)\nend program greet\n",
+  cobol: "*> greet\nIDENTIFICATION DIVISION.\nPROGRAM-ID. greet.\nDATA DIVISION.\nWORKING-STORAGE SECTION.\n01 NAME PIC X(4) VALUE 'CODY'.\nPROCEDURE DIVISION.\n    DISPLAY 'HI ' NAME.\n    STOP RUN.\n",
+  octave: "% greet\nname = 'cody';\nprintf('hi %s\\n', name);\n",
 }
 
 /** Tokens whose styling this suite insists on seeing per language family. */

@@ -564,6 +564,33 @@ async function main() {
   await click('Code')
   await wait(250)
 
+  // --- a language from the second wave, end to end -----------------------
+  await click('Files')
+  await wait(200)
+  await click('New')
+  await wait(120)
+  await click('New file')
+  await wait(150)
+  await typeInto('.sheet input.text-input', 'lib/Main.hs')
+  await click('Create file')
+  await wait(400)
+  await click('Files')
+  await wait(250)
+  check('a haskell file can be created by path', fileList().includes('Main.hs'))
+  const haskellRow = [...dom.window.document.querySelectorAll('.file-row-wrap')].find((row) =>
+    (row.textContent ?? '').includes('Main.hs'),
+  )
+  check(
+    'the file row carries the real Haskell mark',
+    Boolean(haskellRow?.querySelector('.lang-icon.mark')),
+    haskellRow?.querySelector('.lang-icon')?.outerHTML?.slice(0, 90) ?? 'no mark',
+  )
+  await click('Main.hs')
+  await wait(600)
+  check('the editor opens the new language', Boolean(dom.window.document.querySelector('.cm-editor')))
+  check('the status strip names the language', text().includes('Haskell'), text().slice(0, 160))
+  check('the new language is offered as runnable', Boolean(findByLabel('Run project')))
+
   // --- settings sheet ---------------------------------------------------
   await clickLabel('Project menu')
   await wait(150)

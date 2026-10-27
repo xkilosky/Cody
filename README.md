@@ -32,8 +32,8 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 - **Previews that actually run your code** — Cody transpiles TypeScript/JSX with Sucrase and
   resolves imports to blob modules inside a generated HTML shell, so `import App from './App'`
   works with no bundler server.
-- **Polyglot or nothing** — 28 languages highlight out of the box; browser languages, Python and
-  cloud languages each take an appropriate execution path.
+- **Polyglot or nothing** — **45 languages** highlight out of the box and **38 of them run**;
+  browser languages, Python and cloud languages each take an appropriate execution path.
 - **Never lose work** — autosave on every pause, offline app shell, ZIP / JSON export, backup all.
 
 ---
@@ -48,9 +48,11 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
   **status strip** (`Ln 14, Col 21 · 34 lines · TSX · Spaces: 2 · Saved`) and a two-row
   **keyboard rail** — actions with a pinned Run on top, a scrollable symbol row below, docked
   against the OS keyboard instead of floating over your code.
-- Lazy-loaded grammars for **28 languages** (JavaScript, TypeScript, TSX/JSX, HTML, CSS, JSON,
+- Lazy-loaded grammars for **45 languages** (JavaScript, TypeScript, TSX/JSX, HTML, CSS, JSON,
   Markdown, Python, SQL, XML/SVG, YAML, TOML, Shell, C, C++, Java, C#, Go, Rust, PHP, Ruby, Lua,
-  Swift, Kotlin, Dockerfile, Diff, plain text).
+  Swift, Kotlin, Dockerfile, Diff, plain text — plus Dart, Scala, Haskell, Erlang, Julia, OCaml,
+  F#, Perl, R, Groovy, Clojure, Elm, D, Pascal, Fortran, COBOL and Octave/MATLAB). Every grammar
+  is its own chunk, so a phone only downloads the one it opens.
 - Live theme (dark/light), font size 11–22px, tab size, line numbers, mono/serif, haptics.
 - Autocomplete, bracket matching, bracket closing, multi-cursor, search panel, fold-aware editing.
 
@@ -81,7 +83,7 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 | --- | --- | --- |
 | Browser preview | HTML/CSS/JS, TS/TSX/JSX, SVG, React, Three.js | Sucrase transpile + import map + blob modules in an `iframe srcdoc` |
 | Python | `.py` | Pyodide (CPython → WASM) in a Web Worker, streamed stdout/stderr |
-| Cloud sandbox | C, C++, Java, Go, Rust, PHP, Ruby, Lua, Swift, Kotlin, C#, SQL, Shell | Piston-compatible API (`Settings → Runner`), configurable endpoint |
+| Cloud sandbox | C, C++, Java, Go, Rust, PHP, Ruby, Lua, Swift, Kotlin, C#, SQL, Shell, **Dart, Scala, Haskell, Erlang, Julia, OCaml, F#, Perl, R, Groovy, Clojure, Elm, D, Pascal, Fortran, COBOL, Octave/MATLAB** | Piston-compatible API (`Settings → Runner`), configurable endpoint |
 | Not runnable | JSON, YAML, Markdown, Dockerfile… | Edited and exported only |
 
 - **Console bridge**: `console.log/warn/error`, uncaught errors and unhandled rejections from the
@@ -89,6 +91,8 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 - Cloud runs support **stdin** and show compile errors separately from runtime output.
 - Opt-in **auto re-run** rebuilds the preview shortly after you stop typing.
 - Configurable runner endpoint + a "Test" button that lists available runtimes.
+- **When the runner has no runtime for the language**, the console says so by name and points at
+  `Settings → Runner → Test` instead of leaving you with an opaque 400.
 
 ### Mobile / PWA
 - Installable (manifest + icons + service worker), `100dvh` layout, safe-area padding for the
@@ -97,7 +101,7 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 - Responsive: single column on phones, wider centred column with side borders on tablets/desktop.
 
 ### Build assist ("Build" tab)
-- Curated, offline snippet library (20 snippets) filtered by the language of the file you are
+- Curated, offline snippet library (37 snippets) filtered by the language of the file you are
   editing — insert at the cursor or scaffold a new file.
 - Project health at a glance: file/language/runnable counts and each language's runtime.
 
@@ -219,11 +223,15 @@ Details that matter on a phone:
 - **Real syntax colours, not a bespoke palette.** Syntax colour schemes people already read every
   day, with their published token colours: **VS Code Dark+/Light+** (default), **One Dark** and
   **GitHub Dark/Light** — pick one in Settings → Appearance. Because a scheme is a token mapping
-  rather than a per-language table, all 27 languages get the same, correct colours: keywords blue,
+  rather than a per-language table, all 45 languages get the same, correct colours: keywords blue,
   strings orange, comments green, function names sand-yellow, types teal (VS Code Dark+ values).
-- **A grammar for every language.** JS/TS/TSX, Python, HTML, CSS, JSON, Markdown, SQL, XML, YAML,
-  TOML, Shell, C, C++, Java, C#, Go, Rust, PHP, Ruby, Lua, Swift, Kotlin, Dockerfile and Diff —
-  each lazily loaded, so a phone only downloads the grammar it opens.
+- **A grammar for every language.** All 45 — the CodeMirror language packages for JS/TS/TSX,
+  Python, HTML, CSS, JSON, Markdown, SQL, XML, Java, C/C++, Go, Rust and PHP, and the official
+  legacy stream modes for everything else (Dart, Scala, Haskell, Erlang, Julia, OCaml, F#, Perl,
+  R, Groovy, Clojure, Elm, D, Pascal, Fortran, COBOL, Octave, Shell, YAML, TOML, Lua, Ruby,
+  Swift, Kotlin, Dockerfile, Diff) — each lazily loaded, so a phone only downloads the grammar it
+  opens. The syntax suite parses a real sample in **every** language under all three schemes and
+  fails if any of them stops colouring tokens.
 - **Keyboard-aware.** When the OS keyboard opens, `visualViewport` height is measured and the rail
   docks to it (sticky) rather than being pushed off-screen. The ⌄ key dismisses the keyboard.
 - **Both themes are real.** Dark and light are separate palettes for chrome *and* syntax, including
@@ -253,8 +261,13 @@ Quality checks:
 
 ```bash
 npm run typecheck    # strict TypeScript
-npm test             # bundler checks, SSR of every screen, jsdom app smoke test
+npm test             # 12 suites: bundler, every screen, every language, diagnostics,
+                     # code actions, completions, find-in-files, styles, jsdom app smoke
 ```
+
+The `languages` suite is the one that keeps the table honest: unique ids and extensions, path
+routing for every new syntax, a Piston runtime id for every cloud language, a grammar that loads for
+every id, and a runnable hello-world snippet for each language added after the first 28.
 
 Open Cody on a phone on the same network, or add it to your home screen for the standalone
 app experience.
@@ -303,7 +316,7 @@ src/
     python.ts/.worker.ts   Pyodide worker bridge
     cloud.ts               Piston client + runner health check
     storage.ts             IndexedDB (localStorage fallback) persistence
-    languages.ts           28-language registry + lazy CodeMirror grammars
+    languages.ts           45-language registry + lazy CodeMirror grammars
     starter.ts             what a new workspace starts as (three plain files)
     snippets.ts            snippet library
     search.ts              find in files: matching, previews, replacement

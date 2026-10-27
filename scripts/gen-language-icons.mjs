@@ -2,7 +2,7 @@
  * Regenerates `src/lib/languageIcons.ts` from Simple Icons.
  *
  * Simple Icons (https://simpleicons.org, CC0 1.0) carries the official
- * monochrome mark and brand colour for each language. We only need 27 of them,
+ * monochrome mark and brand colour for each language. We only need the ones listed below,
  * so the shapes are inlined instead of shipping the whole package.
  *
  * Usage: node scripts/gen-language-icons.mjs
@@ -38,6 +38,23 @@ const MAP = {
   kotlin: 'siKotlin',
   dockerfile: 'siDocker',
   diff: 'siGit',
+  // second wave — COBOL and Pascal have no official mark, so they keep the
+  // monogram badge rather than an invented logo.
+  dart: 'siDart',
+  scala: 'siScala',
+  haskell: 'siHaskell',
+  erlang: 'siErlang',
+  julia: 'siJulia',
+  ocaml: 'siOcaml',
+  fsharp: 'siFsharp',
+  perl: 'siPerl',
+  r: 'siR',
+  groovy: 'siApachegroovy',
+  clojure: 'siClojure',
+  elm: 'siElm',
+  d: 'siD',
+  octave: 'siOctave',
+  fortran: 'siFortran',
 }
 
 /** Relative luminance, so near-black brands can be lifted on the dark theme. */

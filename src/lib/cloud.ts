@@ -66,6 +66,13 @@ export async function runInCloud({ endpoint, entry, project, stdin = '', args = 
         if (detail) message += ` — ${detail.slice(0, 180)}`
       }
       onLog('error', message)
+      if (/not found|runtime|unsupported|unknown language/i.test(message) || response.status === 404) {
+        onLog(
+          'system',
+          `This runner does not offer “${lang.label}”. Open Settings → Runner and tap Test to see the languages it does offer, or point Cody at another endpoint.`,
+        )
+        return
+      }
       onLog(
         'system',
         'Tip: the public Piston API may rate-limit. Point Cody at your own Piston endpoint in Settings → Runner.',

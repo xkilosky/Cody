@@ -16,6 +16,11 @@
  * Same path shape as the real API, so nothing else in the client changes:
  *
  *     POST /api/xkiro/v1/chat/completions  →  https://api.xkiro.com/v1/chat/completions
+ *
+ * The `[...path]` filename is what makes Vercel route every sub-path here —
+ * `api/xkiro.ts` alone would answer only `/api/xkiro` and 404 the rest, which
+ * the client would then read as "no forwarder" and retry directly, failing on
+ * CORS again.
  */
 
 /** The only destinations this forwarder will talk to. */

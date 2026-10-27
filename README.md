@@ -119,7 +119,7 @@ Anthropic, xAI, or any OpenAI-compatible endpoint such as Ollama, LM Studio or v
   switch turns the rule off when you want the bigger models.
 - **Providers that block browsers get a forwarder.** A page can only read a cross-origin
   response that carries `Access-Control-Allow-Origin`, and xKiro sends none — every call died as
-  *"Failed to fetch"* before the key was even checked. `api/xkiro.ts` is a 60-line Vercel function
+  *"Failed to fetch"* before the key was even checked. `api/xkiro/[...path].ts` is a 60-line Vercel function
   that forwards that provider's calls from our own origin: it checks the provider against a fixed
   allowlist (a caller-supplied URL is never followed, so it can't become an open relay), copies
   only `authorization` / `x-api-key` / `content-type` / `accept`, makes one request, and returns

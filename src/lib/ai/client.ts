@@ -405,7 +405,7 @@ export function selectTargets(
  *
  * Normally the provider's own base. For a provider that sends no CORS headers
  * (xKiro), the same call goes to our origin instead — `/api/xkiro/v1/chat/…` —
- * where `api/xkiro.ts` forwards it. `direct` asks for the upstream URL, which
+ * where `api/xkiro/[...path].ts` forwards it. `direct` asks for the upstream URL, which
  * is the fallback when the forwarder is not deployed (a static-only host).
  */
 export function endpointFor(id: ProviderId, customBaseUrl: string, path: string, direct = false): string {

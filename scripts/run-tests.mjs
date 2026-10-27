@@ -6,6 +6,8 @@
  * 2. render  — server-side render of every screen (catches component crashes)
  * 3. preview — executes a bundled preview in jsdom (scripts + console bridge)
  * 4. smoke   — mounts the real app in jsdom and walks the core flows
+ * 5. ai      — model selection, provider failover and the agent crew, against a
+ *              fake provider: no keys, no network
  *
  * Vite-only features (`?worker` imports) are stubbed for node execution.
  */
@@ -84,6 +86,13 @@ const suites = [
     entry: 'scripts/test-diagnostics.ts',
     format: 'esm',
     out: '.test-diagnostics.mjs',
+    plugins: [],
+  },
+  {
+    name: 'ai',
+    entry: 'scripts/test-ai.ts',
+    format: 'esm',
+    out: '.test-ai.mjs',
     plugins: [],
   },
   {

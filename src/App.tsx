@@ -11,6 +11,8 @@ import { DEFAULT_SETTINGS } from './types'
 import ProjectSwitcher from './components/ProjectSwitcher'
 import ProjectView from './components/ProjectView'
 import SettingsSheet from './components/SettingsSheet'
+import AiSettingsSheet from './components/ai/AiSettingsSheet'
+import { useAiSession } from './components/ai/useAiSession'
 import Toasts from './components/Toasts'
 import { bundleProject, findEntryForFile, resolveEntry } from './lib/bundle'
 import { runInCloud } from './lib/cloud'
@@ -29,6 +31,10 @@ import {
   setValue,
 } from './lib/storage'
 import { blankProject } from './lib/starter'
+import { AI_DEFAULTS, normalizeConfig, type AiConfig } from './lib/ai/config'
+import { getKeys } from './lib/ai/keys'
+import type { ToolWorkspace } from './lib/ai/tools'
+import { analyzeProject } from './lib/diagnostics'
 
 type Cleanup = () => void
 
@@ -39,7 +45,7 @@ export default function App() {
   const [project, setProject] = useState<Project | null>(null)
   const [activePath, setActivePath] = useState<string | null>(null)
   const [runEntry, setRunEntry] = useState<string | null>(null)
-  const [tab, setTab] = useState<'files' | 'code' | 'run' | 'cody'>('code')
+  const [tab, setTab] = useState<'files' | 'code' | 'run' | 'cody' | 'ai'>('code')
   const [runState, setRunState] = useState<RunState>({ kind: 'idle', runId: 0 })
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [stdin, setStdin] = useState('')
@@ -49,14 +55,21 @@ export default function App() {
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [unsaved, setUnsaved] = useState(false)
   const [recentPaths, setRecentPaths] = useState<string[]>([])
+  const [aiConfig, setAiConfig] = useState<AiConfig>({ ...AI_DEFAULTS, roles: { ...AI_DEFAULTS.roles } })
+  const [aiKeys, setAiKeys] = useState<Record<string, string | undefined>>({})
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cleanupRef = useRef<Cleanup | null>(null)
   const projectRef = useRef<Project | null>(null)
   const savedAtRef = useRef<number | null>(null)
+  const logsRef = useRef<LogEntry[]>([])
+  const projectsRef = useRef<ProjectMeta[]>([])
 
   projectRef.current = project
   savedAtRef.current = savedAt
+  logsRef.current = logs
+  projectsRef.current = projects
 
   /* ---------------------------------------------------------------- */
   /* boot                                                              */
@@ -65,11 +78,14 @@ export default function App() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [storedSettings, metas, lastId] = await Promise.all([
+      const [storedSettings, metas, lastId, storedAi] = await Promise.all([
         loadSettings(),
         listProjects(),
         getValue<string | null>('lastProject', null),
+        getValue<AiConfig | null>('aiConfig', null),
       ])
+      setAiConfig(normalizeConfig(storedAi))
+      setAiKeys(getKeys())
       if (cancelled) return
       setSettings(storedSettings)
       setProjects(metas)
@@ -692,6 +708,286 @@ export default function App() {
     [addLog, notify, runEntry, runState.runId, settings.runnerEndpoint, stdin],
   )
 
+  /* ---------------------------------------------------------------- */
+  /* Build AI                                                          */
+  /* ---------------------------------------------------------------- */
+
+  const updateAiConfig = useCallback((patch: Partial<AiConfig>) => {
+    setAiConfig((prev) => {
+      const next = normalizeConfig({ ...prev, ...patch })
+      void setValue('aiConfig', next)
+      return next
+    })
+  }, [])
+
+  /**
+   * A preview run the AI can await. The normal Run button is fire-and-forget
+   * (it drives the UI); the Tester needs an answer it can read back.
+   */
+  const previewForAi = useCallback(async () => {
+    const current = projectRef.current
+    if (!current) return { ok: false, message: 'No workspace is open' }
+    const entry = runEntry ?? resolveEntry(current)
+    if (!entry) return { ok: false, message: 'No entry file — call set_entry first' }
+    if (!current.files.some((file) => file.path === entry)) {
+      return { ok: false, message: `The entry file ${entry} does not exist` }
+    }
+    const lang = languageForPath(entry)
+    if (lang.runtime === 'web') {
+      setLogs([])
+      try {
+        const bundle = bundleProject(current, { entry })
+        if (!bundle) throw new Error('No runnable entry file found')
+        cleanupRef.current?.()
+        cleanupRef.current = bundle.cleanup
+        setRunState({
+          kind: 'running',
+          runId: runState.runId + 1,
+          entry: bundle.entry,
+          previewHtml: bundle.html,
+          runtimeLabel: 'Browser preview',
+        })
+        addLog('system', `▶ preview ${bundle.entry} · ${bundle.modules.length} module(s)`)
+        for (const warning of bundle.warnings) addLog('warn', warning)
+        // give the (headless) preview a moment to report its console back
+        await new Promise((resolve) => setTimeout(resolve, 350))
+        return { ok: true, entry: bundle.entry, htmlLength: bundle.html.length }
+      } catch (error) {
+        const message = (error as Error).message
+        addLog('error', `Build failed: ${message}`)
+        setRunState({ kind: 'error', runId: runState.runId + 1, entry, message })
+        return { ok: false, message }
+      }
+    }
+    if (lang.runtime === 'none') {
+      return { ok: false, message: `${lang.label} is not runnable` }
+    }
+    run(entry)
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    return { ok: true, entry, message: `${lang.label} run started` }
+  }, [addLog, run, runEntry, runState.runId])
+
+  /** Everything the AI is allowed to touch, and nothing else. */
+  const aiWorkspace = useMemo<ToolWorkspace>(() => {
+    const filesOf = () => projectRef.current?.files ?? []
+    const findProject = (nameOrId: string) => {
+      const wanted = nameOrId.trim().toLowerCase()
+      return projectsRef.current.find(
+        (meta) => meta.id === nameOrId || meta.name.toLowerCase() === wanted,
+      )
+    }
+
+    return {
+      currentProject: () => {
+        const project = projectRef.current
+        return project
+          ? { id: project.id, name: project.name, files: project.files, folders: project.folders ?? [] }
+          : null
+      },
+      listProjects: () => projectsRef.current,
+      createProject: async (name) => {
+        const next = blankProject(name)
+        await saveProject(next)
+        await refreshProjects()
+        enterProject(next)
+        return { id: next.id, name: next.name }
+      },
+      openProject: async (nameOrId) => {
+        const found = findProject(nameOrId)
+        if (!found) return false
+        const loaded = await loadProject(found.id)
+        if (!loaded) return false
+        enterProject(loaded)
+        return true
+      },
+      renameProject: async (name) => {
+        const trimmed = name.trim()
+        if (!trimmed || !projectRef.current) return false
+        commit((prev) => ({ ...prev, name: trimmed }), true)
+        await refreshProjects()
+        return true
+      },
+      deleteProject: async (nameOrId) => {
+        const found = findProject(nameOrId)
+        if (!found) return false
+        await deleteProjectRecord(found.id)
+        const remaining = await listProjects()
+        setProjects(remaining)
+        if (projectRef.current?.id === found.id) {
+          const nextMeta = remaining[0]
+          const next = nextMeta ? await loadProject(nextMeta.id) : blankProject()
+          if (next) {
+            if (!nextMeta) await saveProject(next)
+            enterProject(next)
+          }
+        }
+        return true
+      },
+      createFile: async (path, content) => {
+        if (filesOf().some((file) => file.path === path)) return false
+        commit((prev) => ({
+          ...prev,
+          files: [...prev.files, { path, content }].sort((a, b) => a.path.localeCompare(b.path)),
+          entry: prev.entry ?? path,
+        }))
+        return true
+      },
+      writeFile: async (path, content) => {
+        if (!projectRef.current) return false
+        commit((prev) => ({
+          ...prev,
+          files: prev.files.some((file) => file.path === path)
+            ? prev.files.map((file) => (file.path === path ? { ...file, content } : file))
+            : [...prev.files, { path, content }].sort((a, b) => a.path.localeCompare(b.path)),
+          entry: prev.entry ?? path,
+        }))
+        return true
+      },
+      readFile: (path) => filesOf().find((file) => file.path === path)?.content ?? null,
+      deleteFile: async (path) => {
+        if (!filesOf().some((file) => file.path === path)) return false
+        commit((prev) => {
+          const files = prev.files.filter((file) => file.path !== path)
+          return { ...prev, files, entry: prev.entry === path ? files[0]?.path : prev.entry }
+        })
+        setActivePath((prev) => (prev === path ? projectRef.current?.files[0]?.path ?? null : prev))
+        return true
+      },
+      renameFile: async (from, to) => {
+        if (!filesOf().some((file) => file.path === from)) return false
+        if (filesOf().some((file) => file.path === to)) return false
+        commit((prev) => ({
+          ...prev,
+          files: prev.files
+            .map((file) => (file.path === from ? { ...file, path: to } : file))
+            .sort((a, b) => a.path.localeCompare(b.path)),
+          entry: prev.entry === from ? to : prev.entry,
+        }))
+        setActivePath((prev) => (prev === from ? to : prev))
+        setRunEntry((prev) => (prev === from ? to : prev))
+        return true
+      },
+      createFolder: async (path) => {
+        if (!projectRef.current) return false
+        commit((prev) => {
+          const declared = new Set([...(prev.folders ?? []), ...ancestorFolders(`${path}/x`)])
+          declared.add(path)
+          return { ...prev, folders: [...declared].sort() }
+        })
+        return true
+      },
+      deleteFolder: async (path) => {
+        if (!projectRef.current) return false
+        const doomed = new Set([path, ...foldersUnder(projectRef.current.folders ?? [], path)])
+        commit((prev) => {
+          const files = prev.files.filter((file) => !file.path.startsWith(`${path}/`))
+          return {
+            ...prev,
+            files,
+            folders: (prev.folders ?? []).filter((folder) => !doomed.has(folder)),
+            entry: prev.entry?.startsWith(`${path}/`) ? files[0]?.path : prev.entry,
+          }
+        })
+        return true
+      },
+      renameFolder: async (from, to) => {
+        if (!projectRef.current) return false
+        if (to.startsWith(`${from}/`)) return false
+        commit((prev) => ({
+          ...prev,
+          files: prev.files
+            .map((file) =>
+              file.path === from || file.path.startsWith(`${from}/`)
+                ? { ...file, path: `${to}${file.path.slice(from.length)}` }
+                : file,
+            )
+            .sort((a, b) => a.path.localeCompare(b.path)),
+          folders: (prev.folders ?? [])
+            .map((folder) =>
+              folder === from || folder.startsWith(`${from}/`)
+                ? `${to}${folder.slice(from.length)}`
+                : folder,
+            )
+            .sort(),
+          entry: prev.entry?.startsWith(`${from}/`) || prev.entry === from
+            ? `${to}${prev.entry.slice(from.length)}`
+            : prev.entry,
+        }))
+        return true
+      },
+      moveFile: async (path, folder) => {
+        if (!projectRef.current) return false
+        const target = `${folder ? `${folder}/` : ''}${path.slice(path.lastIndexOf('/') + 1)}`
+        if (target === path || filesOf().some((file) => file.path === target)) return false
+        commit((prev) => ({
+          ...prev,
+          files: prev.files
+            .map((file) => (file.path === path ? { ...file, path: target } : file))
+            .sort((a, b) => a.path.localeCompare(b.path)),
+          entry: prev.entry === path ? target : prev.entry,
+        }))
+        return true
+      },
+      setEntry: async (path) => {
+        commit((prev) => ({ ...prev, entry: path }), true)
+        setRunEntry(path)
+        return true
+      },
+      listProblems: () => {
+        const project = projectRef.current
+        if (!project) return []
+        return analyzeProject(project.files).map((problem) => ({
+          path: problem.path,
+          line: problem.line,
+          column: problem.column,
+          severity: problem.severity,
+          message: problem.message,
+          rule: problem.rule,
+        }))
+      },
+      runPreview: previewForAi,
+      readConsole: () => logsRef.current.map((entry) => ({ level: entry.level, text: entry.text, time: entry.time, source: entry.source })),
+      snapshot: async () => {
+        const project = projectRef.current
+        if (!project) return null
+        return {
+          id: project.id,
+          name: project.name,
+          files: project.files.map((file) => ({ ...file })),
+          folders: [...(project.folders ?? [])],
+        }
+      },
+      restore: async (snapshot, createdProjectIds) => {
+        for (const id of createdProjectIds) {
+          if (findProject(id)) await deleteProjectRecord(id)
+        }
+        const current = projectRef.current
+        if (!current) return false
+        if (current.id === snapshot.id) {
+          commit(
+            (prev) => ({ ...prev, files: snapshot.files, folders: snapshot.folders, entry: prev.entry }),
+            true,
+          )
+        } else {
+          const target = await loadProject(snapshot.id)
+          if (!target) return false
+          const restored = {
+            ...target,
+            files: snapshot.files,
+            folders: snapshot.folders,
+            updatedAt: Date.now(),
+          }
+          await saveProject(restored)
+          enterProject(restored)
+        }
+        await refreshProjects()
+        return true
+      },
+    }
+  }, [addLog, commit, enterProject, previewForAi, refreshProjects, run])
+
+  const aiSession = useAiSession({ config: aiConfig, keys: aiKeys, workspace: aiWorkspace })
+
   // Consume messages from the preview iframe.
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -913,6 +1209,10 @@ export default function App() {
           onDuplicateProject={(id) => void duplicateProject(id)}
           editorRef={editorHandleRef}
           onReplaceFiles={replaceFiles}
+          aiConfig={aiConfig}
+          aiKeys={aiKeys}
+          aiSession={aiSession}
+          onOpenAiSettings={() => setAiSettingsOpen(true)}
           onSaveNow={() => {
             const current = projectRef.current
             if (current) {
@@ -953,6 +1253,15 @@ export default function App() {
         onToggleTheme={() =>
           updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })
         }
+      />
+
+      <AiSettingsSheet
+        open={aiSettingsOpen}
+        config={aiConfig}
+        onChange={updateAiConfig}
+        onClose={() => setAiSettingsOpen(false)}
+        onNotify={notify}
+        onKeysChanged={() => setAiKeys(getKeys())}
       />
 
       <SettingsSheet

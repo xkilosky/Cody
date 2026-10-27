@@ -477,6 +477,45 @@ async function main() {
   check('snippet library visible', text().includes('Tap-friendly button'))
   check('project stats visible', text().includes('runnable'))
 
+  // --- Build AI ---------------------------------------------------------
+  await click('AI')
+  await wait(250)
+  check('the AI tab is a fifth section', Boolean(dom.window.document.querySelector('.ai-pane')))
+  check('with no key it asks for one', Boolean(dom.window.document.querySelector('.ai-setup')), text().slice(0, 60))
+  const setupText = dom.window.document.querySelector('.ai-setup')?.textContent ?? ''
+  check('the providers are named up front', setupText.includes('OpenRouter') && /X-Kiro|xAI/.test(setupText), setupText.slice(0, 90))
+  check('it says the key stays on the device', /stays on this device/i.test(setupText))
+  await click('Add a provider key')
+  await wait(250)
+  const aiSheet = dom.window.document.querySelector('.sheet')?.textContent ?? ''
+  check('AI settings opened as a sheet', aiSheet.includes('Model') || aiSheet.includes('Provider'), aiSheet.slice(0, 80))
+  check('every provider has a key field', dom.window.document.querySelectorAll('.ai-provider').length >= 8, String(dom.window.document.querySelectorAll('.ai-provider').length))
+  check('automatic selection is a switch', Boolean(dom.window.document.querySelector('[aria-label="Automatic model selection"]')))
+  check('failover is a switch', Boolean(dom.window.document.querySelector('[aria-label="Fall back to another model"]')))
+  check('the crew roles are pinned per agent', Boolean(dom.window.document.querySelector('[aria-label="Planner provider"]')))
+  await click('tools the agents can use')
+  await wait(200)
+  check(
+    'the tool catalogue is documented',
+    (dom.window.document.querySelector('.ai-tool-list')?.textContent ?? '').includes('patch_file'),
+    (dom.window.document.querySelector('.ai-tools-toggle')?.textContent ?? '(missing)').slice(0, 60),
+  )
+  await clickLabel('Close')
+  await wait(250)
+  check('the sheet closes without locking the page', !dom.window.document.querySelector('.sheet-scrim'))
+  await click('Crew')
+  await wait(200)
+  check('the crew mode says who does the work', (dom.window.document.querySelector('.ai-foot')?.textContent ?? '').includes('Planner'))
+  check('the crew mode is the active segment', (dom.window.document.querySelector('.ai-mode .active')?.textContent ?? '').includes('Crew'))
+  check(
+    'the composer asks the crew a question',
+    (dom.window.document.querySelector('.ai-input')?.getAttribute('placeholder') ?? '').includes('crew'),
+  )
+  const composer = dom.window.document.querySelector<HTMLTextAreaElement>('.ai-input')
+  check('a minimal composer is present', Boolean(composer))
+  await click('Build')
+  await wait(200)
+
   // --- snippet insert lands in the editor ------------------------------
   await click('Insert')
   await wait(700)

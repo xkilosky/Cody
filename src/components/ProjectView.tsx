@@ -17,6 +17,9 @@ import Icon from './Icons'
 import LangIcon from './LangIcon'
 import RunPanel from './RunPanel'
 import SearchSheet from './SearchSheet'
+import BuildAiPane from './ai/BuildAiPane'
+import type { AiSession } from './ai/useAiSession'
+import type { AiConfig } from '../lib/ai/config'
 import Sheet, { PromptSheet } from './Sheet'
 import ProblemMark from './ProblemMark'
 import { problemsAt, useProblemIndex } from '../lib/problemIndex'
@@ -68,15 +71,20 @@ type Props = {
   editorRef: MutableRefObject<CodyEditorHandle | null>
   /** Project-wide replace from the Find sheet; App writes every file at once. */
   onReplaceFiles: (changes: Array<{ path: string; content: string }>, total: number) => void
+  aiConfig: AiConfig
+  aiKeys: Record<string, string | undefined>
+  aiSession: AiSession
+  onOpenAiSettings: () => void
   onSaveNow: () => void
   onUpdateSettings?: (patch: Partial<Settings>) => void
 }
 
-const TABS: Array<{ id: AppTab; label: string; icon: 'files' | 'code' | 'terminal' | 'sparkles' }> = [
+const TABS: Array<{ id: AppTab; label: string; icon: 'files' | 'code' | 'terminal' | 'sparkles' | 'agents' }> = [
   { id: 'files', label: 'Files', icon: 'files' },
   { id: 'code', label: 'Code', icon: 'code' },
   { id: 'run', label: 'Run', icon: 'terminal' },
   { id: 'cody', label: 'Build', icon: 'sparkles' },
+  { id: 'ai', label: 'AI', icon: 'agents' },
 ]
 
 export default function ProjectView(props: Props) {
@@ -124,6 +132,10 @@ export default function ProjectView(props: Props) {
     onDuplicateProject,
     editorRef,
     onReplaceFiles,
+    aiConfig,
+    aiKeys,
+    aiSession,
+    onOpenAiSettings,
     onSaveNow,
     onUpdateSettings,
   } = props
@@ -288,6 +300,15 @@ export default function ProjectView(props: Props) {
           />
         )}
 
+        {tab === 'ai' && (
+          <BuildAiPane
+            config={aiConfig}
+            keys={aiKeys}
+            session={aiSession}
+            onOpenSettings={onOpenAiSettings}
+          />
+        )}
+
         {tab === 'cody' && (
           <CodyPanel
             project={project}
@@ -320,6 +341,7 @@ export default function ProjectView(props: Props) {
             <span className="tab-icon">
               <Icon name={item.icon} size={20} filled={tab === item.id && item.id === 'run' ? false : false} />
               {item.id === 'run' && running && <span className="tab-dot" />}
+              {item.id === 'ai' && aiSession.running && <span className="tab-dot" />}
               {item.id === 'files' && index.total > 0 && (
                 <span
                   className={`tab-badge${index.errors > 0 ? ' error' : ' warning'}`}

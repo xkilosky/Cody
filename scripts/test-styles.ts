@@ -59,6 +59,20 @@ const REQUIRED = [
   '.find-field', '.find-field.replacement', '.find-toggle', '.find-toggle.active',
   '.find-results', '.find-group', '.find-file', '.find-count', '.find-row', '.find-loc',
   '.find-text', '.find-hit', '.find-empty', '.confirm-row',
+  // Build AI: chat, crew and its settings sheet
+  '.ai-pane', '.ai-head', '.ai-mode', '.ai-status', '.ai-dot', '.ai-scroll',
+  '.ai-setup', '.ai-setup-mark', '.ai-provider-chips', '.ai-roles', '.ai-role',
+  '.ai-role-step', '.ai-examples', '.ai-example', '.ai-tools-line',
+  '.ai-thread', '.ai-msg', '.ai-msg.user', '.ai-msg.agent', '.ai-avatar', '.ai-msg-body',
+  '.ai-msg-head', '.ai-model', '.ai-msg-text', '.ai-note', '.ai-summary', '.ai-thinking',
+  '.ai-activity', '.ai-activity-more', '.ai-tool', '.ai-tool-name', '.ai-tool-desc',
+  '.ai-composer', '.ai-input-row', '.ai-input', '.ai-send', '.ai-foot', '.ai-revert',
+  '.ai-approval', '.ai-privacy', '.ai-chain', '.ai-chain-item', '.ai-chain-index',
+  '.ai-provider', '.ai-provider-head', '.ai-provider-body', '.ai-provider-state',
+  '.ai-provider-blurb', '.ai-key-row', '.ai-provider-links', '.ai-probe', '.ai-model-row',
+  '.ai-clear-keys', '.ai-role-row', '.ai-role-id', '.ai-role-controls', '.ai-select',
+  '.ai-role-model', '.ai-range', '.ai-tools-toggle', '.ai-tool-list', '.ai-tool-group',
+  '.ai-tool-line',
 ]
 
 // the shell owns the viewport: an auto-height shell plus a locked body means
@@ -75,9 +89,14 @@ for (const selector of REQUIRED) {
 }
 
 /** Every `className="…"` literal in the components should resolve to a rule. */
-const components = readdirSync(join(root, 'src/components'))
+const walk = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)],
+  )
+
+const components = walk(join(root, 'src/components'))
   .filter((file) => file.endsWith('.tsx'))
-  .map((file) => readFileSync(join(root, 'src/components', file), 'utf8'))
+  .map((file) => readFileSync(file, 'utf8'))
   .join('\n')
   .concat(readFileSync(join(root, 'src/App.tsx'), 'utf8'))
 

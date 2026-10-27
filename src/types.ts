@@ -67,7 +67,7 @@ export type LogEntry = {
   source?: string
 }
 
-export type AppTab = 'files' | 'code' | 'run' | 'cody'
+export type AppTab = 'files' | 'code' | 'run' | 'cody' | 'ai'
 
 export type RunKind = 'idle' | 'bundling' | 'running' | 'loading-runtime' | 'done' | 'error'
 

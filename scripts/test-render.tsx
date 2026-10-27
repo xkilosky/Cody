@@ -7,6 +7,9 @@ import SearchSheet from '../src/components/SearchSheet'
 import RunPanel from '../src/components/RunPanel'
 import CodyPanel from '../src/components/CodyPanel'
 import { DEFAULT_SETTINGS, type Project, type ProjectMeta } from '../src/types'
+import { AI_DEFAULTS } from '../src/lib/ai/config'
+import AiSettingsSheet from '../src/components/ai/AiSettingsSheet'
+import BuildAiPane from '../src/components/ai/BuildAiPane'
 import { TEMPLATES, projectFromTemplate } from './fixtures/templates'
 import { createRef } from 'react'
 
@@ -37,6 +40,25 @@ function render(name: string, node: JSX.Element) {
 }
 
 const editorRef = { current: null }
+
+const emptySession = {
+  mode: 'chat' as const,
+  setMode: noop,
+  turns: [],
+  activity: [],
+  running: false,
+  status: null,
+  error: null,
+  summary: null,
+  approval: null,
+  respondToApproval: noop,
+  canRevert: false,
+  send: async () => {},
+  stop: noop,
+  clear: noop,
+  revert: async () => {},
+  resetError: noop,
+}
 
 render(
   'ProjectSwitcher (open)',
@@ -114,14 +136,31 @@ const baseProps = {
   onDeleteProject: noop,
   editorRef: editorRef as never,
   onReplaceFiles: noop,
+  aiConfig: { ...AI_DEFAULTS, roles: { ...AI_DEFAULTS.roles } },
+  aiKeys: {},
+  aiSession: { ...emptySession },
+  onOpenAiSettings: noop,
   onSaveNow: noop,
   onUpdateSettings: noop,
 }
 
 render('ProjectView/Files', <ProjectView {...baseProps} tab="files" setTab={noop} />)
+render('ProjectView/AI', <ProjectView {...baseProps} tab="ai" setTab={noop} />)
+render('BuildAiPane (no key)', <BuildAiPane config={baseProps.aiConfig} keys={{}} session={baseProps.aiSession as never} onOpenSettings={noop} />)
 render('ProjectView/Run', <ProjectView {...baseProps} tab="run" setTab={noop} />)
 render('ProjectView/Build', <ProjectView {...baseProps} tab="cody" setTab={noop} />)
 render('ProjectView/Code', <ProjectView {...baseProps} tab="code" setTab={noop} />)
+render(
+  'AiSettingsSheet',
+  <AiSettingsSheet
+    open
+    config={baseProps.aiConfig}
+    onChange={noop}
+    onClose={noop}
+    onNotify={notify}
+    onKeysChanged={noop}
+  />,
+)
 render(
   'SettingsSheet',
   <SettingsSheet

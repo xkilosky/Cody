@@ -105,6 +105,37 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
   editing — insert at the cursor or scaffold a new file.
 - Project health at a glance: file/language/runnable counts and each language's runtime.
 
+### Build AI ("AI" tab)
+
+A fifth tab that turns the editor into an agent workspace. It is **BYOK**: there is no Cody account
+and no Cody server, so you paste your own key for whichever provider you already pay for
+(OpenRouter, X-Kiro/xAI, Groq, Mistral, DeepSeek, Cerebras, Together, OpenAI, Anthropic, Google, or
+any OpenAI-compatible endpoint such as Ollama, LM Studio or vLLM).
+
+- **Automatic model selection.** The preferred provider is the head of the list; every other
+  provider that has a key follows. The model for each job is picked by tier (reasoning for the
+  planner, code for the coders, fast for the tester), and `/models` discovery is what keeps the
+  ids honest — the curated list is only a starting point.
+- **Failover.** A rejected or out-of-credit key cools the whole provider for a minute and the run
+  continues on the next one; a retired model (404) is remembered for five minutes; a rate limit
+  costs one retry. Pressing *Stop* is not a failure and never triggers a fallback.
+- **Chat.** One assistant, the same tools, minimal chrome. It reads, writes and patches the real
+  files, and each change is a chip you can follow.
+- **Crew.** Four agents work through a project in order — Planner, Coder A, Coder B, Tester — each
+  able to run on a different provider. Coder B reviews what Coder A actually wrote; the Tester runs
+  the real parsers (`check_problems`) and the real bundler (`run_preview`), reads the console, and
+  patches until it passes or reports `FAIL:`. The run stops when the Tester finishes, and a
+  per-run tool budget stops a loop that will not converge.
+- **Tools, not chat.** 21 tools: list/create/open/rename/delete workspaces, list/read/create/write/
+  patch/delete/rename files, create/delete/rename folders, move files, set the entry file, check
+  problems, run the preview, read the console. `patch_file` refuses an ambiguous `find` unless you
+  pass `all: true`, and paths that try to escape the project are rejected.
+- **Consent.** Writes run by default; *Ask before writing* routes every one through a sheet, and a
+  refusal is told to the model instead of silently ignored. Every crew run is snapshotted so you can
+  put the project back.
+- **Keys stay out of your files.** They live in `localStorage` under their own key, never in the
+  project, the ZIP, the JSON export or a backup.
+
 ### Find in files
 The Files tab's box filters **names**; this answers the other question — *where is this used?*
 Open it from the search button in the Files toolbar, **Find in files…** in the project menu, or
@@ -261,8 +292,9 @@ Quality checks:
 
 ```bash
 npm run typecheck    # strict TypeScript
-npm test             # 12 suites: bundler, every screen, every language, diagnostics,
-                     # code actions, completions, find-in-files, styles, jsdom app smoke
+npm test             # 13 suites: bundler, every screen, every language, diagnostics,
+                     # code actions, completions, find-in-files, Build AI (selection,
+                     # failover, tools, crew), styles, jsdom app smoke
 ```
 
 The `languages` suite is the one that keeps the table honest: unique ids and extensions, path
@@ -306,6 +338,9 @@ src/
     CodePane.tsx           editor host + mobile toolbars/sheets
     RunPanel.tsx           entry picker, preview iframe, console, stdin
     CodyPanel.tsx          offline snippet library & project stats
+    ai/BuildAiPane.tsx     Build AI: chat, crew, tool activity, approval sheet
+    ai/AiSettingsSheet.tsx BYOK keys, model selection, failover, per-role pinning
+    ai/useAiSession.ts     a run: transcript, activity, stop, approval, revert
     SettingsSheet.tsx      appearance, preview, runner, data
     Sheet.tsx              bottom-sheet primitive (+ PromptSheet)
   editor/
@@ -323,6 +358,12 @@ src/
     importExport.ts        ZIP / JSON import-export, share
     zip.ts                 minimal ZIP writer (store + CRC32)
     utils.ts               small shared helpers
+    ai/providers.ts        the provider table: base URLs, auth headers, model hints
+    ai/keys.ts             BYOK key store (localStorage, deliberately outside the project)
+    ai/config.ts           AI settings shape, role definitions, defaults, repair
+    ai/client.ts           candidate selection, failover, model discovery, health check
+    ai/tools.ts            the 21-tool surface, argument hygiene, tool-call parsing
+    ai/crew.ts             planner → coder A → coder B → tester, and plain chat
 ```
 
 ### How the in-browser bundler works
@@ -360,8 +401,15 @@ relative import you add to the project resolves without configuration.
   container.
 - The public Piston endpoint rate-limits; run your own instance for heavy use.
 - Pyodide needs ~10 MB on first Python run (cached afterwards).
+- Build AI quality is your model's quality. Free and small models call tools unreliably; the
+  fetch loop, failover and the tester's real checks blunt that, but they do not remove it.
+- Providers that do not implement `/models` fall back to the curated ids in `src/lib/ai/providers.ts`.
+- Cross-origin calls go straight from the browser, so a provider must allow browser keys (all the
+  ones listed do). A local Ollama needs `OLLAMA_ORIGINS` set.
 
 ## Roadmap ideas
+
+- Crew memory across runs, so a follow-up does not repeat the whole plan
 
 - Split editor view for tablets (files + code side by side)
 - Diff view for imported files, git export as a commit-ready patch

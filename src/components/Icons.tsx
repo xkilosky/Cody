@@ -48,6 +48,9 @@ export type IconName =
   | 'alert'
   | 'bulb'
   | 'find'
+  | 'key'
+  | 'send'
+  | 'agents'
 
 const PATHS: Record<IconName, string> = {
   logo: 'M9 5 3 12l6 7M15 5l6 7-6 7',
@@ -98,6 +101,9 @@ const PATHS: Record<IconName, string> = {
   // triangle-with-bang: used for problems/errors
   alert: 'M12 4 2.5 20h19L12 4Zm0 5.5v5m0 3.2h.01',
   // lightbulb: code actions
+  key: 'M14.5 9.5a4.5 4.5 0 1 0-4.3 4.5L9 15.2V18H6.2L4 20.2V21h3.6l2.2-2.2v-2.6l1.4-1.4a4.5 4.5 0 0 0 3.3-5.3ZM16 7.8h.01',
+  send: 'M4 12 20 4l-4.5 16-3.8-6.2L4 12Zm7.7 1.8L20 4',
+  agents: 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 20v-1.6A4.4 4.4 0 0 1 6.9 14h2.2a4.4 4.4 0 0 1 4.4 4.4V20M14.5 20v-1.6a4.4 4.4 0 0 1 2.2-3.8M17 14h.1a4.4 4.4 0 0 1 4.4 4.4V20',
   find: 'M10.5 3.4a7.1 7.1 0 1 0 0 14.2 7.1 7.1 0 0 0 0-14.2ZM15.6 15.6 21 21M7.6 8h5.8M7.6 10.7h3.9',
   bulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.7.5 1.1h6c0-.4.1-.8.5-1.1A6 6 0 0 0 12 3Z',
 }

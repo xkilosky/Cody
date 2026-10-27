@@ -7,6 +7,7 @@ import { TOOLS } from '../../lib/ai/tools'
 import Icon from '../Icons'
 import Sheet from '../Sheet'
 import type { AiSession, UiTurn } from './useAiSession'
+import Markdown from './Markdown'
 
 type Props = {
   config: AiConfig
@@ -87,7 +88,9 @@ function TurnRow({ turn }: { turn: UiTurn }) {
     return (
       <div className="ai-summary">
         <Icon name="check" size={13} />
-        <span>{turn.text}</span>
+        <div>
+          <Markdown text={turn.text} />
+        </div>
       </div>
     )
   }
@@ -104,7 +107,9 @@ function TurnRow({ turn }: { turn: UiTurn }) {
           <strong>{turn.label}</strong>
           {modelLine(turn) && <span className="ai-model">{modelLine(turn)}</span>}
         </div>
-        <p className="ai-msg-text">{turn.text}</p>
+        <div className="ai-msg-text">
+          <Markdown text={turn.text} />
+        </div>
       </div>
     </div>
   )

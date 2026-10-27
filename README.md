@@ -126,7 +126,11 @@ Anthropic, xAI, or any OpenAI-compatible endpoint such as Ollama, LM Studio or v
   continues on the next one; a retired model (404) is remembered for five minutes; a rate limit
   costs one retry. Pressing *Stop* is not a failure and never triggers a fallback.
 - **Chat.** One assistant, the same tools, minimal chrome. It reads, writes and patches the real
-  files, and each change is a chip you can follow.
+  files, and each change is a chip you can follow. Answers render as light markdown — bold, lists,
+  inline and fenced code, http(s) links — through a ~150-line renderer with no dependency and no
+  `dangerouslySetInnerHTML`, so a model that writes `<img onerror=…>` just prints those characters.
+  The label models copy off their own transcript (`[Cody] …`, `[Coder A] …`) and any restatement of
+  a tool result (`[Tool Output] …`) are cut before the bubble.
 - **Crew.** Four agents work through a project in order — Planner, Coder A, Coder B, Tester — each
   able to run on a different provider. Coder B reviews what Coder A actually wrote; the Tester runs
   the real parsers (`check_problems`) and the real bundler (`run_preview`), reads the console, and

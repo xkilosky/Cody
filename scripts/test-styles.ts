@@ -73,6 +73,9 @@ const REQUIRED = [
   '.ai-clear-keys', '.ai-role-row', '.ai-role-id', '.ai-role-controls', '.ai-select',
   '.ai-role-model', '.ai-range', '.ai-tools-toggle', '.ai-tool-list', '.ai-tool-group',
   '.ai-tool-line', '.ai-free-chip', '.ai-free-note', '.ai-cost', '.ai-chain-item',
+  // the transcript's markdown renderer
+  '.ai-md', '.ai-md p', '.ai-md ul', '.ai-md ol', '.ai-md li', '.ai-md strong', '.ai-md em',
+  '.ai-md code', '.ai-md pre', '.ai-md a', '.ai-md .ai-md-h', '.ai-md .ai-md-quote',
 ]
 
 // the shell owns the viewport: an auto-height shell plus a locked body means

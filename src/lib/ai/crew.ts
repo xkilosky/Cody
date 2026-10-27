@@ -167,6 +167,24 @@ ${PROTOCOL}`
 /* transcript ⇄ chat messages                                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Models copy the label off their own transcript: our history is sent as
+ * `[Coder A] …`, so answers come back starting with `[Cody]` or `[Coder A]`.
+ * The bubble already says who is talking, so the prefix is dropped.
+ */
+const SPEAKER_ECHO = /^\s*\[(?:cody|assistant|user|system|planner|coder[ \t]?[ab]|tester)\]\s*[:\-–]?\s*/i
+
+export function stripSpeakerPrefix(text: string): string {
+  let out = text
+  // A model that starts three lines with its own name is not telling us anything.
+  for (let guard = 0; guard < 3; guard += 1) {
+    const next = out.replace(SPEAKER_ECHO, '')
+    if (next === out) break
+    out = next
+  }
+  return out
+}
+
 function labelOf(speaker: Speaker): string {
   if (speaker === 'user') return 'User'
   if (speaker === 'assistant') return 'Cody'
@@ -252,7 +270,7 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
       }
 
       target = answer.target
-      const prose = stripToolEcho(stripToolBlocks(answer.text))
+      const prose = stripSpeakerPrefix(stripToolEcho(stripToolBlocks(answer.text)))
       if (prose) collected.push(prose)
 
       const calls = parseToolCalls(answer.text)
@@ -393,7 +411,7 @@ export async function runChat(options: RunOptions): Promise<RunResult> {
     }
 
     target = answer.target
-    const prose = stripToolEcho(stripToolBlocks(answer.text))
+    const prose = stripSpeakerPrefix(stripToolEcho(stripToolBlocks(answer.text)))
     if (prose) collected.push(prose)
 
     const calls = parseToolCalls(answer.text)

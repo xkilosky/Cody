@@ -37,7 +37,7 @@ import {
   WRITE_TOOLS,
   type ToolWorkspace,
 } from '../src/lib/ai/tools'
-import { runAgent, runChat, turnsToMessages } from '../src/lib/ai/crew'
+import { runAgent, runChat, stripSpeakerPrefix, turnsToMessages } from '../src/lib/ai/crew'
 import type { ProjectFile } from '../src/types'
 
 let failed = 0
@@ -596,6 +596,15 @@ Flat arguments work too:
     })(),
   )
 
+  // the label a model copies off its own transcript
+  check('a leading [Cody] goes', stripSpeakerPrefix('[Cody] Here are the workspaces:') === 'Here are the workspaces:')
+  check('so does a role label', stripSpeakerPrefix('[Coder A] Wrote index.html') === 'Wrote index.html')
+  check('and a dash after it', stripSpeakerPrefix('[Tester]: PASS') === 'PASS')
+  check('repeated labels collapse', stripSpeakerPrefix('[Cody] [Cody] Hello') === 'Hello')
+  check('a bracket that is not a label stays', stripSpeakerPrefix('[index.html] was created') === '[index.html] was created')
+  check('text without a label is untouched', stripSpeakerPrefix('Wrote two files.') === 'Wrote two files.')
+  check('a label mid-sentence stays', stripSpeakerPrefix('Done. [Cody] says hi') === 'Done. [Cody] says hi')
+
   check('backslash paths normalise', cleanPath('./src/App.tsx') === 'src/App.tsx')
   check('leading slashes are stripped', cleanPath('/index.html') === 'index.html')
   check('escaping the project is refused', cleanPath('../secret') === null)
@@ -1016,6 +1025,22 @@ const call = (tool: string, args: Record<string, unknown> = {}) =>
     fetchImpl: onlyEcho.impl,
   })
   check('an echo-only answer produces no bubble at all', quiet.turns.length === 0, JSON.stringify(quiet.turns.map((t) => t.text)))
+
+  // the reported shape: the label, then markdown the transcript must keep intact
+  resetCooldowns()
+  const labelled = mockFetch(() =>
+    reply('[Cody] Here are the current workspaces:\n\n- **Core.ai** – 0 files (current workspace)'),
+  )
+  const said = await runChat({
+    config: config({ auto: false, provider: 'groq' }),
+    keys: { groq: 'k' },
+    workspace,
+    task: 'which workspaces are there',
+    fetchImpl: labelled.impl,
+  })
+  check('the label is not shown back to the user', said.turns[0]?.text.startsWith('Here are the current workspaces:'), said.turns[0]?.text ?? '(no turn)')
+  check('the markdown survives for the renderer', said.turns[0]?.text.includes('- **Core.ai** – 0 files'), said.turns[0]?.text ?? '')
+  check('and no empty turn is invented', said.turns.length === 1, String(said.turns.length))
   check('and no error either', quiet.error === null, String(quiet.error))
 }
 

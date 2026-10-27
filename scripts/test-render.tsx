@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS, type Project, type ProjectMeta } from '../src/types'
 import { AI_DEFAULTS } from '../src/lib/ai/config'
 import AiSettingsSheet from '../src/components/ai/AiSettingsSheet'
 import BuildAiPane from '../src/components/ai/BuildAiPane'
+import Markdown, { inlineNodes, markdownBlocks } from '../src/components/ai/Markdown'
 import { TEMPLATES, projectFromTemplate } from './fixtures/templates'
 import { createRef } from 'react'
 
@@ -142,6 +143,70 @@ const baseProps = {
   onOpenAiSettings: noop,
   onSaveNow: noop,
   onUpdateSettings: noop,
+}
+
+/* ---- markdown in the AI transcript ---------------------------------- */
+
+function html(node: JSX.Element): string {
+  return renderToString(node)
+}
+
+function checkMarkdown(name: string, ok: boolean, detail = '') {
+  if (ok) console.log('  ok  ', name)
+  else {
+    failures += 1
+    console.log('  FAIL', name, detail)
+  }
+}
+
+{
+  const bold = html(<Markdown text="Here are the **current** workspaces" />)
+  checkMarkdown('bold renders as <strong>', bold.includes('<strong>current</strong>') && !bold.includes('**'), bold)
+
+  const bullets = html(<Markdown text={'Intro\n\n- **Core.ai** – 0 files\n- Second item'} />)
+  checkMarkdown(
+    'bullets render as a list',
+    bullets.includes('<ul>') && bullets.includes('<li>') && bullets.includes('<strong>Core.ai</strong>') && !bullets.includes('- **'),
+    bullets,
+  )
+
+  const numbered = html(<Markdown text={'1. first\n2. second'} />)
+  checkMarkdown('numbered lines render as <ol>', numbered.includes('<ol>') && numbered.includes('<li>first</li>'), numbered)
+
+  const fence = html(<Markdown text={'Try this:\n\n```js\nconst a = 1\n```'} />)
+  checkMarkdown('a fenced block renders as <pre><code>', fence.includes('<pre><code>') && fence.includes('const a = 1'), fence)
+
+  const inlineCode = html(<Markdown text="Run `npm test` first" />)
+  checkMarkdown('inline code renders as <code>', inlineCode.includes('<code>npm test</code>') && !inlineCode.includes('`'), inlineCode)
+
+  const link = html(<Markdown text="See [the docs](https://docs.xkiro.com/)" />)
+  checkMarkdown(
+    'a link becomes an anchor',
+    link.includes('href="https://docs.xkiro.com/"') && link.includes('the docs') && link.includes('rel="noreferrer"'),
+    link,
+  )
+
+  const unsafe = html(<Markdown text="Try [this](javascript:alert(1)) instead" />)
+  checkMarkdown('a javascript: link is not made clickable', !unsafe.includes('href="javascript'), unsafe)
+
+  const entity = html(<Markdown text={'<img src=x onerror="alert(1)">'} />)
+  checkMarkdown('raw html is escaped, not executed', !entity.includes('<img') && entity.includes('&lt;img'), entity)
+
+  const snake = html(<Markdown text="the file_name_here variable" />)
+  checkMarkdown('snake_case is not italicised', !snake.includes('<em>'), snake)
+
+  const heading = html(<Markdown text={'## What I built\nIt works.'} />)
+  checkMarkdown('a heading is a quiet strong line', heading.includes('ai-md-h') && heading.includes('What I built'), heading)
+
+  const quote = html(<Markdown text="> careful here" />)
+  checkMarkdown('a quote is a quiet line', quote.includes('ai-md-quote') && quote.includes('careful here'), quote)
+
+  checkMarkdown(
+    'plain prose keeps its line breaks',
+    html(<Markdown text={'Two lines\nstay two lines'} />).includes('Two lines\nstay two lines'),
+  )
+  checkMarkdown('empty text renders nothing', markdownBlocks('').length === 0 && inlineNodes('', 'k').length === 0)
+  render('Markdown (in an agent bubble)', <Markdown text={'Here are the **current** workspaces:\n\n- **Core.ai** – 0 files'} />)
 }
 
 render('ProjectView/Files', <ProjectView {...baseProps} tab="files" setTab={noop} />)

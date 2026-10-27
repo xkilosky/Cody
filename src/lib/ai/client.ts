@@ -254,7 +254,8 @@ async function callOne(
     throw new AiError('Stopped', { provider: target.provider, model: target.model, retryable: false })
   }
   external?.addEventListener('abort', onAbort)
-  const timeout = setTimeout(() => controller.abort(), 120_000)
+  const budgetMs = providerOf(target.provider).timeoutMs ?? 120_000
+  const timeout = setTimeout(() => controller.abort(), budgetMs)
   const started = Date.now()
 
   try {
@@ -322,7 +323,7 @@ async function callOne(
       })
     }
     throw new AiError(
-      aborted ? 'Timed out after 120s' : `Network error: ${(error as Error)?.message ?? 'unknown'}`,
+      aborted ? `Timed out after ${Math.round(budgetMs / 1000)}s` : `Network error: ${(error as Error)?.message ?? 'unknown'}`,
       { provider: target.provider, model: target.model, retryable: true },
     )
   } finally {

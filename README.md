@@ -109,7 +109,7 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 
 A fifth tab that turns the editor into an agent workspace. It is **BYOK**: there is no Cody account
 and no Cody server, so you paste your own key for whichever provider you already pay for
-(OpenRouter, X-Kiro/xAI, Groq, Mistral, DeepSeek, Cerebras, Together, OpenAI, Anthropic, Google, or
+(OpenRouter, xKiro, xAI, Groq, Mistral, DeepSeek, Cerebras, Together, OpenAI, Anthropic, Google, or
 any OpenAI-compatible endpoint such as Ollama, LM Studio or vLLM).
 
 - **Automatic model selection.** The preferred provider is the head of the list; every other
@@ -404,6 +404,8 @@ relative import you add to the project resolves without configuration.
 - Build AI quality is your model's quality. Free and small models call tools unreliably; the
   fetch loop, failover and the tester's real checks blunt that, but they do not remove it.
 - Providers that do not implement `/models` fall back to the curated ids in `src/lib/ai/providers.ts`.
+- xKiro closes a *blocking* request at 95 s, so Cody gives up at 90 s there and falls over to the next
+  model. Long reasoning prompts want a provider that streams, or a smaller output budget.
 - Cross-origin calls go straight from the browser, so a provider must allow browser keys (all the
   ones listed do). A local Ollama needs `OLLAMA_ORIGINS` set.
 

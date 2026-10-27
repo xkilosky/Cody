@@ -483,7 +483,7 @@ async function main() {
   check('the AI tab is a fifth section', Boolean(dom.window.document.querySelector('.ai-pane')))
   check('with no key it asks for one', Boolean(dom.window.document.querySelector('.ai-setup')), text().slice(0, 60))
   const setupText = dom.window.document.querySelector('.ai-setup')?.textContent ?? ''
-  check('the providers are named up front', setupText.includes('OpenRouter') && /X-Kiro|xAI/.test(setupText), setupText.slice(0, 90))
+  check('the providers are named up front', setupText.includes('OpenRouter') && /xKiro/.test(setupText), setupText.slice(0, 90))
   check('it says the key stays on the device', /stays on this device/i.test(setupText))
   await click('Add a provider key')
   await wait(250)

@@ -14,6 +14,7 @@
 export type ProviderId =
   | 'openrouter'
   | 'xkiro'
+  | 'xai'
   | 'groq'
   | 'mistral'
   | 'deepseek'
@@ -50,6 +51,8 @@ export type Provider = {
   models: ModelHint[]
   /** Providers that only make sense once a base URL is supplied. */
   custom?: boolean
+  /** Per-request budget. Some gateways cut a blocking call before our own limit. */
+  timeoutMs?: number
 }
 
 export const PROVIDERS: Provider[] = [
@@ -73,8 +76,25 @@ export const PROVIDERS: Provider[] = [
   },
   {
     id: 'xkiro',
-    label: 'X-Kiro',
-    blurb: 'xAI’s Grok endpoint (OpenAI-compatible). Long context, blunt answers.',
+    label: 'xKiro',
+    blurb: 'xkiro.com — one key for 97 models from 13 labs, on very cheap plans.',
+    baseUrl: 'https://api.xkiro.com/v1',
+    keysUrl: 'https://xkiro.com/dashboard/api/keys',
+    // xKiro closes a blocking request at 95 s; stop just before it does.
+    timeoutMs: 90_000,
+    models: [
+      { id: 'anthropic/claude-opus-5.5', tier: 'code', label: 'Opus 5.5' },
+      { id: 'openai/gpt-6.1-sol', tier: 'reasoning', label: 'GPT-6.1 Sol' },
+      { id: 'x-ai/grok-4.7', tier: 'reasoning', label: 'Grok 4.7' },
+      { id: 'moonshotai/kimi-k3-agent', tier: 'code', label: 'Kimi K3 Agent' },
+      { id: 'google/gemini-3.8-flash', tier: 'fast', label: 'Gemini 3.8 Flash' },
+      { id: 'minimax/minimax-m3.1-flash', tier: 'fast', label: 'MiniMax M3.1 Flash' },
+    ],
+  },
+  {
+    id: 'xai',
+    label: 'xAI',
+    blurb: 'Grok straight from xAI. Long context, blunt answers.',
     baseUrl: 'https://api.x.ai/v1',
     keysUrl: 'https://console.x.ai/',
     models: [

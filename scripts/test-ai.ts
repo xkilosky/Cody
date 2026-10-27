@@ -90,7 +90,7 @@ function reply(text: string): Answer {
 {
   const ids = PROVIDERS.map((provider) => provider.id)
   check('every provider id is unique', new Set(ids).size === ids.length)
-  check('the providers asked for are all here', ['openrouter', 'xkiro', 'groq', 'mistral', 'deepseek', 'custom'].every((id) => ids.includes(id as never)), ids.join(','))
+  check('the providers asked for are all here', ['openrouter', 'xkiro', 'xai', 'groq', 'mistral', 'deepseek', 'custom'].every((id) => ids.includes(id as never)), ids.join(','))
   check('each provider has a label and a blurb', PROVIDERS.every((provider) => provider.label && provider.blurb))
   check(
     'base URLs are absolute and slash-free',
@@ -115,7 +115,29 @@ function reply(text: string): Answer {
 
   check('hints are ordered for reasoning work', hintsFor('openrouter', 'reasoning')[0].tier === 'reasoning', hintsFor('openrouter', 'reasoning')[0].id)
   check('hints are ordered for code work', hintsFor('openrouter', 'code')[0].tier === 'code')
-  check('xkiro points at xAI', baseUrlOf('xkiro', '') === 'https://api.x.ai/v1')
+  check('xKiro is xkiro.com, not xAI', baseUrlOf('xkiro', '') === 'https://api.xkiro.com/v1', baseUrlOf('xkiro', ''))
+  check('xKiro sends the user to its own key page', providerOf('xkiro').keysUrl === 'https://xkiro.com/dashboard/api/keys')
+  check('xAI is its own provider, separately', baseUrlOf('xai', '') === 'https://api.x.ai/v1' && providerOf('xai').label === 'xAI')
+  check('the xKiro label is the site, not an xAI product', /xkiro/i.test(providerOf('xkiro').label), providerOf('xkiro').label)
+  check('xKiro stops before its own 95 s cut-off', (providerOf('xkiro').timeoutMs ?? 0) > 0 && (providerOf('xkiro').timeoutMs ?? 0) < 95_000, String(providerOf('xkiro').timeoutMs))
+  check('every other provider keeps the default budget', PROVIDERS.filter((provider) => provider.id !== 'xkiro').every((provider) => provider.timeoutMs === undefined))
+  check(
+    'xKiro model ids are vendor/model, as its API requires',
+    hintsFor('xkiro').every((hint) => /^[a-z0-9-]+\/[a-z0-9.\-]+$/.test(hint.id)),
+    hintsFor('xkiro').map((hint) => hint.id).join(' '),
+  )
+  check('xAI model ids stay bare', hintsFor('xai').every((hint) => !hint.id.includes('/')))
+  check(
+    'every provider links to an https key page',
+    PROVIDERS.filter((provider) => !provider.custom).every((provider) => /^https:\/\//.test(provider.keysUrl)),
+    PROVIDERS.map((provider) => provider.keysUrl).join(' '),
+  )
+  check(
+    'no provider points at another provider’s host by accident',
+    new Set(PROVIDERS.filter((provider) => !provider.custom).map((provider) => new URL(provider.baseUrl).host)).size ===
+      PROVIDERS.filter((provider) => !provider.custom).length,
+    PROVIDERS.filter((provider) => !provider.custom).map((provider) => new URL(provider.baseUrl).host).join(' '),
+  )
   check('the custom URL wins when chosen', baseUrlOf('custom', 'http://box:8080/v1/') === 'http://box:8080/v1')
 }
 

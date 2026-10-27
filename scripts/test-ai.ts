@@ -14,7 +14,17 @@
  * (auth header, model, messages) are checked too.
  */
 import { AI_DEFAULTS, normalizeConfig, ROLES, type AiConfig } from '../src/lib/ai/config'
-import { PROVIDERS, authHeaders, baseUrlOf, hintsFor, isConfigured, providerOf } from '../src/lib/ai/providers'
+import {
+  PROVIDERS,
+  authHeaders,
+  baseUrlOf,
+  freeHintsFor,
+  freeProviders,
+  hintsFor,
+  isConfigured,
+  isFreeModel,
+  providerOf,
+} from '../src/lib/ai/providers'
 import { callAi, discoverModels, isCoolingDown, probeProvider, resetCooldowns, selectTargets } from '../src/lib/ai/client'
 import { maskKey } from '../src/lib/ai/keys'
 import { cleanPath, executeTool, parseToolCalls, stripToolBlocks, TOOLS, WRITE_TOOLS, type ToolWorkspace } from '../src/lib/ai/tools'
@@ -167,6 +177,40 @@ function reply(text: string): Answer {
 }
 
 /* ------------------------------------------------------------------ */
+/* free models                                                         */
+/* ------------------------------------------------------------------ */
+
+{
+  check('free-only is the default', AI_DEFAULTS.freeOnly === true)
+  check('a stored false is respected', normalizeConfig({ freeOnly: false }).freeOnly === false)
+  check('junk becomes the free default', normalizeConfig({ freeOnly: 'yes' }).freeOnly === true)
+
+  // what counts as free
+  check('an OpenRouter free id is free', isFreeModel('openrouter', 'meta-llama/llama-3.3-70b-instruct:free'))
+  check('a paid hint is paid', isFreeModel('openrouter', 'anthropic/claude-sonnet-5') === false)
+  check('the :free suffix is trusted even for unknown ids', isFreeModel('xkiro', 'some/new-model:free'))
+  check('a local model costs nothing', isFreeModel('custom', 'llama-3.3-70b'))
+  check('an unknown remote id is treated as paid', isFreeModel('xkiro', 'some/new-model') === false)
+  check('OpenAI has no free model', hintsFor('openai').every((hint) => !isFreeModel('openai', hint.id)))
+  check('Anthropic has no free model', hintsFor('anthropic').every((hint) => !isFreeModel('anthropic', hint.id)))
+  check('xAI has no free model', hintsFor('xai').every((hint) => !isFreeModel('xai', hint.id)))
+  check('Groq covers its catalog on the free tier', hintsFor('groq').every((hint) => isFreeModel('groq', hint.id)))
+  check('Cerebras covers its catalog on the free tier', hintsFor('cerebras').every((hint) => isFreeModel('cerebras', hint.id)))
+  check('OpenRouter still has free models', freeHintsFor('openrouter').length >= 2, freeHintsFor('openrouter').map((h) => h.id).join(' '))
+  check('Gemini Flash is the free Google model', isFreeModel('google', 'gemini-3-flash') && !isFreeModel('google', 'gemini-3-pro'))
+  check('Mistral Small is the free Mistral model', isFreeModel('mistral', 'mistral-small-latest') && !isFreeModel('mistral', 'mistral-large-latest'))
+
+  const freeIds = freeProviders().map((provider) => provider.id)
+  check('the free providers are the ones with a free path', ['openrouter', 'xkiro', 'groq', 'mistral', 'cerebras', 'google', 'custom'].every((id) => freeIds.includes(id as never)), freeIds.join(','))
+  check('the paid-only providers are not in it', ['openai', 'anthropic', 'xai', 'deepseek', 'together'].every((id) => !freeIds.includes(id as never)), freeIds.join(','))
+  check('every free provider explains its free path', freeProviders().every((provider) => Boolean(provider.freeNote)), freeProviders().filter((p) => !p.freeNote).map((p) => p.id).join(','))
+  check(
+    'every free hint has a label, so the picker reads like English',
+    PROVIDERS.every((provider) => provider.models.filter((hint) => hint.cost === 'free').every((hint) => Boolean(hint.label))),
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /* selection                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -181,6 +225,42 @@ function reply(text: string): Answer {
   check('the preferred provider comes first', auto.targets[0].provider === 'openrouter')
   check('a second provider is a fallback, not a second head', auto.targets.some((t) => t.provider === 'groq'))
   check('the candidate list is bounded', auto.targets.length <= 8, String(auto.targets.length))
+
+  // free-only: the whole point of the switch
+  {
+    const freeOnly = selectTargets(config({ auto: true, provider: 'openrouter' }), { openrouter: 'a' })
+    check(
+      'automatic selection never offers a paid model',
+      freeOnly.targets.every((target) => isFreeModel(target.provider, target.model)),
+      freeOnly.targets.map((t) => t.model).join(' '),
+    )
+    check('and it counts them as free', freeOnly.freeCount === freeOnly.targets.length && !freeOnly.paidFallback)
+    check('the reason says free models only', /free models only/i.test(freeOnly.reason), freeOnly.reason)
+    check(
+      'it does not default to an expensive Claude or GPT',
+      !freeOnly.targets.some((target) => /claude-sonnet|gpt-6-sol|gemini-3-pro/.test(target.model)),
+      freeOnly.targets.map((t) => t.model).join(' '),
+    )
+
+    const off = selectTargets(config({ auto: true, provider: 'openrouter', freeOnly: false }), { openrouter: 'a' })
+    check('turning it off brings the paid models back', off.targets.some((target) => !isFreeModel(target.provider, target.model)))
+
+    const paidKeys = selectTargets(config({ auto: true }), { openai: 'k' })
+    check('a paid-only key still works, and says so', paidKeys.targets.length > 0 && paidKeys.paidFallback, paidKeys.reason)
+    check('the reason warns about the bill', /paid models/i.test(paidKeys.reason), paidKeys.reason)
+
+    const pinnedPaid = selectTargets(
+      config({ auto: false, provider: 'openai', model: 'gpt-6', freeOnly: true }),
+      { openai: 'k' },
+    )
+    check('a model you pin by hand is used even when paid', pinnedPaid.targets[0]?.model === 'gpt-6' && !pinnedPaid.paidFallback, JSON.stringify(pinnedPaid.targets[0]))
+
+    const local = selectTargets(config({ auto: true, customBaseUrl: 'http://box:8080/v1', customModel: 'llama' }), {})
+    check('a local endpoint is free and wins outright', local.targets[0]?.provider === 'custom' && local.freeCount === 1)
+
+    const freeGroq = selectTargets(config({ auto: false, provider: 'groq' }), { groq: 'k' })
+    check('a free-tier provider resolves to one of its free models', isFreeModel('groq', freeGroq.targets[0].model), freeGroq.targets[0].model)
+  }
 
   const none = selectTargets(config(), {})
   check('no keys means no candidates', none.targets.length === 0)
@@ -287,7 +367,9 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
     return call === 1 ? { status: 404, message: 'model not found' } : reply('replacement model')
   })
   const result = await callAi({
-    config: config({ auto: true, provider: 'mistral' }),
+    // free-only would leave a single candidate here, so this case runs with it
+    // off; the free path gets its own test below.
+    config: config({ auto: true, provider: 'mistral', freeOnly: false }),
     keys: { mistral: 'k' },
     messages,
     fetchImpl: mock.impl,
@@ -295,6 +377,26 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
   check('a 404 model falls over', result.text === 'replacement model')
   check('the retired model is remembered', isCoolingDown('mistral', String(mock.calls[0].body.model)))
   check('but the provider stays usable', !isCoolingDown('mistral', String(mock.calls[1].body.model)))
+}
+
+{
+  // Free-only failover: it must move between free models, never onto a paid one.
+  resetCooldowns()
+  const seen: string[] = []
+  const mock = mockFetch(({ body }) => {
+    seen.push(String(body.model))
+    return seen.length <= 3 ? { status: 500, message: 'down' } : reply('a free model answered')
+  })
+  const result = await callAi({
+    config: config({ auto: true, provider: 'openrouter' }),
+    keys: { openrouter: 'k', groq: 'g' },
+    messages,
+    fetchImpl: mock.impl,
+  })
+  check('free models fall over to other free models', result.text === 'a free model answered')
+  check('and never touch a paid model', seen.every((model) => isFreeModel(result.target.provider, model) || /:free$/.test(model)), seen.join(' '))
+  check('it moved through several free models first', new Set(seen).size >= 2, seen.join(' '))
+  check('the model that answered is the one reported', result.target.model === seen.at(-1), `${result.target.model} vs ${seen.at(-1)}`)
 }
 
 {

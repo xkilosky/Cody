@@ -2675,6 +2675,44 @@ ol {
   padding: 3px 8px 3px 3px;
 }
 
+.ai-chain-item.free {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+
+.ai-cost {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ai-chain-item.free .ai-cost {
+  color: var(--accent);
+}
+
+.ai-free-chip {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 5px;
+  padding: 2px 5px;
+}
+
+.ai-free-note {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .ai-chain-index {
   width: 15px;
   height: 15px;

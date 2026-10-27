@@ -108,14 +108,20 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 ### Build AI ("AI" tab)
 
 A fifth tab that turns the editor into an agent workspace. It is **BYOK**: there is no Cody account
-and no Cody server, so you paste your own key for whichever provider you already pay for
-(OpenRouter, xKiro, xAI, Groq, Mistral, DeepSeek, Cerebras, Together, OpenAI, Anthropic, Google, or
-any OpenAI-compatible endpoint such as Ollama, LM Studio or vLLM).
+and no Cody server, so you paste your own key — for a free tier, or for a provider you already pay
+for (OpenRouter, xKiro, Groq, Mistral, Cerebras, Google Gemini, DeepSeek, Together, OpenAI,
+Anthropic, xAI, or any OpenAI-compatible endpoint such as Ollama, LM Studio or vLLM).
 
+- **Free models only, by default.** Cody will not call a model that costs money unless you pin one
+  by hand. Free means: an OpenRouter `:free` model, any model on a provider whose free tier covers
+  it (Groq, Cerebras), the free plan models (Gemini Flash, Mistral Small), or a model running on
+  your own machine. Providers with a free path are marked in AI settings, and a *Free models only*
+  switch turns the rule off when you want the bigger models.
 - **Automatic model selection.** The preferred provider is the head of the list; every other
   provider that has a key follows. The model for each job is picked by tier (reasoning for the
-  planner, code for the coders, fast for the tester), and `/models` discovery is what keeps the
-  ids honest — the curated list is only a starting point.
+  planner, code for the coders, fast for the tester) *within the free set*, and `/models` discovery
+  is what keeps the ids honest — the curated list is only a starting point. If nothing free is
+  configured, the app says so plainly ("no free model · paid") instead of quietly spending.
 - **Failover.** A rejected or out-of-credit key cools the whole provider for a minute and the run
   continues on the next one; a retired model (404) is remembered for five minutes; a rate limit
   costs one retry. Pressing *Stop* is not a failure and never triggers a fallback.
@@ -406,6 +412,11 @@ relative import you add to the project resolves without configuration.
 - Providers that do not implement `/models` fall back to the curated ids in `src/lib/ai/providers.ts`.
 - xKiro closes a *blocking* request at 95 s, so Cody gives up at 90 s there and falls over to the next
   model. Long reasoning prompts want a provider that streams, or a smaller output budget.
+- Free tiers are rate-limited, and a free tier that changes its models is normal. Press *List* on a
+  provider card to load what it really serves; ids ending in `:free` count as free automatically, and
+  xKiro's 47 free models only appear once you list them.
+- A free-only run has fewer candidates to fall over to. The switch in AI settings widens the pool;
+  a model you type in yourself always wins, free or not.
 - Cross-origin calls go straight from the browser, so a provider must allow browser keys (all the
   ones listed do). A local Ollama needs `OLLAMA_ORIGINS` set.
 

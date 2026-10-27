@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AiConfig } from '../../lib/ai/config'
 import { ROLES } from '../../lib/ai/config'
-import { PROVIDERS, providerOf } from '../../lib/ai/providers'
+import { PROVIDERS, isFreeModel, providerOf } from '../../lib/ai/providers'
 import { selectTargets } from '../../lib/ai/client'
 import { TOOLS } from '../../lib/ai/tools'
 import Icon from '../Icons'
@@ -138,13 +138,21 @@ export default function BuildAiPane({ config, keys, session, onOpenSettings }: P
         </div>
         <div className="ai-head-right">
           <button className="ai-status" onClick={onOpenSettings} aria-label="AI settings">
-            <span className={`ai-dot${configured ? ' on' : ''}`} />
+            <span className={`ai-dot${configured && !selection.paidFallback ? ' on' : ''}`} />
             <span className="ai-status-text">
-              {configured
-                ? config.auto
-                  ? `auto · ${new Set(selection.targets.map((target) => target.provider)).size} provider${new Set(selection.targets.map((target) => target.provider)).size === 1 ? '' : 's'}`
-                  : `${providerOf(selection.targets[0].provider).label}`
-                : 'no key'}
+              {!configured
+                ? 'no key'
+                : selection.paidFallback
+                  ? 'no free model · paid'
+                  : config.freeOnly && config.auto
+                    ? `free · ${selection.targets.length} model${selection.targets.length === 1 ? '' : 's'}`
+                    : config.auto
+                      ? `auto · ${new Set(selection.targets.map((target) => target.provider)).size} provider${
+                          new Set(selection.targets.map((target) => target.provider)).size === 1 ? '' : 's'
+                        }`
+                      : `${providerOf(selection.targets[0].provider).label}${
+                          isFreeModel(selection.targets[0].provider, selection.targets[0].model) ? ' · free' : ''
+                        }`}
             </span>
             <Icon name="settings" size={14} />
           </button>
@@ -160,10 +168,11 @@ export default function BuildAiPane({ config, keys, session, onOpenSettings }: P
             <h3>Bring your own key</h3>
             <p>
               Cody has no server and no account. Paste a key for any provider — it stays on this device and is
-              never included in exports.
+              never included in exports. Free models are used by default; a paid one is called only if you pin
+              it.
             </p>
             <div className="ai-provider-chips">
-              {PROVIDERS.filter((provider) => !provider.custom)
+              {PROVIDERS.filter((provider) => !provider.custom && provider.freeTier)
                 .slice(0, 6)
                 .map((provider) => (
                   <span key={provider.id} className="chip tiny">
@@ -181,8 +190,8 @@ export default function BuildAiPane({ config, keys, session, onOpenSettings }: P
             <h3>{crew ? 'A crew of four' : 'Ask for anything'}</h3>
             <p>
               {crew
-                ? 'Four models take turns on your project — each can be a different provider — until the tester says it runs.'
-                : 'One model, with the same tools. It can read, write and patch the files in this workspace.'}
+                ? 'Four models take turns on your project — each can be a different provider — until the tester says it runs. Free models only, unless you pin one.'
+                : 'One model, with the same tools. It can read, write and patch the files in this workspace. Free models by default.'}
             </p>
             <div className="ai-roles">
               {ROLES.map((role, index) => (
@@ -267,7 +276,10 @@ export default function BuildAiPane({ config, keys, session, onOpenSettings }: P
           )}
         </div>
         <div className="ai-foot">
-          <span>{crew ? 'Planner → Coder A → Coder B → Tester' : 'Tools can edit this workspace'}</span>
+          <span>
+            {crew ? 'Planner → Coder A → Coder B → Tester' : 'Tools can edit this workspace'}
+            {config.freeOnly && !selection.paidFallback ? ' · free' : ''}
+          </span>
           {session.turns.length > 0 && !session.running && (
             <button className="linkish" onClick={session.clear}>
               New chat

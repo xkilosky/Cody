@@ -27,6 +27,11 @@ export type AiConfig = {
   model: string
   /** On a failure, try the next model/provider instead of giving up. */
   fallback: boolean
+  /**
+   * Only ever call models that cost nothing. Paid models are used when nothing
+   * free is configured, when a model is pinned by hand, or when this is off.
+   */
+  freeOnly: boolean
   /** Per-agent pinning. Ignored while `auto` is on and no model is named. */
   roles: Record<AiRole, RoleChoice>
   /** Custom OpenAI-compatible endpoint (provider `custom`). */
@@ -77,6 +82,7 @@ export const AI_DEFAULTS: AiConfig = {
   provider: 'openrouter',
   model: '',
   fallback: true,
+  freeOnly: true,
   roles: {
     planner: { provider: '', model: '' },
     coderA: { provider: '', model: '' },
@@ -114,6 +120,7 @@ export function normalizeConfig(raw: unknown): AiConfig {
     provider,
     model: typeof value.model === 'string' ? value.model : '',
     fallback: typeof value.fallback === 'boolean' ? value.fallback : AI_DEFAULTS.fallback,
+    freeOnly: typeof value.freeOnly === 'boolean' ? value.freeOnly : AI_DEFAULTS.freeOnly,
     roles,
     customBaseUrl: typeof value.customBaseUrl === 'string' ? value.customBaseUrl : '',
     customModel: typeof value.customModel === 'string' ? value.customModel : '',

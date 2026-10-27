@@ -72,7 +72,7 @@ const REQUIRED = [
   '.ai-provider-blurb', '.ai-key-row', '.ai-provider-links', '.ai-probe', '.ai-model-row',
   '.ai-clear-keys', '.ai-role-row', '.ai-role-id', '.ai-role-controls', '.ai-select',
   '.ai-role-model', '.ai-range', '.ai-tools-toggle', '.ai-tool-list', '.ai-tool-group',
-  '.ai-tool-line',
+  '.ai-tool-line', '.ai-free-chip', '.ai-free-note', '.ai-cost', '.ai-chain-item',
 ]
 
 // the shell owns the viewport: an auto-height shell plus a locked body means

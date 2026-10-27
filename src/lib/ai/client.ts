@@ -15,7 +15,7 @@
 import type { AiConfig, AiRole } from './config'
 import { ROLES } from './config'
 import type { ProviderId } from './providers'
-import { authHeaders, baseUrlOf, hintsFor, isConfigured, providerOf } from './providers'
+import { authHeaders, baseUrlOf, hintsFor, isConfigured, isFreeModel, providerOf } from './providers'
 import { getKeys } from './keys'
 
 export type ChatRole = 'system' | 'user' | 'assistant'
@@ -97,6 +97,10 @@ export type Selection = {
   targets: ModelTarget[]
   /** Why the list looks the way it does — shown in the settings sheet. */
   reason: string
+  /** Free models were asked for, but none exist on the connected providers. */
+  paidFallback: boolean
+  /** How many of the candidates cost nothing. */
+  freeCount: number
 }
 
 function labelFor(provider: ProviderId, model: string): string | undefined {
@@ -107,7 +111,20 @@ function targetOf(provider: ProviderId, model: string): ModelTarget {
   return { provider, model, label: labelFor(provider, model) }
 }
 
-function modelForProvider(config: AiConfig, provider: ProviderId, role: AiRole | null): string {
+/**
+ * The model to try first on this provider.
+ *
+ * Precedence: a model the user pinned by hand (respect it, even if it is paid),
+ * then the best hint for the job — narrowed to free hints while `freeOnly` is
+ * on. An empty string means "this provider has nothing to offer under the
+ * current rules"; the caller decides whether to fall back to paid models.
+ */
+function modelForProvider(
+  config: AiConfig,
+  provider: ProviderId,
+  role: AiRole | null,
+  ignoreFreeOnly = false,
+): string {
   const tier = role ? ROLES.find((entry) => entry.id === role)?.tier ?? 'any' : 'any'
   if (provider === 'custom') return config.customModel.trim() || 'default'
   if (role) {
@@ -117,7 +134,11 @@ function modelForProvider(config: AiConfig, provider: ProviderId, role: AiRole |
   if (!role || config.auto) {
     if (config.provider === provider && config.model) return config.model
   }
-  return hintsFor(provider, tier)[0]?.id ?? ''
+  const hints = hintsFor(provider, tier)
+  if (config.freeOnly && !ignoreFreeOnly) {
+    return hints.filter((hint) => isFreeModel(provider, hint.id))[0]?.id ?? ''
+  }
+  return hints[0]?.id ?? ''
 }
 
 /**
@@ -134,14 +155,21 @@ export function selectTargets(
 ): Selection {
   const configured = (provider: ProviderId) => isConfigured(provider, keys[provider], config.customBaseUrl)
 
-  const pinned = role ? config.roles[role] : null
+  const roleChoice = role ? config.roles[role] : null
+  // The model the user typed themselves, if any — it outranks the free rule.
+  const pinned =
+    roleChoice?.model
+      ? roleChoice
+      : (!role || config.auto) && config.model
+        ? { provider: config.provider, model: config.model }
+        : null
   const order: ProviderId[] = []
   const push = (provider: ProviderId | '') => {
     if (!provider) return
     if (!order.includes(provider)) order.push(provider)
   }
 
-  if (pinned?.provider) push(pinned.provider)
+  if (roleChoice?.provider) push(roleChoice.provider)
   push(config.provider)
   if (config.auto) {
     // Everything with a key, preferred tiers first.
@@ -156,36 +184,66 @@ export function selectTargets(
   }
   if (config.customBaseUrl.trim()) push('custom')
 
-  const targets: ModelTarget[] = []
-  for (const provider of order) {
-    if (!configured(provider) && provider !== 'custom') continue
-    const chosen = modelForProvider(config, provider, role)
-    if (chosen) targets.push(targetOf(provider, chosen))
-    if (!config.auto) continue
-    // …then this provider's other hints, so one retired model is not fatal.
-    const tier = role ? ROLES.find((entry) => entry.id === role)?.tier : 'any'
-    for (const hint of hintsFor(provider, tier ?? 'any')) {
-      if (targets.length >= 8) break
-      if (!targets.some((target) => target.provider === provider && target.model === hint.id)) {
-        targets.push(targetOf(provider, hint.id))
+  const build = (ignoreFreeOnly: boolean): ModelTarget[] => {
+    const targets: ModelTarget[] = []
+    for (const provider of order) {
+      if (!configured(provider) && provider !== 'custom') continue
+      const chosen = modelForProvider(config, provider, role, ignoreFreeOnly)
+      if (chosen) targets.push(targetOf(provider, chosen))
+      if (!config.auto) continue
+      // …then this provider's other hints, so one retired model is not fatal.
+      const tier = role ? ROLES.find((entry) => entry.id === role)?.tier : 'any'
+      for (const hint of hintsFor(provider, tier ?? 'any')) {
+        if (targets.length >= 8) break
+        if (config.freeOnly && !ignoreFreeOnly && !isFreeModel(provider, hint.id)) continue
+        if (!targets.some((target) => target.provider === provider && target.model === hint.id)) {
+          targets.push(targetOf(provider, hint.id))
+        }
+      }
+    }
+    const unique: ModelTarget[] = []
+    for (const target of targets) {
+      if (unique.some((entry) => entry.provider === target.provider && entry.model === target.model)) continue
+      unique.push(target)
+    }
+    return unique
+  }
+
+  let unique = build(false)
+  let paidFallback = false
+
+  if (config.freeOnly) {
+    const free = unique.filter((target) => isFreeModel(target.provider, target.model))
+    if (free.length > 0) {
+      unique = free
+    } else {
+      // Nothing free to call. Rather than refuse to work, use what is
+      // connected — and say so, wherever it can be seen.
+      const paid = build(true)
+      const asked = pinned ? paid.filter((target) => target.model === pinned.model) : []
+      if (asked.length > 0) {
+        // A model typed in by hand is an instruction, not a fallback.
+        unique = [...asked, ...paid.filter((target) => !asked.includes(target))]
+      } else if (paid.length > 0) {
+        unique = paid
+        paidFallback = true
       }
     }
   }
 
-  const unique: ModelTarget[] = []
-  for (const target of targets) {
-    if (unique.some((entry) => entry.provider === target.provider && entry.model === target.model)) continue
-    unique.push(target)
-  }
+  const freeCount = unique.filter((target) => isFreeModel(target.provider, target.model)).length
+  const providers = new Set(unique.map((target) => target.provider)).size
 
   const reason =
     unique.length === 0
       ? 'No provider is configured yet — add a key in AI settings.'
-      : config.auto
-        ? `Automatic: ${unique.length} candidate${unique.length === 1 ? '' : 's'} across ${new Set(unique.map((t) => t.provider)).size} provider${new Set(unique.map((t) => t.provider)).size === 1 ? '' : 's'}`
-        : `Pinned: ${providerOf(unique[0].provider).label} · ${unique[0].label ?? unique[0].model}`
+      : paidFallback
+        ? `No free model on the connected providers — using paid models. Add a free key (Groq, Cerebras, Gemini, OpenRouter) or pin a free model.`
+        : config.auto
+          ? `Automatic${config.freeOnly ? ' · free models only' : ''}: ${unique.length} candidate${unique.length === 1 ? '' : 's'} across ${providers} provider${providers === 1 ? '' : 's'}`
+          : `Pinned: ${providerOf(unique[0].provider).label} · ${unique[0].label ?? unique[0].model}`
 
-  return { targets: unique, reason }
+  return { targets: unique, reason, paidFallback, freeCount }
 }
 
 /* ------------------------------------------------------------------ */

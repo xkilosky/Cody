@@ -485,6 +485,8 @@ async function main() {
   const setupText = dom.window.document.querySelector('.ai-setup')?.textContent ?? ''
   check('the providers are named up front', setupText.includes('OpenRouter') && /xKiro/.test(setupText), setupText.slice(0, 90))
   check('it says the key stays on the device', /stays on this device/i.test(setupText))
+  check('it says free models are the default', /free models are used by default/i.test(setupText), setupText.slice(0, 120))
+  check('the free providers are offered first', /Groq/.test(setupText) && /Cerebras/.test(setupText), setupText.slice(0, 140))
   await click('Add a provider key')
   await wait(250)
   const aiSheet = dom.window.document.querySelector('.sheet')?.textContent ?? ''
@@ -492,6 +494,9 @@ async function main() {
   check('every provider has a key field', dom.window.document.querySelectorAll('.ai-provider').length >= 8, String(dom.window.document.querySelectorAll('.ai-provider').length))
   check('automatic selection is a switch', Boolean(dom.window.document.querySelector('[aria-label="Automatic model selection"]')))
   check('failover is a switch', Boolean(dom.window.document.querySelector('[aria-label="Fall back to another model"]')))
+  const freeSwitch = dom.window.document.querySelector('[aria-label="Free models only"]')
+  check('free-only is a switch and it is on by default', Boolean(freeSwitch) && freeSwitch?.getAttribute('aria-checked') === 'true', freeSwitch?.getAttribute('aria-checked') ?? '(missing)')
+  check('the free tier is marked per provider', dom.window.document.querySelectorAll('.ai-free-chip').length >= 4, String(dom.window.document.querySelectorAll('.ai-free-chip').length))
   check('the crew roles are pinned per agent', Boolean(dom.window.document.querySelector('[aria-label="Planner provider"]')))
   await click('tools the agents can use')
   await wait(200)

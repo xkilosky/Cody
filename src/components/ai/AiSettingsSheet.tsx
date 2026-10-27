@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AiConfig, AiRole } from '../../lib/ai/config'
 import { ROLES } from '../../lib/ai/config'
-import { PROVIDERS, hintsFor, providerOf, type ProviderId } from '../../lib/ai/providers'
+import { PROVIDERS, freeHintsFor, hintsFor, isFreeModel, providerOf, type ProviderId } from '../../lib/ai/providers'
 import { discoverModels, probeProvider, resetCooldowns, selectTargets, type ProbeResult } from '../../lib/ai/client'
 import { clearKeys, getKeys, maskKey, setKey } from '../../lib/ai/keys'
 import { TOOLS, toolGroups } from '../../lib/ai/tools'
@@ -72,6 +72,13 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
     return [...new Set([...hints, ...(discovered[id] ?? [])])]
   }
 
+  /** Free first, so the datalist itself steers towards the cheap end. */
+  const freeFirst = (id: ProviderId): string[] => {
+    const free = new Set(freeHintsFor(id, 'any').map((hint) => hint.id))
+    const options = modelOptions(id)
+    return [...options.filter((option) => free.has(option)), ...options.filter((option) => !free.has(option))]
+  }
+
   return (
     <Sheet
       open={open}
@@ -116,14 +123,42 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
             <span />
           </button>
         </div>
+        <div className="setting-row">
+          <div>
+            <strong>Free models only</strong>
+            <p>
+              Never call a model that costs money — Groq, Cerebras, Gemini, Mistral Small and every
+              OpenRouter <code>:free</code> model qualify. Paid models are used only if you pin one.
+            </p>
+          </div>
+          <button
+            className={`switch${config.freeOnly ? ' on' : ''}`}
+            role="switch"
+            aria-checked={config.freeOnly}
+            aria-label="Free models only"
+            onClick={() => onChange({ freeOnly: !config.freeOnly })}
+          >
+            <span />
+          </button>
+        </div>
+        {config.freeOnly && selection.paidFallback && (
+          <p className="ai-probe bad">
+            No free model found on the providers you added, so paid ones are being used. Add a free key
+            (Groq, Cerebras, Gemini, OpenRouter) or pin a free model.
+          </p>
+        )}
         <div className="ai-chain" aria-label="Fallback order">
           {selection.targets.length === 0 ? (
             <span className="muted small">No candidates yet — add a key below.</span>
           ) : (
             selection.targets.slice(0, 5).map((target, index) => (
-              <span key={`${target.provider}:${target.model}`} className="ai-chain-item">
+              <span
+                key={`${target.provider}:${target.model}`}
+                className={`ai-chain-item${isFreeModel(target.provider, target.model) ? ' free' : ''}`}
+              >
                 <span className="ai-chain-index">{index + 1}</span>
                 {providerOf(target.provider).label} · {target.label ?? target.model}
+                <span className="ai-cost">{isFreeModel(target.provider, target.model) ? 'free' : 'paid'}</span>
               </span>
             ))
           )}
@@ -156,12 +191,16 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
                   <strong>{provider.label}</strong>
                   <span className="ai-provider-blurb">{provider.blurb}</span>
                 </span>
+                {provider.freeTier && <span className="ai-free-chip">free</span>}
                 <span className="ai-provider-state">{saved ? maskKey(saved) : 'not set'}</span>
                 <Icon name={isOpen ? 'chevron-down' : 'chevron-right'} size={14} />
               </button>
 
               {isOpen && (
                 <div className="ai-provider-body">
+                  {provider.freeTier && provider.freeNote && (
+                    <p className="ai-free-note">{provider.freeNote}</p>
+                  )}
                   {!provider.custom && (
                     <>
                       <label className="field-label" htmlFor={`ai-key-${provider.id}`}>
@@ -273,7 +312,9 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
                           className="text-input"
                           list={`ai-models-${provider.id}`}
                           value={config.provider === provider.id ? config.model : ''}
-                          placeholder={hintsFor(provider.id)[0]?.id ?? 'auto'}
+                          placeholder={
+                            (config.freeOnly ? freeHintsFor(provider.id)[0]?.id : hintsFor(provider.id)[0]?.id) ?? 'auto'
+                          }
                           autoCapitalize="off"
                           autoCorrect="off"
                           spellCheck={false}
@@ -286,12 +327,13 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
                         </button>
                       </div>
                       <datalist id={`ai-models-${provider.id}`}>
-                        {modelOptions(provider.id).map((model) => (
+                        {freeFirst(provider.id).map((model) => (
                           <option key={model} value={model} />
                         ))}
                       </datalist>
                       <p className="muted small">
-                        Empty means automatic. Model ids change often — “List” asks the provider what it serves.
+                        Empty means automatic — free models first. Model ids change often; “List” asks the
+                        provider what it serves.
                       </p>
                     </div>
                   )}
@@ -362,7 +404,13 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
                   aria-label={`${role.label} model`}
                   list={`ai-role-models-${role.id}`}
                   value={choice.model}
-                  placeholder={choice.provider ? hintsFor(choice.provider, role.tier)[0]?.id ?? 'auto' : 'auto'}
+                  placeholder={
+                    choice.provider
+                      ? (config.freeOnly
+                          ? freeHintsFor(choice.provider, role.tier)[0]?.id
+                          : hintsFor(choice.provider, role.tier)[0]?.id) ?? 'auto'
+                      : 'auto'
+                  }
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck={false}
@@ -376,7 +424,7 @@ export default function AiSettingsSheet({ open, config, onChange, onClose, onNot
                   }
                 />
                 <datalist id={`ai-role-models-${role.id}`}>
-                  {modelOptions((choice.provider || config.provider) as ProviderId).map((model) => (
+                  {freeFirst((choice.provider || config.provider) as ProviderId).map((model) => (
                     <option key={model} value={model} />
                   ))}
                 </datalist>

@@ -3,59 +3,70 @@
    ========================================================================== */
 
 :root {
-  --bg: #0a0a0b;
-  --bg-elevated: #101012;
-  --surface: #141416;
-  --surface-2: #1b1b1e;
-  --surface-3: #232327;
-  --border: #27272b;
-  --border-strong: #35353b;
-  --text: #ececee;
-  --text-dim: #a6a6ae;
-  --muted: #75757e;
-  --accent: #5ce1b9;
-  --accent-ink: #04291f;
-  --accent-soft: rgba(92, 225, 185, 0.12);
-  --warn: #cfae74;
-  --bulb: #eeb542;
+  /* A graphite ramp, a step off pure black. Each plane sits far enough from
+     the last that stacked panels read as separate surfaces on a phone, which
+     is what makes an editor look built rather than flat. */
+  --bg: #0f1013;
+  --bg-chrome: #0b0c0f;
+  --bg-elevated: #15171b;
+  --surface: #191b20;
+  --surface-2: #1f2228;
+  --surface-3: #282c34;
+  --border: #262a31;
+  --border-strong: #373c45;
+  --text: #e9ebf0;
+  --text-dim: #b0b5bf;
+  --muted: #7e8792;
+  --accent: #4fe0b4;
+  --accent-ink: #04241c;
+  --accent-soft: rgba(79, 224, 180, 0.12);
+  --accent-line: rgba(79, 224, 180, 0.4);
+  --warn: #d8b478;
+  --bulb: #efb53d;
   --bulb-fix: #f8d367;
-  --error: #e06c6c;
-  --error-soft: rgba(224, 108, 108, 0.12);
-  --radius-xs: 8px;
-  --radius-sm: 12px;
-  --radius: 16px;
+  --error: #e2686b;
+  --error-soft: rgba(226, 104, 107, 0.13);
+  --radius-xs: 7px;
+  --radius-sm: 11px;
+  --radius: 15px;
   --radius-lg: 22px;
-  --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
-  --header-h: 58px;
-  --tabbar-h: 62px;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --header-h: 54px;
+  --tabbar-h: 58px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --editor-bg: #0a0a0b;
+  /* The editor writes its active palette's background here, so the tab strip
+     and the code surface are the same colour instead of two neighbouring greys. */
+  --editor-bg: #1e1e1e;
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   color-scheme: dark;
 }
 
 [data-theme='light'] {
   --editor-bg: #ffffff;
-  --bg: #f7f7f8;
+  --bg: #f6f7f9;
+  --bg-chrome: #ffffff;
   --bg-elevated: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f2f2f3;
-  --surface-3: #e9e9eb;
-  --border: #e4e4e7;
-  --border-strong: #d0d0d5;
-  --text: #17171a;
-  --text-dim: #4b4b52;
-  --muted: #71717a;
-  --accent: #0f9d76;
+  --surface-2: #f1f2f5;
+  --surface-3: #e6e8ed;
+  --border: #e2e4ea;
+  --border-strong: #ccd1d9;
+  --text: #14161a;
+  --text-dim: #484d57;
+  --muted: #6d737d;
+  --accent: #0d9b76;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(15, 157, 118, 0.1);
+  --accent-soft: rgba(13, 155, 118, 0.1);
+  --accent-line: rgba(13, 155, 118, 0.42);
   --warn: #8a6a2f;
   --bulb: #ab7a11;
   --bulb-fix: #8f6306;
   --error: #b3403f;
   --error-soft: rgba(179, 64, 63, 0.1);
   --shadow: 0 16px 36px rgba(21, 30, 48, 0.12);
+  --shadow-sm: 0 1px 2px rgba(21, 30, 48, 0.08);
   color-scheme: light;
 }
 
@@ -116,16 +127,14 @@ ol {
 }
 
 ::selection {
-  background: rgba(92, 225, 185, 0.3);
+  background: rgba(79, 224, 180, 0.3);
 }
 
 .app-root {
   height: 100vh;
   height: calc(100dvh - var(--kb-inset, 0px));
   overflow: hidden;
-  background:
-    radial-gradient(120% 60% at 50% -10%, rgba(139, 124, 255, 0.12), transparent 60%),
-    var(--bg);
+  background: var(--bg);
 }
 
 /* ==========================================================================
@@ -208,6 +217,14 @@ ol {
 
 .dot-sep {
   opacity: 0.4;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
 }
 
 .btn {
@@ -331,7 +348,7 @@ ol {
 
 .pill.ok {
   color: var(--accent);
-  border-color: rgba(92, 225, 185, 0.35);
+  border-color: rgba(79, 224, 180, 0.35);
   background: var(--accent-soft);
 }
 
@@ -442,7 +459,7 @@ ol {
 
 .chip.active {
   background: var(--accent-soft);
-  border-color: rgba(92, 225, 185, 0.4);
+  border-color: rgba(79, 224, 180, 0.4);
   color: var(--accent);
 }
 
@@ -477,7 +494,7 @@ ol {
 }
 
 .text-input:focus {
-  outline: 2px solid rgba(92, 225, 185, 0.35);
+  outline: 2px solid rgba(79, 224, 180, 0.35);
   outline-offset: 1px;
   border-color: transparent;
 }
@@ -661,7 +678,7 @@ ol {
 
 .current-pill {
   color: var(--accent);
-  border-color: rgba(92, 225, 185, 0.35);
+  border-color: rgba(79, 224, 180, 0.35);
   background: var(--accent-soft);
 }
 
@@ -772,17 +789,43 @@ ol {
 }
 
 .app-header {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 30;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: calc(var(--safe-top) + 6px) 8px 6px;
+  gap: 2px;
+  padding: calc(var(--safe-top) + 5px) 8px 5px 4px;
   min-height: var(--header-h);
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(18px);
+  background: var(--bg-chrome);
   border-bottom: 1px solid var(--border);
+}
+
+/* 34px square reads as a toolbar control; 38px looked like a fat tab. */
+.app-header .icon-btn {
+  width: 36px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+/* Run is the one filled control in the header: the app's primary verb. */
+.app-header .run-btn {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+[data-theme='light'] .app-header .run-btn {
+  color: #fff;
+}
+
+.app-header .run-btn:active {
+  filter: brightness(1.06);
+}
+
+.app-header .run-btn.running {
+  background: var(--error-soft);
+  color: var(--error);
+  box-shadow: none;
 }
 
 .title-block {
@@ -790,20 +833,30 @@ ol {
   min-width: 0;
   text-align: left;
   display: grid;
-  gap: 0;
-  padding: 2px 4px;
+  gap: 1px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+
+.title-block:active {
+  background: var(--surface-2);
 }
 
 .title-block h1 {
-  font-size: 15.5px;
-  letter-spacing: -0.015em;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.012em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .title-block p {
-  font-size: 11px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.01em;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -832,6 +885,11 @@ ol {
   flex-direction: column;
 }
 
+/* ---- bottom navigation ------------------------------------------------
+   A pill behind the active icon, the way current mobile chrome marks the
+   section you are in. The old top hairline sat under the notch on tall phones
+   and read as a rendering seam. */
+
 .tab-bar {
   position: fixed;
   bottom: 0;
@@ -839,26 +897,28 @@ ol {
   right: 0;
   z-index: 40;
   height: calc(var(--tabbar-h) + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
+  padding: 0 6px var(--safe-bottom);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
+  align-items: stretch;
   max-width: 820px;
   margin: 0 auto;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(20px);
+  background: var(--bg-chrome);
   border-top: 1px solid var(--border);
 }
 
 .tab-btn {
-  display: grid;
-  place-items: center;
-  gap: 2px;
-  padding: 8px 4px 6px;
-  color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 2px 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   transition: color 0.15s ease;
 }
 
@@ -866,33 +926,33 @@ ol {
   color: var(--accent);
 }
 
-.tab-btn.active::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 26px;
-  height: 2px;
-  border-radius: 0 0 3px 3px;
-  background: var(--accent);
-}
-
 .tab-icon {
   position: relative;
   display: grid;
   place-items: center;
+  width: 42px;
+  height: 26px;
+  border-radius: 9px;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.tab-btn.active .tab-icon {
+  background: var(--accent-soft);
+}
+
+.tab-btn:active .tab-icon {
+  transform: scale(0.92);
 }
 
 .tab-dot {
   position: absolute;
-  top: -1px;
-  right: -3px;
+  top: 1px;
+  right: 9px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 0 2px var(--bg);
+  box-shadow: 0 0 0 2px var(--bg-chrome);
   animation: pulse 1.4s ease-in-out infinite;
 }
 
@@ -904,47 +964,84 @@ ol {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 10px 14px;
+  padding: 8px 12px 6px;
+}
+
+/* The toolbar's buttons were 34px next to a 40px field, so the row had a
+   6px stagger. One height, one radius, same baseline. */
+.pane-toolbar .search-field {
+  height: 38px;
+}
+
+.pane-toolbar .btn {
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 11px;
+  border-color: transparent;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.pane-toolbar .btn:active {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* the square variant must stay square: it has no label to absorb the padding */
+.pane-toolbar .btn.icon-only {
+  width: 38px;
+  padding: 0;
 }
 
 .file-list {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0 8px 12px;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 6px 16px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
+/* 46px rows: the height a thumb actually hits, and enough air that a deep
+   tree still reads as a list rather than a wall of type. */
 .file-row-wrap {
   display: flex;
   align-items: center;
-  border-radius: 11px;
-  padding-right: 4px;
+  border-radius: 10px;
+  padding-right: 2px;
   transition: background 0.12s ease;
 }
 
 .file-row-wrap.active {
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
   box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.file-row-wrap.active .file-name {
+  color: var(--text);
 }
 
 .file-row-main {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 11px 8px;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 7px 0 10px;
   min-width: 0;
   text-align: left;
+  border-radius: 10px;
 }
 
 .file-row {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 10px;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 7px 0 10px;
   width: 100%;
   text-align: left;
   color: var(--text-dim);
@@ -953,13 +1050,18 @@ ol {
   border-radius: 10px;
 }
 
+.file-row:active {
+  background: var(--surface-2);
+}
+
 .file-name {
-  font-size: 14px;
+  font-size: 13.5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--mono);
   letter-spacing: -0.01em;
+  color: var(--text-dim);
 }
 
 .folder-wrap .file-row {
@@ -977,15 +1079,17 @@ ol {
   align-items: center;
   gap: 7px;
   width: 100%;
-  padding: 9px 10px;
+  min-height: 34px;
+  padding: 0 10px;
   font-size: 11.5px;
   font-family: var(--mono);
   color: var(--muted);
-  border-radius: 10px;
+  border-radius: 9px;
   border: 1px dashed var(--border);
   margin: 2px 0 4px;
   text-align: left;
 }
+
 
 .delete-list {
   list-style: none;
@@ -1011,7 +1115,8 @@ ol {
 }
 
 .file-meta {
-  font-size: 11px;
+  font-size: 10.5px;
+  font-family: var(--mono);
   color: var(--muted);
   flex: none;
 }
@@ -1020,14 +1125,14 @@ ol {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  opacity: 0.65;
+  opacity: 0.6;
   font-family: var(--mono);
 }
 
 .row-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   color: var(--muted);
@@ -1039,15 +1144,19 @@ ol {
   color: var(--text);
 }
 
+
 .pane-footnote {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 10px;
-  padding: 9px 16px;
-  font-size: 11px;
+  padding: 0 14px;
+  min-height: 30px;
+  font-family: var(--mono);
+  font-size: 10.5px;
   color: var(--muted);
   border-top: 1px solid var(--border);
-  background: var(--bg-elevated);
+  background: var(--bg-chrome);
 }
 
 .empty-state {
@@ -1055,7 +1164,7 @@ ol {
   justify-items: center;
   gap: 8px;
   text-align: center;
-  padding: 36px 20px;
+  padding: 36px 24px;
   color: var(--muted);
 }
 
@@ -1093,18 +1202,18 @@ ol {
 .editor-tabs {
   flex: none;
   display: flex;
-  align-items: stretch;
-  gap: 4px;
-  padding: 0 8px;
-  background: var(--surface);
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-chrome);
   border-bottom: 1px solid var(--border);
-  min-height: 38px;
+  min-height: 42px;
 }
 
 .tabs-scroll {
   display: flex;
-  align-items: stretch;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
   flex: 1;
@@ -1115,40 +1224,31 @@ ol {
   display: none;
 }
 
+/* Chips, not desktop wedges: on a 390px screen a chip keeps its own hit area,
+   and the open one is simply lit. */
 .tab-chip {
   display: flex;
   align-items: center;
   flex: none;
-  max-width: 52vw;
-  border-radius: 8px 8px 0 0;
+  max-width: 54vw;
+  min-height: 30px;
+  border-radius: 9px;
   border: 1px solid transparent;
-  border-bottom: 0;
-  margin-top: 5px;
-  position: relative;
   color: var(--muted);
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
 }
 
 .tab-chip.active {
-  background: var(--editor-bg, var(--bg));
+  background: var(--surface-2);
   border-color: var(--border);
   color: var(--text);
-}
-
-.tab-chip.active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 1px;
-  background: var(--editor-bg, var(--bg));
 }
 
 .tab-chip-main {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 8px 8px 9px;
+  gap: 7px;
+  padding: 7px 8px 7px 9px;
   min-width: 0;
   font-size: 12px;
 }
@@ -1161,13 +1261,14 @@ ol {
 }
 
 .tab-close {
-  width: 24px;
-  height: 100%;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
   color: var(--muted);
-  border-radius: 6px;
+  border-radius: 7px;
   flex: none;
+  margin-right: 2px;
 }
 
 .tab-close:active {
@@ -1189,16 +1290,18 @@ ol {
   border-radius: 50%;
   background: var(--warn);
   flex: none;
-  margin-right: 4px;
+  margin-right: 2px;
 }
 
 .tabs-more {
   display: grid;
   place-items: center;
-  width: 34px;
+  width: 32px;
+  height: 30px;
   color: var(--muted);
   flex: none;
   border-radius: 9px;
+  border: 1px solid var(--border);
 }
 
 .tabs-more:active {
@@ -1234,31 +1337,33 @@ ol {
 .editor-status {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  min-height: 25px;
+  gap: 6px;
+  padding: 0 8px 0 12px;
+  min-height: 28px;
   flex: none;
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--muted);
   font-family: var(--mono);
   border-top: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--bg-chrome);
   overflow: hidden;
   white-space: nowrap;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.015em;
 }
 
 .status-pos {
   color: var(--text-dim);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .status-sep {
-  opacity: 0.35;
+  opacity: 0.3;
 }
 
 .status-lang {
   font-weight: 600;
+  color: var(--text-dim);
 }
 
 .status-chip {
@@ -1268,20 +1373,41 @@ ol {
   color: var(--text-dim);
 }
 
+/* A dot in front of the word does the work the old bordered button did: the
+   same three words, one less box competing with the problems chip. */
 .status-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--muted);
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 999px;
-  border: 1px solid var(--border);
   flex: none;
+}
+
+.status-save::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.status-save:active {
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 .status-save.unsaved {
   color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
-  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+.status-save.unsaved::before {
+  opacity: 1;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent);
 }
 
 /* ---- problems / diagnostics -------------------------------------------- */
@@ -1289,23 +1415,28 @@ ol {
 .status-problems {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-family: var(--mono);
   font-size: 10px;
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 999px;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   color: var(--muted);
   flex: none;
   white-space: nowrap;
   max-width: 46vw;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: background 0.14s ease;
+}
+
+.status-problems:active {
+  background: var(--surface-2);
 }
 
 .status-problems.clean {
   color: var(--muted);
-  opacity: 0.75;
+  opacity: 0.7;
 }
 
 /* The strip is the most crowded row on a phone: on narrow screens the file
@@ -1534,8 +1665,8 @@ ol {
 
 .tab-badge {
   position: absolute;
-  top: -3px;
-  right: -6px;
+  top: -2px;
+  right: 3px;
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
@@ -1548,7 +1679,7 @@ ol {
   line-height: 1;
   color: #fff;
   background: var(--error);
-  box-shadow: 0 0 0 2px var(--surface);
+  box-shadow: 0 0 0 2px var(--bg-chrome);
 }
 
 .tab-badge.warning {
@@ -1821,16 +1952,16 @@ ol {
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 5px 6px 6px;
-  background: var(--surface-2);
+  gap: 6px;
+  padding: 6px;
+  background: var(--bg-chrome);
   border-top: 1px solid var(--border);
 }
 
 .rail-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -1838,10 +1969,21 @@ ol {
   width: 100%;
 }
 
+/* A hairline between tool groups. Ten identical grey squares in a row read as
+   noise; the divider turns them into undo|redo, edit, navigate. */
+.rail-sep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--border);
+}
+
 .tool-btn {
-  min-width: 33px;
-  height: 34px;
-  border-radius: 9px;
+  position: relative;
+  min-width: 34px;
+  height: 36px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1849,11 +1991,13 @@ ol {
   color: var(--text-dim);
   padding: 0 6px;
   flex: none;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
 }
 
 .tool-btn:active {
   background: var(--surface-3);
   color: var(--text);
+  transform: scale(0.94);
 }
 
 .tool-glyph {
@@ -1864,36 +2008,46 @@ ol {
 
 .rail-keys {
   width: 100%;
+  padding: 0;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.rail-keys-scroll {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 0;
   scroll-behavior: smooth;
 }
 
-.rail-keys::-webkit-scrollbar {
+.rail-keys-scroll::-webkit-scrollbar {
   display: none;
 }
 
 .rail-key {
-  min-width: 36px;
-  height: 36px;
+  min-width: 34px;
+  height: 34px;
   padding: 0 8px;
-  border-radius: 9px;
-  background: var(--surface-3);
+  border-radius: 8px;
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  color: var(--text);
+  color: var(--text-dim);
   font-family: var(--mono);
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1;
   display: grid;
   place-items: center;
   flex: none;
-  transition: background 0.1s ease, transform 0.1s ease;
+  transition: background 0.1s ease, color 0.1s ease, transform 0.1s ease;
 }
 
 .rail-key:active {
   background: var(--accent-soft);
-  border-color: rgba(92, 225, 185, 0.4);
+  border-color: var(--accent-line);
   color: var(--accent);
   transform: scale(0.94);
 }
@@ -1901,15 +2055,17 @@ ol {
 .rail-run {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 34px;
-  padding: 0 14px;
+  gap: 6px;
+  height: 36px;
+  padding: 0 15px;
   border-radius: 10px;
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
+  letter-spacing: 0.005em;
   flex: none;
+  transition: transform 0.12s ease, filter 0.12s ease;
 }
 
 [data-theme='light'] .rail-run {
@@ -1917,12 +2073,39 @@ ol {
 }
 
 .rail-run:active {
-  transform: scale(0.96);
-  filter: brightness(1.05);
+  transform: scale(0.95);
+  filter: brightness(1.06);
 }
 
 .toolbar-spacer {
   flex: 1;
+}
+
+/* Ten controls plus Run do not fit a 360px rail at full width — the last
+   button used to be clipped off the edge. Tighten before dropping anything. */
+@media (max-width: 432px) {
+  .rail-actions {
+    gap: 2px;
+  }
+
+  .rail-sep {
+    margin: 0 1px;
+  }
+
+  .tool-btn {
+    min-width: 30px;
+    padding: 0 2px;
+  }
+}
+
+@media (max-width: 340px) {
+  .rail-run {
+    padding: 0 11px;
+  }
+
+  .rail-run span {
+    display: none;
+  }
 }
 
 /* sheets inside the code pane */
@@ -1955,7 +2138,7 @@ ol {
 
 .symbol-key:active {
   background: var(--accent-soft);
-  border-color: rgba(92, 225, 185, 0.4);
+  border-color: rgba(79, 224, 180, 0.4);
   color: var(--accent);
   transform: scale(0.95);
 }
@@ -2083,7 +2266,7 @@ ol {
   overflow: auto;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: #08080a;
+  background: #0a0b0e;
   padding: 8px 0;
   font-family: var(--mono);
   font-size: 11.5px;
@@ -2137,12 +2320,12 @@ ol {
   padding-top: 2px;
 }
 
-.log-warn .log-text { color: #cfae74; }
-.log-error .log-text { color: #e08c8c; }
+.log-warn .log-text { color: #d8b478; }
+.log-error .log-text { color: #e58a8a; }
 .log-error { border-left-color: rgba(224, 108, 108, 0.5); background: rgba(224, 108, 108, 0.06); }
 .log-warn { border-left-color: rgba(207, 174, 116, 0.35); }
 .log-system .log-text { color: #77777f; }
-.log-success .log-text { color: #5ce1b9; }
+.log-success .log-text { color: #4fe0b4; }
 .log-info .log-text { color: #9a9aa2; }
 
 .stdin-block {
@@ -3189,11 +3372,12 @@ ol {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-bottom: 0;
-  border-radius: 22px 22px 0 0;
-  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.5);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.55);
   animation: slide-up 0.24s cubic-bezier(0.22, 1, 0.36, 1);
   padding-bottom: var(--safe-bottom);
 }
+
 
 .sheet-tall {
   max-height: 92dvh;
@@ -3205,7 +3389,7 @@ ol {
 }
 
 .sheet-grabber {
-  width: 38px;
+  width: 40px;
   height: 4px;
   border-radius: 999px;
   background: var(--border-strong);
@@ -3217,19 +3401,21 @@ ol {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 16px 6px;
+  padding: 14px 14px 8px 18px;
 }
 
 .sheet-header h2 {
-  font-size: 17px;
+  font-size: 18px;
+  font-weight: 650;
   letter-spacing: -0.02em;
 }
 
 .sheet-header p {
   font-size: 12px;
   color: var(--muted);
-  margin-top: 2px;
+  margin-top: 3px;
 }
+
 
 .sheet-body {
   padding: 4px 16px 16px;
@@ -3422,7 +3608,7 @@ ol {
 
 .switch.on {
   background: var(--accent-soft);
-  border-color: rgba(92, 225, 185, 0.5);
+  border-color: rgba(79, 224, 180, 0.5);
 }
 
 .switch.on::after {
@@ -3495,7 +3681,7 @@ ol {
 }
 
 .toast-success {
-  border-color: rgba(92, 225, 185, 0.4);
+  border-color: rgba(79, 224, 180, 0.4);
   color: var(--accent);
   background: color-mix(in srgb, var(--accent-soft) 60%, var(--surface-3));
 }
@@ -3539,8 +3725,7 @@ ol {
 @media (min-width: 1100px) {
   body {
     background:
-      radial-gradient(80% 50% at 15% 0%, rgba(139, 124, 255, 0.08), transparent 60%),
-      radial-gradient(80% 50% at 85% 10%, rgba(92, 225, 185, 0.06), transparent 60%),
+      radial-gradient(70% 46% at 82% -4%, rgba(79, 224, 180, 0.07), transparent 62%),
       var(--bg);
   }
 }

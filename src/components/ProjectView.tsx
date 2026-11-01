@@ -224,7 +224,7 @@ export default function ProjectView(props: Props) {
           </p>
         </button>
         <button
-          className={`icon-btn${running ? ' accent' : ''}`}
+          className={`icon-btn run-btn${running ? ' running' : ''}`}
           onClick={() => (running ? onStop() : onRun())}
           aria-label={running ? 'Stop' : 'Run project'}
         >

@@ -33,8 +33,8 @@ def parse_tokens() -> dict[str, dict[str, str]]:
         "dark": css[:light_at],
         "light": css[light_at : css.index("* {", light_at)],
     }
-    keys = ["bg", "bg-elevated", "surface", "surface-2", "surface-3", "border", "border-strong",
-            "text", "text-dim", "muted", "accent", "editor-bg", "warn", "error"]
+    keys = ["bg", "bg-chrome", "bg-elevated", "surface", "surface-2", "surface-3", "border", "border-strong",
+            "text", "text-dim", "muted", "accent", "accent-ink", "editor-bg", "warn", "error"]
     out: dict[str, dict[str, str]] = {"dark": {}, "light": {}}
     for mode, block in blocks.items():
         for key in keys:
@@ -468,72 +468,77 @@ def wrap_runs(runs: list[tuple[str, str]], cols: int) -> list[list[tuple[str, st
 def draw_screen(mode: str) -> Image.Image:
     t = lambda k: TOKENS[mode][k]  # noqa: E731
     p = lambda k: PALETTES[mode][k]  # noqa: E731
-    canvas = Canvas((W, H), t("bg"))
+    canvas = Canvas((W, H), t("bg-chrome"))
     c = canvas
 
-    # ---------------- status bar ----------------
+    # ---------------- OS status bar ----------------
     c.text((20, 14), "9:41", t("text"), 12.5, bold=True)
     for i in range(4):
         c.rect((W - 79 + i * 5, 25 - i * 2.4, W - 76 + i * 5, 26), fill=t("text"), radius=0.6)
     c.rect((W - 53, 18, W - 33, 26), fill=None, outline=t("text-dim"), radius=2.5, width=1)
     c.rect((W - 51, 20, W - 39, 24), fill=t("text"), radius=1)
 
-    # ---------------- app header ----------------
+    # ---------------- app header (54px, chrome) ----------------
     top = 46
-    c.rect((0, top, W, top + 52), fill=t("bg"))
-    c.line([(20, top + 20), (14, top + 27), (20, top + 34)], fill=t("text-dim"), width=2)
-    c.text((28, top + 11), "Cody tasks", t("text"), 15.5, bold=True)
-    c.text((28, top + 31), "src/App.tsx · TypeScript JSX · saved just now", t("muted"), 10.5)
+    HEADER_H = 54
+    c.rect((0, top, W, top + HEADER_H), fill=t("bg-chrome"))
+    c.line([(22, top + 20), (15, top + 27), (22, top + 34)], fill=t("text-dim"), width=2)
+    c.text((36, top + 12), "Cody tasks", t("text"), 15, bold=True)
+    c.text((36, top + 33), "7 files · TSX · 2m ago", t("muted"), 10, mono=True)
+    # run, lit in accent
+    c.rect((W - 82, top + 10, W - 48, top + 44), fill=t("accent"), radius=10, alpha=1.0)
+    ink = t("accent-ink")
+    canvas.polygon([(W - 69, top + 20), (W - 69, top + 34), (W - 58, top + 27)], fill=ink)
+    # overflow
     for i in range(3):
-        c.circle((W - 22, top + 20 + i * 6), 1.8, t("text-dim"))
-    c.rect((0, top + 51, W, top + 52), fill=t("border"))
+        c.circle((W - 26, top + 21 + i * 6), 1.7, t("text-dim"))
+    c.rect((0, top + HEADER_H - 1, W, top + HEADER_H), fill=t("border"))
 
-    # ---------------- tab strip ----------------
-    tabs_top = top + 52
-    c.rect((0, tabs_top, W, tabs_top + 38), fill=t("surface"))
-    c.rect((0, tabs_top + 37, W, tabs_top + 38), fill=t("border"))
+    # ---------------- file tabs (42px, chips) ----------------
+    tabs_top = top + HEADER_H
+    TABS_H = 42
+    c.rect((0, tabs_top, W, tabs_top + TABS_H), fill=t("bg-chrome"))
+    c.rect((0, tabs_top + TABS_H - 1, W, tabs_top + TABS_H), fill=t("border"))
 
-    # (name, language mark, active, has-problems)
     tabs = [("App.tsx", "tsx", True, True), ("Task.tsx", "tsx", False, False), ("styles.css", "css", False, False)]
     x = 8.0
     for name, mark_key, active, broken in tabs:
-        width = 42 + len(name) * 6.6
+        width = 40 + len(name) * 6.4
         if active:
-            c.rect((x, tabs_top + 5, x + width, tabs_top + 40), fill=p("bg"), outline=t("border"), radius=8)
-            c.rect((x + 1.2, tabs_top + 35, x + width - 1.2, tabs_top + 39), fill=p("bg"))
-        draw_mark(canvas, mark_key, x + 8, tabs_top + 12.6, 15, mode)
-        # red "!" beside the badge: this file has an error (matches the app)
-        offset = 29
+            c.rect((x, tabs_top + 6, x + width, tabs_top + 36), fill=t("surface-2"),
+                   outline=t("border"), radius=9)
+        draw_mark(canvas, mark_key, x + 9, tabs_top + 13.6, 15, mode)
+        offset = 30
         if broken:
-            c.circle((x + 30.5, tabs_top + 20.1), 5.4, t("error"))
-            c.text((x + 30.5, tabs_top + 17.2), "!", "#ffffff", 7.4, mono=True, anchor="ma", bold=True)
-            offset = 40
-        c.text((x + offset, tabs_top + 12.5), name, t("text") if active else t("muted"), 11.5, mono=True)
+            c.circle((x + 31, tabs_top + 21), 5.2, t("error"))
+            c.text((x + 31, tabs_top + 18.2), "!", "#ffffff", 7.2, mono=True, anchor="ma", bold=True)
+            offset = 41
+        c.text((x + offset, tabs_top + 14.4), name, t("text") if active else t("muted"), 11.5, mono=True)
         if active:
-            c.circle((x + width - 12, tabs_top + 20), 2.2, t("muted"))
-        x += width + 5
-    c.rect((W - 39, tabs_top + 7, W - 9, tabs_top + 31), fill=t("surface-2"), radius=8)
-    c.rect((W - 33, tabs_top + 14, W - 24, tabs_top + 24), fill=None, outline=t("muted"), radius=2, width=1.2)
-    c.rect((W - 22, tabs_top + 14, W - 16, tabs_top + 24), fill=None, outline=t("muted"), radius=2, width=1.2)
+            c.circle((x + width - 11, tabs_top + 21), 2.1, t("warn"))
+        x += width + 6
+    c.rect((W - 40, tabs_top + 6, W - 8, tabs_top + 36), fill=None, outline=t("border"), radius=9)
+    c.rect((W - 34, tabs_top + 13, W - 26, tabs_top + 29), fill=None, outline=t("muted"), radius=2, width=1.2)
+    c.rect((W - 22, tabs_top + 13, W - 14, tabs_top + 29), fill=None, outline=t("muted"), radius=2, width=1.2)
 
     # ---------------- editor ----------------
-    ed_top = tabs_top + 38
-    RAIL_H = 5 + 34 + 4 + 36 + 6
-    STATUS_H = 26
-    TABBAR_H = 62
+    ed_top = tabs_top + TABS_H
+    RAIL_H = 88
+    STATUS_H = 28
+    TABBAR_H = 58
     ed_bottom = H - TABBAR_H - STATUS_H - RAIL_H
     c.rect((0, ed_top, W, ed_bottom), fill=p("bg"))
 
     font_size = 12.6
     line_h = 20.4
-    gutter_w = 30.0
-    text_x = gutter_w + 6
+    gutter_w = 32.0
+    text_x = gutter_w + 8
     caret_col = 21
     code_font = font(FONT_MONO, font_size)
     char_w = code_font.getlength("0") / SS
     cols = int((W - text_x - 16) / char_w)
 
-    rows: list[tuple[int, int, list[tuple[str, str]], bool]] = []  # (line no, row in line, runs, first)
+    rows: list[tuple[int, int, list[tuple[str, str]], bool]] = []
     for number, line in enumerate(SNIPPET.split("\n"), start=1):
         wrapped = wrap_runs(tokenize(line), cols)
         for index, runs in enumerate(wrapped):
@@ -544,14 +549,13 @@ def draw_screen(mode: str) -> Image.Image:
     for row_index in active_rows:
         y = ed_top + 8 + row_index * line_h
         c.rect((0, y, W, y + line_h), fill=p("activeLine"))
-        c.rect((0, y, 2, y + line_h), fill=t("accent"))
 
     max_rows = int((ed_bottom - ed_top - 10) / line_h)
     for row_index, (number, part, runs, first) in enumerate(rows[:max_rows]):
         y = ed_top + 8 + row_index * line_h
         if first:
             is_active = number == active_line
-            c.text((gutter_w - 9, y + 3.4), str(number),
+            c.text((gutter_w - 8, y + 3.4), str(number),
                    p("gutterActive") if is_active else p("gutter"), 10.2, mono=True, anchor="ra",
                    bold=is_active)
         cx = text_x
@@ -562,86 +566,92 @@ def draw_screen(mode: str) -> Image.Image:
             caret_x = text_x + char_w * (caret_col - 1)
             c.rect((caret_x, y + 2.5, caret_x + 1.8, y + line_h - 2.5), fill=p("fg"), radius=0.6)
 
-    c.rect((gutter_w, ed_top, gutter_w + 0.7, ed_bottom), fill=t("surface-3"))
-
-    # ---------------- status strip ----------------
+    # ---------------- status strip (28px, chrome) ----------------
     st = ed_bottom
-    c.rect((0, st, W, st + 26), fill=t("surface"))
+    c.rect((0, st, W, st + STATUS_H), fill=t("bg-chrome"))
     c.rect((0, st, W, st + 1), fill=t("border"))
-    c.text((10, st + 7.5), "Ln 14, Col 21", t("text-dim"), 9.4, mono=True)
-    c.text((95, st + 7.5), "·  34 lines", t("muted"), 9.4, mono=True)
-    c.text((153, st + 7.5), "·  TSX", t("text-dim"), 9.4, mono=True)
-    c.text((190, st + 7.5), "·  Spaces: 2", t("muted"), 9.4, mono=True)
-    c.rect((W - 64, st + 5.5, W - 9, st + 20.5), fill=None, outline=t("border"), radius=7.5)
-    c.text((W - 36.5, st + 9.4), "Saved", t("muted"), 9, mono=True, anchor="ma")
+    ty = st + 9
+    c.text((12, ty), "Ln 14, Col 21", t("text-dim"), 9.6, mono=True, bold=True)
+    c.text((90, ty), "·", t("muted"), 9.6, mono=True, alpha=0.5)
+    c.text((100, ty), "34 lines", t("muted"), 9.6, mono=True)
+    c.text((148, ty), "·", t("muted"), 9.6, mono=True, alpha=0.5)
+    c.text((158, ty), "TSX", t("text-dim"), 9.6, mono=True, bold=True)
 
-    # problems chip: "1 error" in the error tint, like the real status strip
-    chip_w = 52.0
-    chip_x = W - 64 - chip_w - 6
-    c.rect((chip_x, st + 5.5, chip_x + chip_w, st + 20.5), fill=t("error"), outline=t("error"), radius=7.5, alpha=0.14)
-    c.text((chip_x + 12, st + 8.6), "!", t("error"), 9, mono=True, anchor="ma", bold=True)
-    c.text((chip_x + 18, st + 9.4), "1 error", t("error"), 8.6, mono=True)
+    # problems chip
+    chip_w = 50.0
+    chip_x = W - 62 - chip_w
+    c.rect((chip_x, st + 6, chip_x + chip_w, st + 22), fill=t("error"), radius=8, alpha=0.14)
+    c.text((chip_x + 11, ty), "!", t("error"), 9, mono=True, anchor="ma", bold=True)
+    c.text((chip_x + 17, ty), "1 error", t("error"), 8.8, mono=True)
+    # save state: dot + word
+    c.circle((W - 50, st + 14), 2.3, t("warn"))
+    c.text((W - 43, ty), "Unsaved", t("warn"), 9.6, mono=True)
 
-    # ---------------- keyboard rail (two rows, like the DOM) ----------------
-    rail = st + 26
-    rail_h = RAIL_H
-    c.rect((0, rail, W, rail + rail_h), fill=t("surface-2"))
+    # ---------------- keyboard rail (88px, chrome) ----------------
+    rail = st + STATUS_H
+    c.rect((0, rail, W, rail + RAIL_H), fill=t("bg-chrome"))
     c.rect((0, rail, W, rail + 1), fill=t("border"))
 
-    # row 1 — actions + pinned Run
+    # row 1 — tools left, dismiss right
     ax = 6.0
-    for glyph in ["↺", "↻", "⇥", "⌕", "Aa"]:
-        c.rect((ax, rail + 5, ax + 33, rail + 39), radius=9)
-        c.text((ax + 16.5, rail + 13), glyph, t("text-dim"), 14, mono=True, anchor="ma")
-        ax += 37
-    # ⌘ and ⌄ are pushed right of the action cluster on narrow screens
-    c.rect((ax, rail + 5, ax + 33, rail + 39), radius=9)
-    c.text((ax + 16.5, rail + 13), "⌘", t("text-dim"), 14, mono=True, anchor="ma")
+    groups = [["↺", "↻"], ["⇥", "⌕"], ["✦", "◍"], ["Aa", "⌘"]]
+    for gi, group in enumerate(groups):
+        for glyph in group:
+            c.rect((ax, rail + 6, ax + 34, rail + 42), radius=10)
+            c.text((ax + 17, rail + 15), glyph, t("text-dim"), 13.5, mono=True, anchor="ma")
+            ax += 37
+        if gi < 2:
+            c.rect((ax - 1, rail + 15, ax, rail + 33), fill=t("border"))
+    c.rect((W - 40, rail + 6, W - 6, rail + 42), radius=10)
+    c.text((W - 23, rail + 15), "⌄", t("text-dim"), 13.5, mono=True, anchor="ma")
 
-    ink = "#ffffff" if mode == "light" else "#06251c"
-    c.rect((W - 66, rail + 5, W - 6, rail + 39), fill=t("accent"), radius=10)
-    canvas.polygon([(W - 54, rail + 15.5), (W - 54, rail + 28.5), (W - 43, rail + 22)], fill=ink)
-    c.text((W - 38, rail + 13.5), "Run", ink, 12, bold=True)
-
-    # row 2 — scrollable symbol keys
+    # row 2 — scrolling symbol keys, Run pinned in the thumb corner
+    row2 = rail + 6 + 36 + 6
+    run_w = 74.0
+    keys_right = W - run_w - 12
     keys = ["⇥", "{", "}", "(", ")", "[", "]", "<", ">", "=", '"', "'"]
     kx = 6.0
-    row2 = rail + 5 + 34 + 4
     for key in keys:
-        if kx + 36 > W - 6:
+        if kx + 34 > keys_right:
             break
-        c.rect((kx, row2, kx + 36, row2 + 36), fill=t("surface-3"), outline=t("border"), radius=9)
-        c.text((kx + 18, row2 + 9), key, t("text"), 14, mono=True, anchor="ma")
-        kx += 40
-    # fade the cut-off edge of the rail
+        c.rect((kx, row2, kx + 34, row2 + 34), fill=t("surface-2"), outline=t("border"), radius=8)
+        c.text((kx + 17, row2 + 9.5), key, t("text-dim"), 13.5, mono=True, anchor="ma")
+        kx += 39
     for i in range(10):
-        c.rect((kx - 2 + i * 2.2, row2, kx + i * 2.2, row2 + 36), fill=t("surface-2"), alpha=0.06 * (10 - i))
-    c.rect((kx + 2, row2 + 6, kx + 34, row2 + 30), fill=None, outline=t("border"), radius=8, width=1, alpha=0.5)
-    c.text((kx + 18, row2 + 9), "›", t("muted"), 14, mono=True, anchor="ma")
+        c.rect((kx - 2 + i * 2.2, row2, kx + i * 2.2, row2 + 34), fill=t("bg-chrome"), alpha=0.06 * (10 - i))
+    c.rect((W - run_w - 6, row2, W - 6, row2 + 34), fill=t("accent"), radius=10)
+    canvas.polygon([(W - run_w + 6, row2 + 10), (W - run_w + 6, row2 + 24), (W - run_w + 17, row2 + 17)], fill=ink)
+    c.text((W - run_w + 23, row2 + 8.5), "Run", ink, 12, bold=True)
 
-    # ---------------- tab bar ----------------
-    bar = rail + rail_h
-    c.rect((0, bar, W, H), fill=t("bg"))
+    # ---------------- tab bar (58px, chrome, active pill) ----------------
+    bar = rail + RAIL_H
+    c.rect((0, bar, W, H), fill=t("bg-chrome"))
     c.rect((0, bar, W, bar + 1), fill=t("border"))
-    items = [("files", "Files", False), ("code", "Code", True), ("run", "Run", False), ("build", "Build", False)]
-    slot = W / 4
+    items = [("files", "Files", False), ("code", "Code", True), ("run", "Run", False),
+             ("build", "Build", False), ("ai", "AI", False)]
+    slot = W / len(items)
     for index, (icon, label, active) in enumerate(items):
         cx = slot * index + slot / 2
         ink_c = t("accent") if active else t("muted")
         if active:
-            c.rect((cx - 13, bar, cx + 13, bar + 2.6), fill=t("accent"), radius=1.3)
+            c.rect((cx - 21, bar + 6, cx + 21, bar + 32), fill=t("accent"), radius=9, alpha=0.12)
+        cy = bar + 19
         if icon == "code":
-            c.line([(cx - 8, bar + 18), (cx - 3, bar + 23), (cx - 8, bar + 28)], fill=ink_c, width=1.7)
-            c.line([(cx + 8, bar + 18), (cx + 3, bar + 23), (cx + 8, bar + 28)], fill=ink_c, width=1.7)
+            c.line([(cx - 8, cy - 5), (cx - 3, cy), (cx - 8, cy + 5)], fill=ink_c, width=1.7)
+            c.line([(cx + 8, cy - 5), (cx + 3, cy), (cx + 8, cy + 5)], fill=ink_c, width=1.7)
         elif icon == "files":
-            c.rect((cx - 8, bar + 19, cx + 8, bar + 28), fill=None, outline=ink_c, radius=2, width=1.4)
-            c.rect((cx - 4, bar + 16, cx + 4, bar + 20), fill=None, outline=ink_c, radius=1.5, width=1.4)
+            c.rect((cx - 8, cy - 4, cx + 8, cy + 5), fill=None, outline=ink_c, radius=2, width=1.4)
+            c.rect((cx - 4, cy - 7, cx + 4, cy - 3), fill=None, outline=ink_c, radius=1.5, width=1.4)
         elif icon == "run":
-            c.line([(cx - 7, bar + 18), (cx - 2, bar + 23), (cx - 7, bar + 28)], fill=ink_c, width=1.6)
-            c.line([(cx, bar + 28), (cx + 8, bar + 28)], fill=ink_c, width=1.6)
+            c.line([(cx - 7, cy - 5), (cx - 2, cy), (cx - 7, cy + 5)], fill=ink_c, width=1.6)
+            c.line([(cx, cy + 5), (cx + 8, cy + 5)], fill=ink_c, width=1.6)
+        elif icon == "build":
+            c.text((cx, cy - 7), "✦", ink_c, 13, anchor="ma")
         else:
-            c.text((cx, bar + 16.5), "✦", ink_c, 14, anchor="ma")
-        c.text((cx, bar + 33), label, ink_c, 9.6, bold=active, anchor="ma")
+            c.rect((cx - 8, cy - 6, cx + 8, cy + 6), fill=None, outline=ink_c, radius=4, width=1.3)
+            c.circle((cx - 3, cy), 1.2, ink_c)
+            c.circle((cx + 3, cy), 1.2, ink_c)
+        c.text((cx, bar + 36), label, ink_c, 9.4, bold=active, anchor="ma")
 
     # home indicator
     c.rect((W / 2 - 46, H - 7.5, W / 2 + 46, H - 3), fill=t("text-dim"), radius=2.4, alpha=0.55)

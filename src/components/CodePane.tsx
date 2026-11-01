@@ -442,6 +442,7 @@ export default function CodePane({
           <button className="tool-btn" onClick={() => editorRef.current?.redo()} aria-label="Redo">
             <Icon name="redo" size={18} />
           </button>
+          <span className="rail-sep" aria-hidden="true" />
           <button className="tool-btn" onClick={() => editorRef.current?.indent()} aria-label="Indent">
             <Icon name="indent" size={18} />
           </button>
@@ -469,12 +470,14 @@ export default function CodePane({
             <Icon name="bulb" size={18} />
             {actions.length > 0 && <span className="tool-count">{actions.length}</span>}
           </button>
+          <span className="rail-sep" aria-hidden="true" />
           <button className="tool-btn" onClick={() => setTypeOpen(true)} aria-label="Text options">
             <span className="tool-glyph">Aa</span>
           </button>
           <button className="tool-btn" onClick={() => setSymbolsOpen(true)} aria-label="More keys">
             <span className="tool-glyph">⌘</span>
           </button>
+          <div className="toolbar-spacer" />
           <button
             className="tool-btn"
             onClick={() => {
@@ -485,23 +488,26 @@ export default function CodePane({
           >
             <Icon name="chevron-down" size={18} />
           </button>
-          <div className="toolbar-spacer" />
+        </div>
+        {/* The keys scroll, Run does not: the primary action belongs in the
+            corner the thumb already rests in, not wedged between nine tools. */}
+        <div className="rail-row rail-keys">
+          <div className="rail-keys-scroll" ref={railRef}>
+            {SYMBOLS.map((symbol) => (
+              <button
+                key={symbol.label}
+                className="rail-key"
+                onClick={() => railKey(symbol.insert)}
+                aria-label={`Insert ${symbol.label}`}
+              >
+                {symbol.label}
+              </button>
+            ))}
+          </div>
           <button className="rail-run" onClick={() => onRunFile(file.path)} aria-label="Run file">
             <Icon name="play" size={16} filled />
             <span>Run</span>
           </button>
-        </div>
-        <div className="rail-row rail-keys" ref={railRef}>
-          {SYMBOLS.map((symbol) => (
-            <button
-              key={symbol.label}
-              className="rail-key"
-              onClick={() => railKey(symbol.insert)}
-              aria-label={`Insert ${symbol.label}`}
-            >
-              {symbol.label}
-            </button>
-          ))}
         </div>
       </div>
 

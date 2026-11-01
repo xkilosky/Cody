@@ -36,6 +36,7 @@ import { bracketMatching, indentOnInput } from '@codemirror/language'
 import { searchKeymap, openSearchPanel } from '@codemirror/search'
 import { linter, lintGutter, type Diagnostic as CmDiagnostic } from '@codemirror/lint'
 import { editorThemeFor } from './theme'
+import { paletteFor } from './syntaxThemes'
 import { createCompletionSource, type CompletionOptions } from './completions'
 import { applyTextEdits } from './edits'
 import { languageForPath, loadLanguageExtension } from '../lib/languages'
@@ -271,6 +272,14 @@ export default function CodeEditor({
     () => createCompletionSource(() => completionOptions.current),
     [],
   )
+
+  // The editor's own background is the palette's, not a guess in the
+  // stylesheet: publish it so the tab strip and the pane edge share the exact
+  // colour the code is sitting on.
+  useEffect(() => {
+    const palette = paletteFor(settings.syntaxTheme, settings.theme)
+    document.documentElement.style.setProperty('--editor-bg', palette.bg)
+  }, [settings.syntaxTheme, settings.theme])
 
   // Create the view once.
   useEffect(() => {

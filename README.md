@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/brand/cody-mark.png" width="140" alt="Cody"></p>
+
 # Cody
 
 **A mobile-first, multi-language project editor — build entire software projects from your phone.**
@@ -31,8 +33,9 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 
 - **Editor first** — boot lands in the code, not a dashboard. The workspace switcher is a sheet
   over the editor, so switching projects never costs you your screen.
-- **One-handed navigation** — a 4-tab bottom bar (Files · Code · Run · Build) instead of a
-  cramped sidebar, with every primary action inside the bottom third of the screen.
+- **One-handed navigation** — a menu button in the header opens a drawer of five sections
+  (`[f] Files`, `[c] Code`, `[r] Run`, `[b] Build`, `[a] AI`), so the screen below it belongs to
+  the code instead of to a bar.
 - **A keyboard for people without a keyboard** — a symbol rail (`{} () [] => ; $`) plus
   language-aware insert keys (`def `, `fn `, `useState(` …), undo/redo, comment toggle, find.
 - **Previews that actually run your code** — Cody transpiles TypeScript/JSX with Sucrase and
@@ -258,7 +261,7 @@ one transaction.
 - **A red "!" beside every broken file.** It sits next to the file's language badge in the Files
   list, in the open-file tabs and in the file picker, so you can spot the broken file without
   opening it. Folders roll their contents up, so a collapsed folder still shows the mark; amber
-  means warnings only. The Files tab in the tab bar carries the project's error count.
+  means warnings only. The Files row in the drawer carries the project's error count.
 - **What is actually checked** — with real parsers where the bundle has one:
   - **JS / TS / JSX / TSX** — Sucrase parse errors at the exact line and column
   - **JSON** — `JSON.parse` position, mapped back to a line
@@ -323,8 +326,11 @@ Details that matter on a phone:
   docks to it (sticky) rather than being pushed off-screen. The ⌄ key dismisses the keyboard.
 - **Four looks, all real.** Every style is a full palette for chrome *and* syntax — selection,
   search matches, bracket matching, the autocomplete popup and the code surface all follow it.
-- **A command line, not a tab bar.** Navigation is five bracketed keys (`[f] [c] [r] [b] [a]`),
-  open files are a numbered buffer list, and the header is a shell prompt (`~/project`).
+- **A drawer, not a tab bar.** Navigation is a written menu of bracketed keys — `[f] Files`,
+  `[c] Code`, `[r] Run`, `[b] Build`, `[a] AI` — with the current section marked by an accent
+  rule, plus the things people otherwise hunt for (switch workspace, find in files, settings,
+  project actions). Open files are a numbered buffer list, the header is a shell prompt
+  (`~/project`), and the code area gains the 46px a bottom bar used to eat.
 
 Regenerate the mocks with `python3 scripts/render-mock.py` (reads the live tokens from
 `src/styles.css` and `src/editor/syntaxThemes.ts`; writes `docs/cody-skins.png` and
@@ -380,6 +386,22 @@ Cody is a static Vite build, so it deploys anywhere that serves files.
 (`dist`) and long-lived caching for `/assets/*` (the service worker is kept revalidating so PWA
 updates land immediately).
 
+### Brand
+
+The logo is `docs/brand/cody-mark.png` — brushed steel on black. Every other asset is derived
+from it by one script, so the favicon, the home-screen icon and the mark inside the app can never
+drift apart:
+
+```bash
+python3 scripts/make-icons.py     # needs Pillow; verifies the source exists first
+```
+
+It writes `public/icon.svg` (a self-contained favicon), `icon-192.png`, `icon-512.png`,
+`icon-maskable-512.png` (the mark pulled into the launcher's safe zone), `apple-touch-icon.png`
+and `public/brand/mark.png` (the rounded plate used on the boot screen, in the drawer header and
+in Settings → About). The plate is black on purpose: the artwork is rendered metal on black, so
+the icon and the boot splash share the same background instead of faking transparency.
+
 Any other host works the same way: `npm run build` and serve `dist/`, giving the app a single-page
 fallback to `index.html`. To install it on a phone, open the deployment URL and use
 **Add to Home Screen** — the manifest and icons are already wired up.
@@ -391,7 +413,7 @@ src/
   App.tsx                  app shell: routing, state, persistence, run orchestration
   components/
     ProjectSwitcher.tsx    workspace list, new workspace, rename, import, theme/settings
-    ProjectView.tsx        header, tab bar, project menu & sheets
+    ProjectView.tsx        header, navigation drawer, project menu & sheets
     FilesPane.tsx          file tree, search, file actions
     SearchSheet.tsx        find in files: results, case/regex, project-wide replace
     CodePane.tsx           editor host + mobile toolbars/sheets

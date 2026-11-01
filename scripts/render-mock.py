@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SS = 3  # supersample
 W, H = 390, 844  # logical phone viewport
 SCALE = 2  # output device pixels per logical px
+MARK = ROOT / "docs/brand/cody-mark.png"  # the app logo
 
 
 # --------------------------------------------------------------------------- #
@@ -191,6 +192,17 @@ class Canvas:
     def polygon(self, points, fill, alpha=1.0):
         pts = [tuple(s(v) for v in p) for p in points]
         self._layer(lambda d: d.polygon(pts, fill=color(fill, alpha)))
+
+    def image_at(self, xy, path, size_px, radius=0.0):
+        """Paste a PNG (the logo) at a logical position, rounded like the CSS."""
+        art = Image.open(path).convert("RGBA").resize((int(s(size_px)), int(s(size_px))), Image.LANCZOS)
+        if radius:
+            mask = Image.new("L", art.size, 0)
+            ImageDraw.Draw(mask).rounded_rectangle(
+                (0, 0, art.size[0] - 1, art.size[1] - 1), radius=s(radius), fill=255
+            )
+            art.putalpha(mask)
+        self.image.alpha_composite(art, (int(s(xy[0])), int(s(xy[1]))))
 
     def text(self, xy, value, fg, size=13, bold=False, anchor="la", mono=False, alpha=1.0):
         path = (FONT_MONO_BOLD if bold else FONT_MONO) if mono else (FONT_UI_BOLD if bold else FONT_UI)
@@ -703,7 +715,8 @@ def draw_drawer(mode: str, skin: str = "terminal", scheme: str = "dark") -> Imag
     DW = 300
     c.rect((0, 0, DW, H), fill=t("bg-elevated"))
     c.rect((DW - 1, 0, DW, H), fill=t("border-strong"))
-    c.text((16, 22), "~/Cody tasks", t("text-dim"), 12, mono=True)
+    c.image_at((16, 16), MARK, 22, radius=5)
+    c.text((48, 22), "~/Cody tasks", t("text-dim"), 12, mono=True)
     c.text((DW - 40, 18), "✕", t("text-dim"), 13, anchor="ma")
 
     def section(y, key, label, active=False, tail=None):

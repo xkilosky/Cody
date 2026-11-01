@@ -357,6 +357,7 @@ export default function ProjectView(props: Props) {
           <button className="drawer-scrim" onClick={() => setDrawerOpen(false)} aria-label="Close menu" tabIndex={-1} />
           <nav className="drawer" aria-label="Project sections">
             <header className="drawer-head">
+              <img className="drawer-mark" src="/brand/mark.png" alt="" width={22} height={22} />
               <span className="drawer-prompt">~/{project.name}</span>
               <button className="icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
                 <Icon name="close" size={17} />

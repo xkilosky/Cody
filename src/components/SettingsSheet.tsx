@@ -304,6 +304,13 @@ export default function SettingsSheet({ open, settings, projects, onChange, onCl
 
       <section className="settings-section">
         <h3>About</h3>
+        <div className="about-brand">
+          <img src="/brand/mark.png" alt="" width={52} height={52} />
+          <div>
+            <strong>Cody</strong>
+            <span>mobile project editor · 1.0.0</span>
+          </div>
+        </div>
         <p className="section-note">
           Cody is a mobile-first, multi-language project editor. Editing, transpiling (Sucrase),
           bundling and previewing all happen locally; only cloud-runner languages leave the device.

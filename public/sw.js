@@ -1,6 +1,6 @@
 /* Cody service worker — offline app shell with runtime caching. */
 const CACHE = 'cody-v1'
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg']
+const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/brand/mark.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

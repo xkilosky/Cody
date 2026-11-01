@@ -134,6 +134,18 @@ export default function App() {
     const skin = settings.skin ?? 'terminal'
     document.documentElement.dataset.skin = skin
     document.documentElement.style.setProperty('--editor-font-size', `${settings.fontSize}px`)
+    // The status bar / title bar of the installed app wears the skin, so the
+    // black logo plate sits on the same black as the boot splash.
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()
+    if (bg) {
+      let meta = document.querySelector('meta[name="theme-color"]')
+      if (!meta) {
+        meta = document.createElement('meta')
+        meta.setAttribute('name', 'theme-color')
+        document.head.appendChild(meta)
+      }
+      meta.setAttribute('content', bg)
+    }
   }, [settings.theme, settings.skin, settings.fontSize])
 
   /* ---------------------------------------------------------------- */
@@ -1155,7 +1167,7 @@ export default function App() {
     return (
       <div className="boot">
         <div className="boot-logo">
-          <span className="brand-mark">&lt;/&gt;</span>
+          <img className="brand-mark" src="/brand/mark.png" alt="" width={64} height={64} />
         </div>
         <p>Starting Cody…</p>
       </div>
@@ -1230,7 +1242,7 @@ export default function App() {
       ) : (
         <div className="boot">
           <div className="boot-logo">
-            <span className="brand-mark">&lt;/&gt;</span>
+            <img className="brand-mark" src="/brand/mark.png" alt="" width={64} height={64} />
           </div>
           <p>Opening workspace…</p>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ProjectMeta, Settings } from '../types'
+import type { ProjectMeta, Settings, SkinName, ThemeName } from '../types'
 import { checkRunner } from '../lib/cloud'
 import { downloadText, formatBytes } from '../lib/utils'
 import { loadProject } from '../lib/storage'
@@ -16,6 +16,19 @@ type Props = {
   onClose: () => void
   onNotify: (message: string, tone?: 'info' | 'success' | 'error') => void
 }
+
+const SKINS: Array<{
+  id: SkinName
+  label: string
+  note: string
+  theme: ThemeName
+  syntaxTheme: string
+}> = [
+  { id: 'graphite', label: 'Graphite', note: 'Charcoal · mint', theme: 'dark', syntaxTheme: 'vscode' },
+  { id: 'paper', label: 'Paper', note: 'Cream · ink', theme: 'light', syntaxTheme: 'github' },
+  { id: 'navy', label: 'Navy', note: 'Deep blue · sky', theme: 'dark', syntaxTheme: 'onedark' },
+  { id: 'mono', label: 'Mono', note: 'Black · white', theme: 'dark', syntaxTheme: 'vscode' },
+]
 
 export default function SettingsSheet({ open, settings, projects, onChange, onClose, onNotify }: Props) {
   const [endpoint, setEndpoint] = useState(settings.runnerEndpoint)
@@ -90,6 +103,33 @@ export default function SettingsSheet({ open, settings, projects, onChange, onCl
     >
       <section className="settings-section">
         <h3>Appearance</h3>
+        <div className="setting-row column">
+          <div>
+            <strong>Look</strong>
+            <p>Four complete styles — not just a different accent.</p>
+          </div>
+          <div className="skin-grid">
+            {SKINS.map((skin) => {
+              const active = (settings.skin ?? 'navy') === skin.id
+              return (
+                <button
+                  key={skin.id}
+                  className={`skin-card${active ? ' active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => onChange({ skin: skin.id, theme: skin.theme, syntaxTheme: skin.syntaxTheme })}
+                >
+                  <span className={`skin-swatch ${skin.id}`} aria-hidden="true">
+                    <span className="skin-swatch-bar" />
+                    <span className="skin-swatch-code" />
+                    <span className="skin-swatch-dot" />
+                  </span>
+                  <span className="skin-name">{skin.label}</span>
+                  <span className="skin-note">{skin.note}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
         <div className="setting-row">
           <div>
             <strong>Theme</strong>

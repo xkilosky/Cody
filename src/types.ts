@@ -29,7 +29,13 @@ export type ProjectMeta = {
 
 export type ThemeName = 'dark' | 'light'
 
+/** A skin is a whole look, not a tint: its own ramp, accent and corner
+ *  language. `graphite` is the current charcoal app; the others are complete
+ *  alternatives rather than colour swaps. */
+export type SkinName = 'graphite' | 'paper' | 'navy' | 'mono'
+
 export type Settings = {
+  skin: SkinName
   theme: ThemeName
   /** Syntax colour scheme: 'vscode' | 'onedark' | 'github'. */
   syntaxTheme: string
@@ -45,8 +51,9 @@ export type Settings = {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  skin: 'navy',
   theme: 'dark',
-  syntaxTheme: 'vscode',
+  syntaxTheme: 'onedark',
   fontFamily: 'mono',
   fontSize: 13,
   tabSize: 2,

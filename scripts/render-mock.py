@@ -61,10 +61,15 @@ def _balanced(src: str, start: int) -> str:
 
 
 def parse_palettes() -> dict[str, dict[str, str]]:
-    """Read the real syntax scheme (VS Code Dark+/Light+) out of syntaxThemes.ts."""
+    """Read the real syntax schemes (VS Code, One Dark, GitHub) out of syntaxThemes.ts."""
     src = (ROOT / "src/editor/syntaxThemes.ts").read_text()
     out: dict[str, dict[str, str]] = {}
-    for mode, name in (("dark", "VSCODE_DARK"), ("light", "VSCODE_LIGHT")):
+    for mode, name in (
+        ("dark", "VSCODE_DARK"),
+        ("light", "VSCODE_LIGHT"),
+        ("onedark", "ONE_DARK"),
+        ("github", "GITHUB_LIGHT"),
+    ):
         at = src.index(f"const {name}: Palette = {{")
         block = _balanced(src, src.index("{", at))
         out[mode] = dict(re.findall(r"(\w+):\s*'([^']+)'", block))
@@ -83,6 +88,31 @@ def parse_marks() -> dict[str, dict[str, object]]:
         marks[key] = {"title": title, "hex": hex_value, "lift": lift == "true", "path": path}
     return marks
 
+
+def parse_skin(name: str) -> dict[str, str]:
+    """Read a [data-skin='…'] block's token overrides out of styles.css."""
+    css = (ROOT / "src/styles.css").read_text()
+    marker = f"[data-skin='{name}'] {{"
+    if marker not in css:
+        return {}
+    block = _balanced(css, css.index("{", css.index(marker)))
+    keys = ["bg", "bg-chrome", "bg-elevated", "surface", "surface-2", "surface-3", "border", "border-strong",
+            "text", "text-dim", "muted", "accent", "accent-ink", "editor-bg", "warn", "error"]
+    out: dict[str, str] = {}
+    for key in keys:
+        match = re.search(rf"--{key}:\s*(#[0-9a-fA-F]{{6}})", block)
+        if match:
+            out[key] = match.group(1)
+    return out
+
+
+# skin -> (theme it renders in, which parsed palette it uses, editor bg override)
+SKINS = [
+    ("graphite", "dark", "dark"),
+    ("paper", "light", "github"),
+    ("navy", "dark", "onedark"),
+    ("mono", "dark", "dark"),
+]
 
 TOKENS = parse_tokens()
 PALETTES = parse_palettes()
@@ -465,9 +495,15 @@ def wrap_runs(runs: list[tuple[str, str]], cols: int) -> list[list[tuple[str, st
 # screen
 # --------------------------------------------------------------------------- #
 
-def draw_screen(mode: str) -> Image.Image:
-    t = lambda k: TOKENS[mode][k]  # noqa: E731
-    p = lambda k: PALETTES[mode][k]  # noqa: E731
+def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Image.Image:
+    tokens = {**TOKENS[mode], **parse_skin(skin)}
+    palette = dict(PALETTES[scheme])
+    # A skin may move the code surface off the syntax palette's own background
+    # (Mono is true black, Navy is a deep blue) without touching token colours.
+    if skin != "graphite" and "editor-bg" in tokens:
+        palette["bg"] = tokens["editor-bg"]
+    t = lambda k: tokens.get(k, TOKENS[mode].get(k, "#000000"))  # noqa: E731
+    p = lambda k: palette[k]  # noqa: E731
     canvas = Canvas((W, H), t("bg-chrome"))
     c = canvas
 
@@ -663,37 +699,45 @@ def downscale(image: Image.Image, width: int) -> Image.Image:
 
 
 def main() -> None:
-    out = Path(sys.argv[1] if len(sys.argv) > 1 else ROOT / "docs" / "cody-editor.png")
+    out = Path(sys.argv[1] if len(sys.argv) > 1 else ROOT / "docs" / "cody-skins.png")
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    frames = [downscale(draw_screen(mode), W * SCALE) for mode in ("dark", "light")]
-    pad, gap, radius = 30, 28, 42
-    width = pad * 2 + frames[0].width * 2 + gap
-    height = pad * 2 + frames[0].height
-    stage = Image.new("RGBA", (width, height), (7, 9, 13, 255))
+    frames = []
+    for skin, mode, scheme in SKINS:
+        frame = downscale(draw_screen(mode, skin, scheme), W * SCALE)
+        label = skin[0].upper() + skin[1:]
+        frames.append((label, frame))
 
-    glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    gd.ellipse((-300, -460, 780, 460), fill=(92, 225, 185, 24))
-    gd.ellipse((width - 700, -420, width + 200, 520), fill=(139, 124, 255, 28))
-    glow = glow.filter(ImageFilter.GaussianBlur(60))
-    stage = Image.alpha_composite(stage, glow)
+    pad, gap, radius = 26, 20, 42
+    col_w = frames[0][1].width
+    width = pad * 2 + col_w * len(frames) + gap * (len(frames) - 1)
+    caption_h = 46
+    height = pad * 2 + frames[0][1].height + caption_h
+    stage = Image.new("RGBA", (width, height), (9, 11, 14, 255))
 
-    for index, frame in enumerate(frames):
-        x = pad + index * (frame.width + gap)
+    for index, (label, frame) in enumerate(frames):
+        x = pad + index * (col_w + gap)
         shadow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         ImageDraw.Draw(shadow).rounded_rectangle(
-            (x + 4, pad + 16, x + frame.width + 4, pad + frame.height + 26), radius=radius, fill=(0, 0, 0, 170)
+            (x + 3, pad + 14, x + col_w + 3, pad + frame.height + 22), radius=radius, fill=(0, 0, 0, 180)
         )
-        stage = Image.alpha_composite(stage, shadow.filter(ImageFilter.GaussianBlur(22)))
+        stage = Image.alpha_composite(stage, shadow.filter(ImageFilter.GaussianBlur(20)))
         mask = Image.new("L", frame.size, 0)
         ImageDraw.Draw(mask).rounded_rectangle(
             (0, 0, frame.width - 1, frame.height - 1), radius=radius, fill=255
         )
         stage.paste(frame, (x, pad), mask)
         ImageDraw.Draw(stage).rounded_rectangle(
-            (x, pad, x + frame.width - 1, pad + frame.height - 1), radius=radius,
-            outline=(40, 48, 62, 255), width=2,
+            (x, pad, x + col_w - 1, pad + frame.height - 1), radius=radius,
+            outline=(42, 48, 58, 255), width=2,
+        )
+        draw = ImageDraw.Draw(stage)
+        draw.text(
+            (x + col_w / 2, pad + frame.height + 14),
+            label,
+            font=ImageFont.truetype(FONT_UI, 17),
+            fill=(226, 231, 238, 255),
+            anchor="ma",
         )
 
     stage.convert("RGB").save(out)

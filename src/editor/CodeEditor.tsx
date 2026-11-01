@@ -277,9 +277,15 @@ export default function CodeEditor({
   // stylesheet: publish it so the tab strip and the pane edge share the exact
   // colour the code is sitting on.
   useEffect(() => {
-    const palette = paletteFor(settings.syntaxTheme, settings.theme)
-    document.documentElement.style.setProperty('--editor-bg', palette.bg)
-  }, [settings.syntaxTheme, settings.theme])
+    const root = document.documentElement
+    // Graphite keeps the syntax palette's own surface; the other skins own
+    // theirs in CSS (Navy is blue, Mono is black, Paper is cream).
+    if (settings.skin === 'graphite') {
+      root.style.setProperty('--editor-bg', paletteFor(settings.syntaxTheme, settings.theme).bg)
+    } else {
+      root.style.removeProperty('--editor-bg')
+    }
+  }, [settings.syntaxTheme, settings.theme, settings.skin])
 
   // Create the view once.
   useEffect(() => {

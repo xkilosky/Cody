@@ -63,7 +63,10 @@ function highlightStyle(p: Palette) {
 function editorTheme(p: Palette, dark: boolean) {
   return EditorView.theme(
     {
-      '&': { color: p.fg, backgroundColor: p.bg, height: '100%', fontSize: 'inherit' },
+            // The code surface follows --editor-bg so a skin can repaint the plane
+      // (Navy's deep blue, Mono's black) while the palette keeps colouring
+      // the text. On the default skin the two are the same colour anyway.
+      '&': { color: p.fg, backgroundColor: 'var(--editor-bg, ' + p.bg + ')', height: '100%', fontSize: 'inherit' },
       '.cm-scroller': {
         overflow: 'auto',
         WebkitOverflowScrolling: 'touch',

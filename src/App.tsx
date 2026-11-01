@@ -130,8 +130,9 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme
+    document.documentElement.dataset.skin = settings.skin ?? 'navy'
     document.documentElement.style.setProperty('--editor-font-size', `${settings.fontSize}px`)
-  }, [settings.theme, settings.fontSize])
+  }, [settings.theme, settings.skin, settings.fontSize])
 
   /* ---------------------------------------------------------------- */
   /* helpers                                                           */

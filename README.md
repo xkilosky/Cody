@@ -17,11 +17,11 @@ nothing leaves it unless you explicitly run a cloud-sandbox language.
 
 ![The four looks](docs/cody-skins.png)
 
-Cody ships four complete looks — **Navy** (default), **Paper**, **Mono** and **Graphite** — in
+Cody ships four complete looks — **Terminal** (default), **Graphite**, **Navy** and **Paper** — in
 Settings → Appearance. A look re-declares the whole ramp, not just the accent, so it changes the
 corners, the chrome and the code surface along with the colour.
 
-![Files, Run and AI in Navy](docs/cody-panes.png)
+![Files, Run and AI](docs/cody-panes.png)
 
 ---
 
@@ -323,6 +323,8 @@ Details that matter on a phone:
   docks to it (sticky) rather than being pushed off-screen. The ⌄ key dismisses the keyboard.
 - **Four looks, all real.** Every style is a full palette for chrome *and* syntax — selection,
   search matches, bracket matching, the autocomplete popup and the code surface all follow it.
+- **A command line, not a tab bar.** Navigation is five bracketed keys (`[f] [c] [r] [b] [a]`),
+  open files are a numbered buffer list, and the header is a shell prompt (`~/project`).
 
 Regenerate the mocks with `python3 scripts/render-mock.py` (reads the live tokens from
 `src/styles.css` and `src/editor/syntaxThemes.ts`; writes `docs/cody-skins.png` and

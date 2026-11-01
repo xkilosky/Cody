@@ -130,7 +130,9 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme
-    document.documentElement.dataset.skin = settings.skin ?? 'navy'
+    // `mono` was this skin's first name; old saved settings still say it.
+    const skin = settings.skin ?? 'terminal'
+    document.documentElement.dataset.skin = skin
     document.documentElement.style.setProperty('--editor-font-size', `${settings.fontSize}px`)
   }, [settings.theme, settings.skin, settings.fontSize])
 

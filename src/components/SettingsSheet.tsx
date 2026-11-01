@@ -24,10 +24,10 @@ const SKINS: Array<{
   theme: ThemeName
   syntaxTheme: string
 }> = [
+  { id: 'terminal', label: 'Terminal', note: 'Black · white', theme: 'dark', syntaxTheme: 'vscode' },
   { id: 'graphite', label: 'Graphite', note: 'Charcoal · mint', theme: 'dark', syntaxTheme: 'vscode' },
-  { id: 'paper', label: 'Paper', note: 'Cream · ink', theme: 'light', syntaxTheme: 'github' },
   { id: 'navy', label: 'Navy', note: 'Deep blue · sky', theme: 'dark', syntaxTheme: 'onedark' },
-  { id: 'mono', label: 'Mono', note: 'Black · white', theme: 'dark', syntaxTheme: 'vscode' },
+  { id: 'paper', label: 'Paper', note: 'Cream · ink', theme: 'light', syntaxTheme: 'github' },
 ]
 
 export default function SettingsSheet({ open, settings, projects, onChange, onClose, onNotify }: Props) {
@@ -110,7 +110,7 @@ export default function SettingsSheet({ open, settings, projects, onChange, onCl
           </div>
           <div className="skin-grid">
             {SKINS.map((skin) => {
-              const active = (settings.skin ?? 'navy') === skin.id
+              const active = (settings.skin ?? 'terminal') === skin.id
               return (
                 <button
                   key={skin.id}

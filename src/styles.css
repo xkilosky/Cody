@@ -33,7 +33,7 @@
   --shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --header-h: 54px;
-  --tabbar-h: 58px;
+  --tabbar-h: 46px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* The editor writes its active palette's background here, so the tab strip
@@ -176,7 +176,7 @@
    True black, pure white type, no cards, no fills behind tools — structure
    comes from hairlines and spacing alone. For people who want the screen to
    disappear behind the code. */
-[data-skin='mono'] {
+[data-skin='terminal'] {
   --bg: #000000;
   --bg-chrome: #000000;
   --bg-elevated: #060606;
@@ -207,31 +207,138 @@
   color-scheme: dark;
 }
 
-[data-skin='mono'] .tab-chip.active,
-[data-skin='mono'] .tab-btn.active .tab-icon,
-[data-skin='mono'] .rail-key,
-[data-skin='mono'] .file-row-wrap.active {
+/* Terminal is the app's first skin now, and it is structural: the chrome is
+   monospace, the boxes are square, the separators are hairlines, and the only
+   colour is the one the code needs. */
+[data-skin='terminal'] body,
+[data-skin='terminal'] .app-header,
+[data-skin='terminal'] .title-block h1,
+[data-skin='terminal'] .title-sub,
+[data-skin='terminal'] .tab-btn,
+[data-skin='terminal'] .pane-toolbar,
+[data-skin='terminal'] .action-item,
+[data-skin='terminal'] .sheet-header h2,
+[data-skin='terminal'] .setting-row strong,
+[data-skin='terminal'] .file-name,
+[data-skin='terminal'] .btn,
+[data-skin='terminal'] .ai-msg-text,
+[data-skin='terminal'] .ai-msg.user p {
+  font-family: var(--mono);
+}
+
+[data-skin='terminal'] .title-block h1 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* square everything: a terminal has no rounded corners */
+[data-skin='terminal'] .btn,
+[data-skin='terminal'] .icon-btn,
+[data-skin='terminal'] .chip,
+[data-skin='terminal'] .pill,
+[data-skin='terminal'] .tool-btn,
+[data-skin='terminal'] .rail-key,
+[data-skin='terminal'] .rail-run,
+[data-skin='terminal'] .file-row-wrap,
+[data-skin='terminal'] .file-row,
+[data-skin='terminal'] .file-row-main,
+[data-skin='terminal'] .row-icon,
+[data-skin='terminal'] .search-field,
+[data-skin='terminal'] .find-field,
+[data-skin='terminal'] .text-input,
+[data-skin='terminal'] .segmented,
+[data-skin='terminal'] .segmented button,
+[data-skin='terminal'] .stepper,
+[data-skin='terminal'] .stepper button,
+[data-skin='terminal'] .switch,
+[data-skin='terminal'] .switch::after,
+[data-skin='terminal'] .ai-input-row,
+[data-skin='terminal'] .ai-send,
+[data-skin='terminal'] .ai-msg.user,
+[data-skin='terminal'] .ai-avatar,
+[data-skin='terminal'] .ai-example,
+[data-skin='terminal'] .ai-tool,
+[data-skin='terminal'] .ai-status,
+[data-skin='terminal'] .ai-setup,
+[data-skin='terminal'] .ai-intro,
+[data-skin='terminal'] .snippet-card,
+[data-skin='terminal'] .action-list.compact,
+[data-skin='terminal'] .detail-grid > div,
+[data-skin='terminal'] .problem-row,
+[data-skin='terminal'] .toast,
+[data-skin='terminal'] .skin-card,
+[data-skin='terminal'] .skin-swatch,
+[data-skin='terminal'] .console,
+[data-skin='terminal'] .preview-frame,
+[data-skin='terminal'] .symbol-key,
+[data-skin='terminal'] .tab-badge,
+[data-skin='terminal'] .count-badge,
+[data-skin='terminal'] .tab-chip {
+  border-radius: 0;
+}
+
+[data-skin='terminal'] .sheet {
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  box-shadow: 0 -12px 0 rgba(0, 0, 0, 0.45);
+}
+
+[data-skin='terminal'] .sheet-grabber {
+  width: 100%;
+  height: 1px;
+  border-radius: 0;
+}
+
+/* no card fills: structure comes from hairlines */
+[data-skin='terminal'] .tab-chip.active,
+[data-skin='terminal'] .rail-key,
+[data-skin='terminal'] .file-row-wrap.active,
+[data-skin='terminal'] .skin-card {
   background: transparent;
   box-shadow: none;
 }
 
-[data-skin='mono'] .tab-chip.active {
-  border-color: var(--border-strong);
+[data-skin='terminal'] .file-row-wrap.active {
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
-[data-skin='mono'] .sheet {
-  border-radius: 0;
-}
-
-[data-skin='mono'] .rail-run {
-  background: var(--text);
-  color: var(--bg);
-}
-
-[data-skin='mono'] .app-header .run-btn {
+[data-skin='terminal'] .rail-run,
+[data-skin='terminal'] .app-header .run-btn,
+[data-skin='terminal'] .btn.primary {
   background: var(--text);
   color: var(--bg);
   box-shadow: none;
+}
+
+[data-skin='terminal'] .app-header .run-btn.running {
+  background: var(--error);
+  color: #000;
+}
+
+/* bracketed, uppercase micro-labels are this skin's only decoration */
+[data-skin='terminal'] .field-label,
+[data-skin='terminal'] .settings-section h3 {
+  letter-spacing: 0.14em;
+}
+
+[data-skin='terminal'] .tab-btn.active {
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--text);
+}
+
+[data-skin='terminal'] .tab-btn.active .tab-key {
+  color: var(--text);
+}
+
+[data-skin='terminal'] .status-problems.clean {
+  opacity: 0.5;
+}
+
+[data-skin='terminal'] .preview-frame {
+  border-color: var(--border-strong);
 }
 
 * {
@@ -999,7 +1106,7 @@ select:focus-visible {
   display: grid;
   gap: 1px;
   padding: 3px 8px;
-  border-radius: 10px;
+  border-radius: 6px;
   transition: background 0.15s ease;
 }
 
@@ -1007,25 +1114,43 @@ select:focus-visible {
   background: var(--surface-2);
 }
 
+/* ~/name, the way a shell shows where you are */
+.title-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  min-width: 0;
+}
+
+.title-tilde,
+.title-slash {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+  flex: none;
+}
+
 .title-block h1 {
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 1.25;
-  letter-spacing: -0.012em;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.title-block p {
+.title-sub {
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.01em;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 
 .code-pane.keyboard-open .editor-toolbar {
   position: sticky;
@@ -1054,6 +1179,10 @@ select:focus-visible {
    section you are in. The old top hairline sat under the notch on tall phones
    and read as a rendering seam. */
 
+/* ---- bottom command line ----------------------------------------------
+   Five bracketed keys instead of five icons. It reads like a menu you could
+   have typed, and it costs 34px of screen instead of 58. */
+
 .tab-bar {
   position: fixed;
   bottom: 0;
@@ -1074,50 +1203,65 @@ select:focus-visible {
 .tab-btn {
   position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 4px 2px 6px;
+  gap: 4px;
+  padding: 0 2px;
   color: var(--muted);
-  font-size: 10px;
-  font-weight: 600;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
   letter-spacing: 0.01em;
-  transition: color 0.15s ease;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.tab-btn:active {
+  background: var(--surface-2);
 }
 
 .tab-btn.active {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.tab-key {
+  color: var(--muted);
+  font-size: 10.5px;
+  transition: color 0.12s ease;
+}
+
+.tab-btn.active .tab-key {
   color: var(--accent);
 }
 
-.tab-icon {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 26px;
-  border-radius: 9px;
-  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
-}
-
-.tab-btn.active .tab-icon {
-  background: var(--accent-soft);
-}
-
-.tab-btn:active .tab-icon {
-  transform: scale(0.92);
+.tab-label {
+  font-size: 11px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tab-dot {
   position: absolute;
-  top: 1px;
+  top: 6px;
   right: 9px;
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 0 2px var(--bg-chrome);
   animation: pulse 1.4s ease-in-out infinite;
+}
+
+/* the icon slot is gone from the markup; a hairline divides the keys */
+.tab-btn + .tab-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 1px;
+  background: var(--border);
 }
 
 /* ==========================================================================
@@ -1366,18 +1510,17 @@ select:focus-visible {
 .editor-tabs {
   flex: none;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
   background: var(--bg-chrome);
   border-bottom: 1px solid var(--border);
-  min-height: 42px;
+  min-height: 32px;
 }
 
 .tabs-scroll {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: stretch;
   overflow-x: auto;
   scrollbar-width: none;
   flex: 1;
@@ -1388,33 +1531,44 @@ select:focus-visible {
   display: none;
 }
 
-/* Chips, not desktop wedges: on a 390px screen a chip keeps its own hit area,
-   and the open one is simply lit. */
+/* Open files are a buffer list: a number, a mark, a name. The open one is
+   inverted, which is the oldest and clearest way to say "you are here". */
 .tab-chip {
   display: flex;
   align-items: center;
   flex: none;
   max-width: 54vw;
-  min-height: 30px;
-  border-radius: 9px;
-  border: 1px solid transparent;
+  border: 0;
+  border-right: 1px solid var(--border);
   color: var(--muted);
-  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .tab-chip.active {
-  background: var(--surface-2);
-  border-color: var(--border);
+  background: var(--editor-bg, var(--bg));
   color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .tab-chip-main {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 8px 7px 9px;
+  gap: 6px;
+  padding: 6px 9px;
   min-width: 0;
-  font-size: 12px;
+  font-size: 11.5px;
+}
+
+.tab-index {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--muted);
+  flex: none;
+  min-width: 8px;
+}
+
+.tab-chip.active .tab-index {
+  color: var(--accent);
 }
 
 .tab-name {
@@ -1425,14 +1579,13 @@ select:focus-visible {
 }
 
 .tab-close {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 22px;
   display: grid;
   place-items: center;
   color: var(--muted);
-  border-radius: 7px;
   flex: none;
-  margin-right: 2px;
+  margin-right: 3px;
 }
 
 .tab-close:active {
@@ -1441,31 +1594,29 @@ select:focus-visible {
 }
 
 .tab-missing {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--error);
   margin-right: 8px;
 }
 
 .dirty-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--warn);
   flex: none;
-  margin-right: 2px;
+  margin-right: 3px;
 }
 
 .tabs-more {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 30px;
+  width: 30px;
   color: var(--muted);
   flex: none;
-  border-radius: 9px;
-  border: 1px solid var(--border);
+  border-left: 1px solid var(--border);
 }
 
 .tabs-more:active {
@@ -3746,9 +3897,9 @@ select:focus-visible {
 .skin-swatch.navy .skin-swatch-code { background: #0b1524; }
 .skin-swatch.navy .skin-swatch-dot { background: #57c8ff; }
 
-.skin-swatch.mono .skin-swatch-bar { background: #000; border-bottom: 1px solid #1e1e1e; }
-.skin-swatch.mono .skin-swatch-code { background: #000; }
-.skin-swatch.mono .skin-swatch-dot { background: #fff; }
+.skin-swatch.terminal .skin-swatch-bar { background: #000; border-bottom: 1px solid #1e1e1e; }
+.skin-swatch.terminal .skin-swatch-code { background: #000; }
+.skin-swatch.terminal .skin-swatch-dot { background: #fff; }
 
 .skin-name {
   font-size: 12.5px;

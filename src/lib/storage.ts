@@ -186,7 +186,10 @@ export async function setValue(key: string, value: unknown): Promise<void> {
 
 export async function loadSettings(): Promise<Settings> {
   const stored = await getValue<Partial<Settings>>('settings', {})
-  return { ...DEFAULT_SETTINGS, ...(stored ?? {}) }
+  const merged = { ...DEFAULT_SETTINGS, ...(stored ?? {}) }
+  // `mono` was the terminal skin's first name, before it became the default.
+  if ((merged.skin as string) === 'mono') merged.skin = 'terminal'
+  return merged
 }
 
 export function saveSettings(settings: Settings) {

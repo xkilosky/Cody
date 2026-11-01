@@ -321,7 +321,7 @@ export default function CodePane({
       {/* ---- file tabs -------------------------------------------------- */}
       <div className="editor-tabs">
         <div className="tabs-scroll">
-          {tabs.map((path) => {
+          {tabs.map((path, tabIndex) => {
             const tabFile = project.files.find((item) => item.path === path)
             const tabLang = languageForPath(path)
             const isActive = path === file.path
@@ -332,7 +332,8 @@ export default function CodePane({
                   onClick={() => onOpenFile(path)}
                   title={path}
                 >
-                  <LangIcon lang={tabLang} active={isActive} size={15} />
+                  <span className="tab-index">{tabIndex + 1}</span>
+                  <LangIcon lang={tabLang} active={isActive} size={14} />
                   <ProblemMark problems={problemsAt(index, path)} path={path} />
                   <span className="tab-name">{fileName(path)}</span>
                 </button>
@@ -397,16 +398,14 @@ export default function CodePane({
           Ln {cursor.line}, Col {cursor.column}
         </span>
         {cursor.selected > 0 && <span className="status-chip">{cursor.selected} sel</span>}
-        <span className="status-sep">·</span>
-        <span>{stats?.lines ?? 0} lines</span>
-        <span className="status-sep status-secondary">·</span>
+        <span className="status-sep">│</span>
+        <span>{stats?.lines ?? 0}L</span>
+        <span className="status-sep status-secondary">│</span>
         <span className="status-secondary">{formatBytes(stats?.bytes ?? 0)}</span>
-        <span className="status-sep">·</span>
-        <span className="status-lang">
-          {lang!.label}
-        </span>
-        <span className="status-sep status-secondary">·</span>
-        <span className="status-secondary">Spaces: {settings.tabSize}</span>
+        <span className="status-sep">│</span>
+        <span className="status-lang">{lang!.label.toLowerCase()}</span>
+        <span className="status-sep status-secondary">│</span>
+        <span className="status-secondary">sp:{settings.tabSize}</span>
         <div className="toolbar-spacer" />
         <button
           className={`status-problems${activeProblems.length === 0 ? ' clean' : totals.errors > 0 && activeProblems.some((p) => p.severity === 'error') ? ' error' : ' warn'}`}

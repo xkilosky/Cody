@@ -79,12 +79,12 @@ type Props = {
   onUpdateSettings?: (patch: Partial<Settings>) => void
 }
 
-const TABS: Array<{ id: AppTab; label: string; icon: 'files' | 'code' | 'terminal' | 'sparkles' | 'agents' }> = [
-  { id: 'files', label: 'Files', icon: 'files' },
-  { id: 'code', label: 'Code', icon: 'code' },
-  { id: 'run', label: 'Run', icon: 'terminal' },
-  { id: 'cody', label: 'Build', icon: 'sparkles' },
-  { id: 'ai', label: 'AI', icon: 'agents' },
+const TABS: Array<{ id: AppTab; label: string; key: string; icon: 'files' | 'code' | 'terminal' | 'sparkles' | 'agents' }> = [
+  { id: 'files', label: 'Files', key: 'f', icon: 'files' },
+  { id: 'code', label: 'Code', key: 'c', icon: 'code' },
+  { id: 'run', label: 'Run', key: 'r', icon: 'terminal' },
+  { id: 'cody', label: 'Build', key: 'b', icon: 'sparkles' },
+  { id: 'ai', label: 'AI', key: 'a', icon: 'agents' },
 ]
 
 export default function ProjectView(props: Props) {
@@ -216,8 +216,12 @@ export default function ProjectView(props: Props) {
           <Icon name="chevron-left" size={22} />
         </button>
         <button className="title-block" onClick={() => setRenameOpen(true)}>
-          <h1>{project.name}</h1>
-          <p>
+          <span className="title-line">
+            <span className="title-tilde">~</span>
+            <span className="title-slash">/</span>
+            <h1>{project.name}</h1>
+          </span>
+          <p className="title-sub">
             {project.files.length} file{project.files.length === 1 ? '' : 's'}
             {activeLanguage ? ` · ${activeLanguage}` : ''}
             {savedAt ? ` · ${relativeTime(savedAt)}` : ''}
@@ -329,6 +333,8 @@ export default function ProjectView(props: Props) {
         onReplace={onReplaceFiles}
       />
 
+      {/* The navigation is a command line, not a toolbar: five keys you can
+          read at a glance, in the order a keyboard would reach them. */}
       <nav className="tab-bar" role="tablist" aria-label="Project sections">
         {TABS.map((item) => (
           <button
@@ -337,21 +343,20 @@ export default function ProjectView(props: Props) {
             aria-selected={tab === item.id}
             className={`tab-btn${tab === item.id ? ' active' : ''}`}
             onClick={() => setTab(item.id)}
+            aria-keyshortcuts={item.key}
           >
-            <span className="tab-icon">
-              <Icon name={item.icon} size={20} filled={tab === item.id && item.id === 'run' ? false : false} />
-              {item.id === 'run' && running && <span className="tab-dot" />}
-              {item.id === 'ai' && aiSession.running && <span className="tab-dot" />}
-              {item.id === 'files' && index.total > 0 && (
-                <span
-                  className={`tab-badge${index.errors > 0 ? ' error' : ' warning'}`}
-                  aria-label={`${index.errors} errors, ${index.warnings} warnings`}
-                >
-                  {index.errors > 0 ? index.errors : index.warnings}
-                </span>
-              )}
-            </span>
-            <span>{item.label}</span>
+            <span className="tab-key">[{item.key}]</span>
+            <span className="tab-label">{item.label}</span>
+            {item.id === 'run' && running && <span className="tab-dot" />}
+            {item.id === 'ai' && aiSession.running && <span className="tab-dot" />}
+            {item.id === 'files' && index.total > 0 && (
+              <span
+                className={`tab-badge${index.errors > 0 ? ' error' : ' warning'}`}
+                aria-label={`${index.errors} errors, ${index.warnings} warnings`}
+              >
+                {index.errors > 0 ? index.errors : index.warnings}
+              </span>
+            )}
           </button>
         ))}
       </nav>

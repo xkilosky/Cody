@@ -111,7 +111,7 @@ SKINS = [
     ("graphite", "dark", "dark"),
     ("paper", "light", "github"),
     ("navy", "dark", "onedark"),
-    ("mono", "dark", "dark"),
+    ("terminal", "dark", "dark"),
 ]
 
 TOKENS = parse_tokens()
@@ -504,6 +504,7 @@ def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Imag
         palette["bg"] = tokens["editor-bg"]
     t = lambda k: tokens.get(k, TOKENS[mode].get(k, "#000000"))  # noqa: E731
     p = lambda k: palette[k]  # noqa: E731
+    accent = tokens.get("accent", t("accent"))
     canvas = Canvas((W, H), t("bg-chrome"))
     c = canvas
 
@@ -519,8 +520,9 @@ def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Imag
     HEADER_H = 54
     c.rect((0, top, W, top + HEADER_H), fill=t("bg-chrome"))
     c.line([(22, top + 20), (15, top + 27), (22, top + 34)], fill=t("text-dim"), width=2)
-    c.text((36, top + 12), "Cody tasks", t("text"), 15, bold=True)
-    c.text((36, top + 33), "7 files · TSX · 2m ago", t("muted"), 10, mono=True)
+    c.text((36, top + 13), "~", t("muted"), 12, mono=True)
+    c.text((47, top + 13), "/Cody tasks", t("text"), 13, mono=True, bold=True)
+    c.text((36, top + 34), "7 files · TSX · 2m ago", t("muted"), 9.5, mono=True)
     # run, lit in accent
     c.rect((W - 82, top + 10, W - 48, top + 44), fill=t("accent"), radius=10, alpha=1.0)
     ink = t("accent-ink")
@@ -532,30 +534,31 @@ def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Imag
 
     # ---------------- file tabs (42px, chips) ----------------
     tabs_top = top + HEADER_H
-    TABS_H = 42
+    TABS_H = 32
     c.rect((0, tabs_top, W, tabs_top + TABS_H), fill=t("bg-chrome"))
     c.rect((0, tabs_top + TABS_H - 1, W, tabs_top + TABS_H), fill=t("border"))
 
     tabs = [("App.tsx", "tsx", True, True), ("Task.tsx", "tsx", False, False), ("styles.css", "css", False, False)]
-    x = 8.0
-    for name, mark_key, active, broken in tabs:
-        width = 40 + len(name) * 6.4
+    x = 0.0
+    for index, (name, mark_key, active, broken) in enumerate(tabs, start=1):
+        width = 54 + len(name) * 6.6
         if active:
-            c.rect((x, tabs_top + 6, x + width, tabs_top + 36), fill=t("surface-2"),
-                   outline=t("border"), radius=9)
-        draw_mark(canvas, mark_key, x + 9, tabs_top + 13.6, 15, mode)
-        offset = 30
+            c.rect((x, tabs_top, x + width, tabs_top + TABS_H - 1), fill=p("bg"))
+            c.rect((x, tabs_top + TABS_H - 3, x + width, tabs_top + TABS_H - 1), fill=accent)
+        c.text((x + 8, tabs_top + 10), str(index), accent if active else t("muted"), 9, mono=True)
+        draw_mark(canvas, mark_key, x + 19, tabs_top + 9, 13, mode)
+        offset = 38
         if broken:
-            c.circle((x + 31, tabs_top + 21), 5.2, t("error"))
-            c.text((x + 31, tabs_top + 18.2), "!", "#ffffff", 7.2, mono=True, anchor="ma", bold=True)
-            offset = 41
-        c.text((x + offset, tabs_top + 14.4), name, t("text") if active else t("muted"), 11.5, mono=True)
-        if active:
-            c.circle((x + width - 11, tabs_top + 21), 2.1, t("warn"))
-        x += width + 6
-    c.rect((W - 40, tabs_top + 6, W - 8, tabs_top + 36), fill=None, outline=t("border"), radius=9)
-    c.rect((W - 34, tabs_top + 13, W - 26, tabs_top + 29), fill=None, outline=t("muted"), radius=2, width=1.2)
-    c.rect((W - 22, tabs_top + 13, W - 14, tabs_top + 29), fill=None, outline=t("muted"), radius=2, width=1.2)
+            c.circle((x + 38, tabs_top + 16), 5.0, t("error"))
+            c.text((x + 38, tabs_top + 13.5), "!", "#ffffff", 7.2, mono=True, anchor="ma", bold=True)
+            offset = 47
+        c.text((x + offset, tabs_top + 10), name, t("text") if active else t("muted"), 10.5)
+        c.rect((x + width - 1, tabs_top, x + width, tabs_top + TABS_H), fill=t("border"))
+        x += width
+    c.rect((W - 30, tabs_top, W, tabs_top + TABS_H), fill=t("bg-chrome"))
+    c.rect((W - 30, tabs_top, W - 29, tabs_top + TABS_H), fill=t("border"))
+    c.rect((W - 22, tabs_top + 8, W - 14, tabs_top + 22), fill=None, outline=t("muted"), radius=0, width=1.2)
+    c.rect((W - 12, tabs_top + 8, W - 4, tabs_top + 22), fill=None, outline=t("muted"), radius=0, width=1.2)
 
     # ---------------- editor ----------------
     ed_top = tabs_top + TABS_H
@@ -565,6 +568,7 @@ def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Imag
     ed_bottom = H - TABBAR_H - STATUS_H - RAIL_H
     c.rect((0, ed_top, W, ed_bottom), fill=p("bg"))
 
+    squ = 0 if skin == "terminal" else 1
     font_size = 12.6
     line_h = 20.4
     gutter_w = 32.0
@@ -608,10 +612,10 @@ def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Imag
     c.rect((0, st, W, st + 1), fill=t("border"))
     ty = st + 9
     c.text((12, ty), "Ln 14, Col 21", t("text-dim"), 9.6, mono=True, bold=True)
-    c.text((90, ty), "·", t("muted"), 9.6, mono=True, alpha=0.5)
-    c.text((100, ty), "34 lines", t("muted"), 9.6, mono=True)
-    c.text((148, ty), "·", t("muted"), 9.6, mono=True, alpha=0.5)
-    c.text((158, ty), "TSX", t("text-dim"), 9.6, mono=True, bold=True)
+    c.text((92, ty), "│", t("muted"), 9.6, mono=True, alpha=0.45)
+    c.text((100, ty), "34L", t("muted"), 9.6, mono=True)
+    c.text((126, ty), "│", t("muted"), 9.6, mono=True, alpha=0.45)
+    c.text((134, ty), "tsx", t("text-dim"), 9.6, mono=True, bold=True)
 
     # problems chip
     chip_w = 50.0
@@ -633,7 +637,7 @@ def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Imag
     groups = [["↺", "↻"], ["⇥", "⌕"], ["✦", "◍"], ["Aa", "⌘"]]
     for gi, group in enumerate(groups):
         for glyph in group:
-            c.rect((ax, rail + 6, ax + 34, rail + 42), radius=10)
+            c.rect((ax, rail + 6, ax + 34, rail + 42), radius=10 * squ)
             c.text((ax + 17, rail + 15), glyph, t("text-dim"), 13.5, mono=True, anchor="ma")
             ax += 37
         if gi < 2:
@@ -650,44 +654,32 @@ def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Imag
     for key in keys:
         if kx + 34 > keys_right:
             break
-        c.rect((kx, row2, kx + 34, row2 + 34), fill=t("surface-2"), outline=t("border"), radius=8)
+        c.rect((kx, row2, kx + 34, row2 + 34), fill=t("surface-2"), outline=t("border"), radius=8 * squ)
         c.text((kx + 17, row2 + 9.5), key, t("text-dim"), 13.5, mono=True, anchor="ma")
         kx += 39
     for i in range(10):
         c.rect((kx - 2 + i * 2.2, row2, kx + i * 2.2, row2 + 34), fill=t("bg-chrome"), alpha=0.06 * (10 - i))
-    c.rect((W - run_w - 6, row2, W - 6, row2 + 34), fill=t("accent"), radius=10)
+    c.rect((W - run_w - 6, row2, W - 6, row2 + 34), fill=t("accent"), radius=10 * squ)
     canvas.polygon([(W - run_w + 6, row2 + 10), (W - run_w + 6, row2 + 24), (W - run_w + 17, row2 + 17)], fill=ink)
     c.text((W - run_w + 23, row2 + 8.5), "Run", ink, 12, bold=True)
 
-    # ---------------- tab bar (58px, chrome, active pill) ----------------
+    # ---------------- command line (bracketed keys, 46px) ----------------
     bar = rail + RAIL_H
     c.rect((0, bar, W, H), fill=t("bg-chrome"))
     c.rect((0, bar, W, bar + 1), fill=t("border"))
-    items = [("files", "Files", False), ("code", "Code", True), ("run", "Run", False),
-             ("build", "Build", False), ("ai", "AI", False)]
+    items = [("[f]", "Files"), ("[c]", "Code"), ("[r]", "Run"), ("[b]", "Build"), ("[a]", "AI")]
     slot = W / len(items)
-    for index, (icon, label, active) in enumerate(items):
+    for index, (key, label) in enumerate(items):
         cx = slot * index + slot / 2
-        ink_c = t("accent") if active else t("muted")
+        active = index == 1
+        ink_c = t("text") if active else t("muted")
         if active:
-            c.rect((cx - 21, bar + 6, cx + 21, bar + 32), fill=t("accent"), radius=9, alpha=0.12)
-        cy = bar + 19
-        if icon == "code":
-            c.line([(cx - 8, cy - 5), (cx - 3, cy), (cx - 8, cy + 5)], fill=ink_c, width=1.7)
-            c.line([(cx + 8, cy - 5), (cx + 3, cy), (cx + 8, cy + 5)], fill=ink_c, width=1.7)
-        elif icon == "files":
-            c.rect((cx - 8, cy - 4, cx + 8, cy + 5), fill=None, outline=ink_c, radius=2, width=1.4)
-            c.rect((cx - 4, cy - 7, cx + 4, cy - 3), fill=None, outline=ink_c, radius=1.5, width=1.4)
-        elif icon == "run":
-            c.line([(cx - 7, cy - 5), (cx - 2, cy), (cx - 7, cy + 5)], fill=ink_c, width=1.6)
-            c.line([(cx, cy + 5), (cx + 8, cy + 5)], fill=ink_c, width=1.6)
-        elif icon == "build":
-            c.text((cx, cy - 7), "✦", ink_c, 13, anchor="ma")
-        else:
-            c.rect((cx - 8, cy - 6, cx + 8, cy + 6), fill=None, outline=ink_c, radius=4, width=1.3)
-            c.circle((cx - 3, cy), 1.2, ink_c)
-            c.circle((cx + 3, cy), 1.2, ink_c)
-        c.text((cx, bar + 36), label, ink_c, 9.4, bold=active, anchor="ma")
+            c.rect((slot * index, bar, slot * (index + 1), bar + 2), fill=t("accent"))
+        if index:
+            c.rect((slot * index, bar + 8, slot * index + 1, bar + 30), fill=t("border"))
+        c.text((cx, bar + 11), key, t("accent") if active else t("muted"), 9, mono=True, anchor="ma")
+        c.text((cx, bar + 24), label, ink_c, 10.5, mono=True, anchor="ma", bold=active)
+
 
     # home indicator
     c.rect((W / 2 - 46, H - 7.5, W / 2 + 46, H - 3), fill=t("text-dim"), radius=2.4, alpha=0.55)
@@ -726,8 +718,9 @@ def draw_pane(mode: str, skin: str, scheme: str, pane: str) -> Image.Image:
 
     top = 46
     HEADER_H = 54
-    c.text((36, top + 12), "Cody tasks", t("text"), 15, bold=True)
-    c.text((36, top + 33), "7 files · TSX · 2m ago", t("muted"), 10, mono=True)
+    c.text((36, top + 13), "~", t("muted"), 12, mono=True)
+    c.text((47, top + 13), "/Cody tasks", t("text"), 13, mono=True, bold=True)
+    c.text((36, top + 34), "7 files · TSX · 2m ago", t("muted"), 9.5, mono=True)
     c.line([(22, top + 20), (15, top + 27), (22, top + 34)], fill=t("text-dim"), width=2)
     c.rect((W - 82, top + 10, W - 48, top + 44), fill=accent, radius=10)
     ink = parse_skin(skin).get("accent-ink", tokens.get("accent-ink", "#04241c"))
@@ -895,16 +888,18 @@ def draw_pane(mode: str, skin: str, scheme: str, pane: str) -> Image.Image:
     c.rect((0, bar, W, H), fill="#08111e" if skin == "navy" else t("bg-chrome"))
     c.rect((0, bar, W, bar + 1), fill=t("border"))
     active_index = {"files": 0, "code": 1, "run": 2, "ai": 4}[pane]
-    items = ["Files", "Code", "Run", "Build", "AI"]
+    items = [("[f]", "Files"), ("[c]", "Code"), ("[r]", "Run"), ("[b]", "Build"), ("[a]", "AI")]
     slot = W / 5
-    for index, label in enumerate(items):
+    for index, (key, label) in enumerate(items):
         cx = slot * index + slot / 2
         active = index == active_index
-        ink_c = accent if active else t("muted")
+        ink_c = t("text") if active else t("muted")
         if active:
-            c.rect((cx - 21, bar + 6, cx + 21, bar + 32), fill=accent, radius=9, alpha=0.12)
-        c.text((cx, bar + 19), ["▤", "‹›", "›_", "✦", "◍"][index], ink_c, 12, anchor="ma")
-        c.text((cx, bar + 36), label, ink_c, 9.4, bold=active, anchor="ma")
+            c.rect((slot * index, bar, slot * (index + 1), bar + 2), fill=accent)
+        if index:
+            c.rect((slot * index, bar + 8, slot * index + 1, bar + 30), fill=t("border"))
+        c.text((cx, bar + 12), key, accent if active else t("muted"), 9, mono=True, anchor="ma")
+        c.text((cx, bar + 25), label, ink_c, 10.5, mono=True, anchor="ma", bold=active)
     c.rect((W / 2 - 46, H - 7.5, W / 2 + 46, H - 3), fill=t("text-dim"), radius=2.4, alpha=0.55)
     return c.image
 

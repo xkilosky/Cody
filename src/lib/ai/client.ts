@@ -23,6 +23,7 @@ import {
   isFreeModel,
   providerOf,
   PROVIDERS,
+  registerCatalogModels,
   registerFreeModels,
   registeredFreeModels,
 } from './providers'
@@ -93,9 +94,9 @@ const discoveredCache = new Map<ProviderId, string[]>()
  * models are only discoverable at runtime (xKiro: 47 free ids, `vendor/model`).
  */
 const CATALOG_STORE = 'cody:ai:catalog:v1'
-const CATALOG_TTL_MS = 24 * 60 * 60_000
+const CATALOG_TTL_MS = 60 * 60_000
 
-type CatalogEntry = { free: string[]; all: string[]; at: number }
+type CatalogEntry = { free: string[]; paid?: string[]; all: string[]; at: number }
 
 function readCatalog(): Partial<Record<ProviderId, CatalogEntry>> {
   try {
@@ -116,10 +117,16 @@ function writeCatalog(all: Partial<Record<ProviderId, CatalogEntry>>) {
   }
 }
 
-function rememberCatalog(provider: ProviderId, models: string[], free: string[]) {
+function rememberCatalog(provider: ProviderId, models: string[], free: string[], paid: string[]) {
   const store = readCatalog()
-  store[provider] = { free, all: models, at: Date.now() }
+  store[provider] = { free, paid, all: models, at: Date.now() }
   writeCatalog(store)
+}
+
+/** Is the cached catalog still young enough to trust? */
+function catalogFresh(provider: ProviderId, now = Date.now()): boolean {
+  const entry = readCatalog()[provider]
+  return Boolean(entry) && now - (entry?.at ?? 0) < CATALOG_TTL_MS
 }
 
 /** Put a cached catalog back into the selection table at startup. */
@@ -130,7 +137,7 @@ function hydrateCatalog() {
     if (!entry || !Array.isArray(entry.free)) continue
     if (now - (entry.at ?? 0) > CATALOG_TTL_MS) continue
     discoveredCache.set(provider as ProviderId, [...entry.all, ...entry.free])
-    registerFreeModels(provider as ProviderId, entry.free)
+    registerCatalogModels(provider as ProviderId, entry.free, entry.paid ?? [])
   }
 }
 
@@ -610,29 +617,34 @@ async function callOne(
 }
 
 /**
- * Which free ids exist, for providers the table cannot describe.
+ * What each provider actually serves, and what it actually charges.
  *
- * A free-only setup with only an xKiro key had nothing to call: every curated
- * xKiro id is a paid flagship, so selection produced zero candidates and the
- * provider was never touched. Its own catalog knows better — 47 free ids,
- * `access_tier: free` — so ask once, up front, and remember the answer.
+ * The curated table is a set of hints and hints rot: a model gets retired, a
+ * `:free` slug disappears, a gateway stops giving one away. Free models only is
+ * a promise about money, so it is decided from the provider's own `/models`
+ * answer — free and paid alike — and the table is only the fallback for a
+ * provider that cannot be listed or says nothing about price.
+ *
+ * One listing per provider per hour, cached in `localStorage`: cheap enough to
+ * do on the first call of a session, and live enough that a model that was
+ * free yesterday is not still assumed free today.
  */
 const catalogChecked = new Set<ProviderId>()
 
-async function ensureFreeCatalog(
+async function ensureLiveCatalogs(
   options: CallOptions,
   keys: Record<string, string | undefined>,
 ): Promise<void> {
   const { config } = options
   if (!config.freeOnly) return
   for (const provider of PROVIDERS) {
+    // Only a provider with a free path can change the answer.
     if (provider.custom || !provider.freeTier) continue
     if (!isConfigured(provider.id, keys[provider.id], config.customBaseUrl)) continue
     if (catalogChecked.has(provider.id)) continue
-    // Anything free already known is enough; this is only for blind spots.
-    if (registeredFreeModels(provider.id).length > 0) continue
-    if (hintsFor(provider.id).some((hint) => isFreeModel(provider.id, hint.id))) continue
     catalogChecked.add(provider.id)
+    // A catalog from this hour is already in memory (hydrated at startup).
+    if (catalogFresh(provider.id)) continue
     await discoverModels(provider.id, keys[provider.id] ?? '', config.customBaseUrl, {
       signal: options.signal,
       fetchImpl: options.fetchImpl,
@@ -649,7 +661,7 @@ async function ensureFreeCatalog(
 export async function callAi(options: CallOptions): Promise<ChatResult> {
   const { config } = options
   const keys = options.keys ?? (getKeys() as Record<string, string | undefined>)
-  await ensureFreeCatalog(options, keys)
+  await ensureLiveCatalogs(options, keys)
   const { targets, reason } = selectTargets(options.config, keys, options.role ?? null)
 
   const usable = targets.filter(
@@ -763,27 +775,54 @@ const NOT_CHAT = /embed|embedding|whisper|tts|speech|audio|rerank|moderation|gua
  * `does not exist`. A 404 is the usual status but not the only one.
  */
 /** One entry from a provider's `/models` list — only the fields we read. */
+type CatalogPrice = number | string
 type CatalogModel = {
   id?: string
   name?: string
   /** xKiro: 'free' | 'paid' | 'premium'. */
   access_tier?: string
-  pricing?: { input?: number; output?: number } | number
+  /**
+   * xKiro and Google use `input`/`output`; OpenRouter uses `prompt`/
+   * `completion` and sends the numbers as strings ("0", "0.0000005"). Both
+   * shapes are read here so the answer is the provider's, not a guess.
+   */
+  pricing?: {
+    input?: CatalogPrice
+    output?: CatalogPrice
+    prompt?: CatalogPrice
+    completion?: CatalogPrice
+  } | CatalogPrice
   free?: boolean
 }
 
-/** Is this catalog entry free to call? Two signals, either one is enough. */
-export function isFreeEntry(entry: CatalogModel): boolean {
-  if (entry.free === true) return true
-  const tier = String(entry.access_tier ?? '').toLowerCase()
-  if (tier === 'free') return true
-  if (tier === 'paid' || tier === 'premium') return false
-  const pricing = entry.pricing
-  if (typeof pricing === 'number') return pricing === 0
-  if (pricing && typeof pricing === 'object') {
-    return Number(pricing.input ?? 1) === 0 && Number(pricing.output ?? 1) === 0
+/** Every price we can find on an entry, as numbers. Empty means "no price given". */
+function pricesOf(entry: CatalogModel): number[] {
+  if (typeof entry.pricing === 'number') return [entry.pricing]
+  if (typeof entry.pricing === 'string') {
+    const value = Number(entry.pricing)
+    return Number.isFinite(value) ? [value] : []
   }
-  return false
+  const pricing = entry.pricing
+  if (!pricing) return []
+  return [pricing.input, pricing.output, pricing.prompt, pricing.completion]
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+}
+
+/** The provider's own verdict: free, paid, or nothing said. */
+export function catalogVerdict(entry: CatalogModel): 'free' | 'paid' | null {
+  if (entry.free === true) return 'free'
+  const tier = String(entry.access_tier ?? '').toLowerCase()
+  if (tier === 'free') return 'free'
+  if (tier === 'paid' || tier === 'premium') return 'paid'
+  const prices = pricesOf(entry)
+  if (prices.length === 0) return null
+  return prices.some((price) => price > 0) ? 'paid' : 'free'
+}
+
+/** Is this catalog entry free to call? */
+export function isFreeEntry(entry: CatalogModel): boolean {
+  return catalogVerdict(entry) === 'free'
 }
 
 const MODEL_GONE = /is not found|not found for|model_not_found|no such model|does not exist|unknown model|invalid model|not supported for generateContent/i
@@ -837,14 +876,17 @@ export async function discoverModels(
       .map((entry) => entry.id ?? entry.name ?? '')
       .filter((id) => id && !NOT_CHAT.test(id))
     const unique = [...new Set(ids)].sort()
-    const free = entries
-      .filter((entry) => entry.id && !NOT_CHAT.test(entry.id) && isFreeEntry(entry))
-      .map((entry) => entry.id as string)
-    // The provider's own answer is the best one we will get; keep it.
+    const verdict = (wanted: 'free' | 'paid') =>
+      entries
+        .filter((entry) => entry.id && !NOT_CHAT.test(entry.id) && catalogVerdict(entry) === wanted)
+        .map((entry) => entry.id as string)
+    const free = verdict('free')
+    const paid = verdict('paid')
+    // The provider's own answer is the best one we will get; keep both halves.
     if (unique.length > 0) discoveredCache.set(provider, unique)
-    if (free.length > 0) {
-      registerFreeModels(provider, rankDiscovered(free))
-      rememberCatalog(provider, unique, rankDiscovered(free))
+    if (free.length > 0 || paid.length > 0) {
+      registerCatalogModels(provider, rankDiscovered(free), paid)
+      rememberCatalog(provider, unique, rankDiscovered(free), paid)
     }
     return { models: unique, error: null }
   } catch (error) {
@@ -874,7 +916,15 @@ export async function probeProvider(
 ): Promise<ProbeResult> {
   const started = Date.now()
   const discovery = await discoverModels(provider, apiKey, config.customBaseUrl, { fetchImpl: options.fetchImpl })
-  const model = options.model || config.customModel || hintsFor(provider)[0]?.id || discovery.models[0] || ''
+  // "Test" must respect the same promise the chat does: try a free model
+  // first, so testing a key never spends money on a locked-down setup.
+  const freeFirst = config.freeOnly
+    ? registeredFreeModels(provider)[0] ??
+      hintsFor(provider).find((hint) => isFreeModel(provider, hint.id))?.id ??
+      discovery.models.find((id) => isFreeModel(provider, id))
+    : undefined
+  const model =
+    options.model || config.customModel || freeFirst || hintsFor(provider)[0]?.id || discovery.models[0] || ''
   if (!model) {
     return {
       ok: false,

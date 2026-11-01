@@ -128,6 +128,14 @@ Anthropic, xAI, or any OpenAI-compatible endpoint such as Ollama, LM Studio or v
   (OpenRouter, Groq, Google, Mistral, Cerebras, DeepSeek, Together, OpenAI, Anthropic) is called
   directly, browser-to-provider. If a host has no functions at all, the client notices the 404 and
   falls back to the direct URL, so the app still works on plain static hosting.
+- **The catalog decides what is free, and it is live.** Every configured provider with a free path
+  is asked for its `/models` list once an hour — free and paid alike — and that answer outranks the
+  table in both directions: an id the table still calls free but the provider now prices is paid, and
+  an id the table has never seen is free when the catalog says so (a zero price, `access_tier: free`,
+  or simply a provider whose free tier covers everything, like Groq). Prices are read in every shape
+  they arrive: `input`/`output`, OpenRouter's `prompt`/`completion`, numbers as strings. The answer
+  is cached in `localStorage` with a one-hour TTL, so this costs one listing per provider per hour,
+  never one per turn, and *Test* on a provider picks a free model too.
 - **The catalog decides what is free.** A gateway can run dozens of free models behind
   `vendor/model` ids that no hard-coded table could list — xKiro marks 47 of its 97 that way
   (`access_tier: free`, or `pricing` at zero). Cody reads that catalog once per session (cached

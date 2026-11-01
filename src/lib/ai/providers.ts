@@ -64,6 +64,12 @@ export type Provider = {
   /** One line in the settings card about the free path. */
   freeNote?: string
   /**
+   * The provider's free tier covers *every* model it serves (Groq, Cerebras).
+   * Their catalogs carry no prices, so without this a live id we have never
+   * seen would be treated as paid and a free-only run would refuse it.
+   */
+  allFree?: boolean
+  /**
    * Same-origin prefix that forwards to this provider.
    *
    * A browser will not read a cross-origin response that has no
@@ -147,6 +153,7 @@ export const PROVIDERS: Provider[] = [
     baseUrl: 'https://api.groq.com/openai/v1',
     keysUrl: 'https://console.groq.com/keys',
     freeTier: true,
+    allFree: true,
     freeNote: 'Free tier covers every model here, with rate limits. No card needed.',
     models: [
       { id: 'openai/gpt-oss-120b', tier: 'reasoning', label: 'GPT-OSS 120B', cost: 'free' },
@@ -186,6 +193,7 @@ export const PROVIDERS: Provider[] = [
     baseUrl: 'https://api.cerebras.ai/v1',
     keysUrl: 'https://cloud.cerebras.ai/',
     freeTier: true,
+    allFree: true,
     freeNote: 'Free tier: a daily token allowance on the models below.',
     models: [
       { id: 'qwen-3-coder-480b', tier: 'code', label: 'Qwen3 Coder 480B', cost: 'free' },
@@ -308,9 +316,26 @@ export function authHeaders(id: ProviderId, apiKey: string): Record<string, stri
  * write. Registration is per provider and replaced wholesale on each listing.
  */
 const freeCatalog = new Map<ProviderId, Set<string>>()
+/**
+ * Ids the live catalog prices above zero, or marks `paid` / `premium`. This is
+ * the half that keeps a stale table honest: a hint that says `free` must not
+ * survive a catalog that says otherwise.
+ */
+const paidCatalog = new Map<ProviderId, Set<string>>()
 
 export function registerFreeModels(id: ProviderId, models: string[]) {
   freeCatalog.set(id, new Set(models))
+}
+
+/** Replace what the live catalog said about this provider. */
+export function registerCatalogModels(id: ProviderId, free: string[], paid: string[]) {
+  freeCatalog.set(id, new Set(free))
+  paidCatalog.set(id, new Set(paid))
+}
+
+/** Did the live catalog price this model above zero? */
+export function isCatalogPaid(id: ProviderId, model: string): boolean {
+  return paidCatalog.get(id)?.has(model) ?? false
 }
 
 /** Free ids the catalog reported, best-first as the caller registered them. */
@@ -326,16 +351,20 @@ export function registeredFreeModels(id: ProviderId): string[] {
  * else is paid — a wrong guess here is a bill, so the default is "paid".
  */
 export function isFreeModel(id: ProviderId, model: string): boolean {
-  const hint = providerOf(id).models.find((entry) => entry.id === model)
+  const provider = providerOf(id)
+  // 1. The live catalog is the authority, in both directions. A retired hint
+  //    cannot make a priced model free, and it cannot keep a free one out.
+  if (freeCatalog.get(id)?.has(model)) return true
+  if (paidCatalog.get(id)?.has(model)) return false
+  // 2. The table, then the shapes that are free by definition.
+  const hint = provider.models.find((entry) => entry.id === model)
   if (hint?.cost === 'free') return true
   if (hint?.cost === 'paid') return false
   if (/:free$/i.test(model)) return true
-  // An id discovered from /models that the provider's free tier covers, e.g.
-  // any Gemini Flash. Without this, a stale hint would leave a free-only setup
-  // with nothing it is allowed to call.
-  if (providerOf(id).freePattern?.test(model)) return true
-  // The provider's own catalog said so.
-  if (freeCatalog.get(id)?.has(model)) return true
+  // 3. Provable without a price: a provider whose free tier covers everything,
+  //    or a family that is always on the free plan (Gemini Flash).
+  if (provider.allFree) return true
+  if (provider.freePattern?.test(model)) return true
   return id === 'custom'
 }
 

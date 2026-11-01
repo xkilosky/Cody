@@ -29,6 +29,7 @@ import {
 import {
   NO_TOOL_NOTE,
   callAi,
+  catalogVerdict,
   discoverModels,
   endpointFor,
   isCoolingDown,
@@ -131,6 +132,11 @@ function mockFetch(handler: Handler) {
 
 function reply(text: string): Answer {
   return { text }
+}
+
+/** Only the completions — a live catalog listing is not a model call. */
+function chats(mock: { calls: Array<{ url: string; body: Record<string, unknown> }> }) {
+  return mock.calls.filter((call) => call.url.endsWith('/chat/completions'))
 }
 
 /* ------------------------------------------------------------------ */
@@ -336,9 +342,10 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
   })
   check('a healthy call returns its text', result.text === 'hello from the first model')
   check('it reports the model that answered', result.target.model === 'llama-3.3-70b-versatile')
-  check('the request went to Groq’s chat endpoint', mock.calls[0].url === 'https://api.groq.com/openai/v1/chat/completions', mock.calls[0]?.url)
-  check('the request carries the key', mock.calls[0].headers.Authorization === 'Bearer k')
-  check('the request carries the messages', JSON.stringify(mock.calls[0].body.messages) === JSON.stringify(messages))
+  const firstChat = chats(mock)[0]
+  check('the request went to Groq’s chat endpoint', firstChat?.url === 'https://api.groq.com/openai/v1/chat/completions', firstChat?.url)
+  check('the request carries the key', (firstChat?.headers as Record<string, string>)?.Authorization === 'Bearer k')
+  check('the request carries the messages', JSON.stringify(firstChat?.body.messages) === JSON.stringify(messages))
   check('the events are try → ok', events.join(',') === 'try,ok', events.join(','))
   check('an empty answer is treated as a failure', await (async () => {
     resetCooldowns()
@@ -363,7 +370,9 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
   // answers once the text protocol is spelled out, so no turn is lost.
   resetCooldowns()
   let call = 0
-  const mock = mockFetch(() => {
+  const mock = mockFetch(({ url }) => {
+    // The catalog listing is not one of the model attempts.
+    if (url.endsWith('/models')) return { models: [] }
     call += 1
     return call === 1
       ? { status: 400, message: 'Tool choice is none, but model called a tool' }
@@ -377,9 +386,10 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
     fetchImpl: mock.impl,
   })
   check('a native tool call is retried on the same model', result.text === 'here is your answer', result.text)
-  check('and the retry stays on that model', mock.calls.length === 2 && mock.calls[1].body.model === mock.calls[0].body.model, `${mock.calls.length} calls`)
-  check('the first attempt carried the prompt untouched', JSON.stringify(mock.calls[0].body.messages) === JSON.stringify(original))
-  const retried = (mock.calls[1].body.messages ?? []) as Array<{ role: string; content: string }>
+  const gptCalls = chats(mock)
+  check('and the retry stays on that model', gptCalls.length === 2 && gptCalls[1].body.model === gptCalls[0].body.model, `${gptCalls.length} calls`)
+  check('the first attempt carried the prompt untouched', JSON.stringify(gptCalls[0].body.messages) === JSON.stringify(original))
+  const retried = (gptCalls[1].body.messages ?? []) as Array<{ role: string; content: string }>
   check('the retry spells out the text tool protocol', retried[0].content.includes(NO_TOOL_NOTE.trim()))
   check('the note rides on the existing system message, not a new one', retried.filter((message) => message.role === 'system').length === 1 && retried.length === original.length)
   check('the model is remembered as needing the note', needsToolNudge('groq', 'openai/gpt-oss-120b'))
@@ -527,6 +537,70 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
 }
 
 {
+  // The live catalog outranks the table in both directions: an id the table
+  // calls free but the provider now prices is paid, and a free-tier provider
+  // serves ids the table has never heard of.
+  resetCooldowns()
+  const mock = mockFetch(({ url }) =>
+    url.endsWith('/models')
+      ? {
+          catalog: [
+            // OpenRouter's shape: strings, `prompt`/`completion`.
+            { id: 'meta-llama/llama-3.3-70b-instruct:free', pricing: { input: '0.0000005' } },
+            { id: 'qwen/qwen-2.5-coder-32b-instruct:free', pricing: { input: '0', output: '0' } },
+          ],
+        }
+      : reply('answered'),
+  )
+  await callAi({
+    config: config({ auto: false, provider: 'openrouter', model: 'qwen/qwen-2.5-coder-32b-instruct:free' }),
+    keys: { openrouter: 'k' },
+    messages,
+    fetchImpl: mock.impl,
+  })
+  check('a table-free id the catalog prices is now paid', !isFreeModel('openrouter', 'meta-llama/llama-3.3-70b-instruct:free'))
+  check('an id the catalog prices at zero is free', isFreeModel('openrouter', 'qwen/qwen-2.5-coder-32b-instruct:free'))
+  check('string prices are read, not assumed', catalogVerdict({ id: 'x', pricing: { prompt: '0', completion: '0' } }) === 'free')
+  check('…and a sub-cent price is still a price', catalogVerdict({ id: 'x', pricing: { prompt: '0.0000005' } }) === 'paid')
+  check('an entry with no price and no tier says nothing', catalogVerdict({ id: 'x' }) === null)
+  check('access_tier wins over nothing', catalogVerdict({ id: 'x', access_tier: 'premium' }) === 'paid')
+}
+
+{
+  // A provider whose free tier covers everything (Groq, Cerebras) can serve an
+  // id the table has never listed, and free-only must still allow it.
+  resetCooldowns()
+  const mock = mockFetch(({ url }) => (url.endsWith('/models') ? { models: ['meta-llama/llama-4-scout-17b', 'openai/gpt-oss-120b'] } : reply('new model answered')))
+  const result = await callAi({
+    config: config({ auto: false, provider: 'groq', model: 'meta-llama/llama-4-scout-17b' }),
+    keys: { groq: 'k' },
+    messages,
+    fetchImpl: mock.impl,
+  })
+  check('an unseen model on an all-free provider is free', isFreeModel('groq', 'meta-llama/llama-4-scout-17b'))
+  check('…and it is actually called', result.target.model === 'meta-llama/llama-4-scout-17b', result.target.model)
+}
+
+{
+  // Every configured free-tier provider is listed once — the table is no
+  // longer trusted to know what is free.
+  resetCooldowns()
+  const mock = mockFetch(({ url }) =>
+    url.endsWith('/models') ? { models: [] } : reply('ok'),
+  )
+  await callAi({
+    config: config({ auto: true, provider: 'groq' }),
+    keys: { groq: 'k', xkiro: 'k', openai: 'paid-key' },
+    messages,
+    fetchImpl: mock.impl,
+  })
+  const listed = mock.calls.filter((call) => call.url.endsWith('/models')).map((call) => call.url)
+  check('each free-tier provider is listed live', listed.some((url) => url.includes('groq')) && listed.some((url) => url.includes('xkiro')), listed.join(' '))
+  check('a paid-only provider is not listed', !listed.some((url) => url.includes('api.openai.com')), listed.join(' '))
+  check('one listing per provider, not per model', listed.length === 2, `${listed.length} listings`)
+}
+
+{
   // A provider whose free models the table already knows must not cost a listing.
   resetCooldowns()
   const mock = mockFetch(() => reply('straight through'))
@@ -536,8 +610,13 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
     messages,
     fetchImpl: mock.impl,
   })
-  check('a provider with known free models is not listed', !mock.calls.some((call) => call.url.endsWith('/models')), `${mock.calls.length} calls`)
-  check('…and the first request is the chat itself', mock.calls[0].url.endsWith('/chat/completions'), mock.calls[0]?.url)
+  check('a free-tier provider is listed once, live', mock.calls.filter((call) => call.url.endsWith('/models')).length === 1, `${mock.calls.length} calls`)
+  check('…before the chat, not on every turn', mock.calls[0].url.endsWith('/models'), mock.calls[0]?.url)
+  check('…and only once per session', await (async () => {
+    const again = mockFetch(() => reply('second'))
+    await callAi({ config: config({ auto: true, provider: 'groq' }), keys: { groq: 'k' }, messages, fetchImpl: again.impl })
+    return !again.calls.some((call) => call.url.endsWith('/models'))
+  })())
 }
 
 {
@@ -627,7 +706,8 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
   // A 500 on the preferred model falls through to the next candidate.
   resetCooldowns()
   let call = 0
-  const mock = mockFetch(() => {
+  const mock = mockFetch(({ url }) => {
+    if (url.endsWith('/models')) return { models: [] }
     call += 1
     return call === 1 ? { status: 500, message: 'upstream exploded' } : reply('second model here')
   })
@@ -640,9 +720,10 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
     onEvent: (event) => events.push({ kind: event.kind, willRetry: 'willRetry' in event ? event.willRetry : undefined }),
   })
   check('a 500 falls over to another model', result.text === 'second model here')
-  check('and it is a different model', mock.calls[1].body.model !== mock.calls[0].body.model, `${mock.calls[0].body.model} → ${mock.calls[1].body.model}`)
+  const openCalls = chats(mock)
+  check('and it is a different model', openCalls[1]?.body.model !== openCalls[0]?.body.model, `${openCalls[0]?.body.model} → ${openCalls[1]?.body.model}`)
   check('the failed attempt is reported as retryable', events.some((event) => event.kind === 'fail' && event.willRetry === true))
-  check('the model is not cooled down after a 500', !isCoolingDown('openrouter', String(mock.calls[0].body.model)))
+  check('the model is not cooled down after a 500', !isCoolingDown('openrouter', String(openCalls[0].body.model)))
 }
 
 {
@@ -659,7 +740,7 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
   })
   check('a bad key falls over to another provider', result.text === 'groq saved the day')
   check('and the working provider is the one that answered', result.target.provider === 'groq')
-  const attempts = mock.calls.filter((request) => request.url.includes('openrouter'))
+  const attempts = chats(mock).filter((request) => request.url.includes('openrouter'))
   check('the dead provider is not hammered once per model', attempts.length === 1, `${attempts.length} attempts`)
   check('the dead provider is cooled down', isCoolingDown('openrouter', 'anything'))
 }
@@ -681,15 +762,16 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
     fetchImpl: mock.impl,
   })
   check('a 404 model falls over', result.text === 'replacement model')
-  check('the retired model is remembered', isCoolingDown('mistral', String(mock.calls[0].body.model)))
-  check('but the provider stays usable', !isCoolingDown('mistral', String(mock.calls[1].body.model)))
+  check('the retired model is remembered', isCoolingDown('mistral', String(chats(mock)[0].body.model)))
+  check('but the provider stays usable', !isCoolingDown('mistral', String(chats(mock)[1].body.model)))
 }
 
 {
   // Free-only failover: it must move between free models, never onto a paid one.
   resetCooldowns()
   const seen: string[] = []
-  const mock = mockFetch(({ body }) => {
+  const mock = mockFetch(({ body, url }) => {
+    if (url.endsWith('/models')) return { models: [] }
     seen.push(String(body.model))
     return seen.length <= 3 ? { status: 500, message: 'down' } : reply('a free model answered')
   })
@@ -721,7 +803,7 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
     thrown = (error as Error).message
   }
   check('with fallback off it stops at the first failure', /Rate limited/.test(thrown), thrown)
-  check('and it only tried once', mock.calls.length === 1, `${mock.calls.length} calls`)
+  check('and it only tried once', chats(mock).length === 1, `${chats(mock).length} calls`)
 }
 
 {
@@ -776,7 +858,7 @@ const messages = [{ role: 'user' as const, content: 'hi' }]
     thrown = (error as Error).message
   }
   check('an aborted call reports Stopped, not a fallback', thrown === 'Stopped', thrown)
-  check('and nothing was requested', mock.calls.length === 0)
+  check('and nothing was requested', chats(mock).length === 0)
 }
 
 /* ------------------------------------------------------------------ */
@@ -1169,11 +1251,11 @@ const call = (tool: string, args: Record<string, unknown> = {}) =>
   check('the run ends without an error', result.error === null, String(result.error))
   check('the plan came back as the planner’s own message', result.turns[0].text.startsWith('Plan: build a counter app.'), result.turns[0].text)
 
-  const systemPrompts = mock.calls.map((request) => ((request.body.messages ?? []) as Array<{ content: string }>)[0]?.content ?? '')
+  const systemPrompts = chats(mock).map((request) => ((request.body.messages ?? []) as Array<{ content: string }>)[0]?.content ?? '')
   check('the planner gets the planner prompt', systemPrompts.some((prompt) => prompt.includes('PLANNER')))
   check('each agent gets the tool manual', systemPrompts.every((prompt) => prompt.includes('patch_file(') && prompt.includes('```tool')))
   check('the prompt forbids native tool calls up front', systemPrompts.every((prompt) => /no native function-calling/i.test(prompt)), systemPrompts[0].slice(0, 60))
-  check('later agents see what came before', ((mock.calls.at(-1)?.body.messages ?? []) as Array<{ content: string }>).some((message) => message.content.includes('[Coder A]')))
+  check('later agents see what came before', ((chats(mock).at(-1)?.body.messages ?? []) as Array<{ content: string }>).some((message) => message.content.includes('[Coder A]')))
   check('events were emitted in order', events[0] === 'start' && events.includes('tool') && events.includes('done'), events.slice(0, 6).join(','))
 }
 
@@ -1259,7 +1341,8 @@ const call = (tool: string, args: Record<string, unknown> = {}) =>
   resetCooldowns()
   const workspace = fakeWorkspace()
   let chatCall = 0
-  const mock = mockFetch(() => {
+  const mock = mockFetch(({ url }) => {
+    if (url.endsWith('/models')) return { models: [] }
     chatCall += 1
     return reply(
       chatCall === 1
@@ -1295,7 +1378,8 @@ const call = (tool: string, args: Record<string, unknown> = {}) =>
   resetCooldowns()
   const workspace = fakeWorkspace()
   let step = 0
-  const mock = mockFetch(() => {
+  const mock = mockFetch(({ url }) => {
+    if (url.endsWith('/models')) return { models: [] }
     step += 1
     if (step === 1) return reply(`Listing them now.\n${call('list_projects')}`)
     if (step === 2) return reply('[Tool Output]\n[\n  {\n    "id": "1",\n    "name": "Demo",\n    "fileCount": 1\n  }\n]')

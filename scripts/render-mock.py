@@ -519,7 +519,8 @@ def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Imag
     top = 46
     HEADER_H = 54
     c.rect((0, top, W, top + HEADER_H), fill=t("bg-chrome"))
-    c.line([(22, top + 20), (15, top + 27), (22, top + 34)], fill=t("text-dim"), width=2)
+    for i in range(3):
+        c.rect((15, top + 20 + i * 5, 33 if i != 1 else 27, top + 21.4 + i * 5), fill=t("text-dim"))
     c.text((36, top + 13), "~", t("muted"), 12, mono=True)
     c.text((47, top + 13), "/Cody tasks", t("text"), 13, mono=True, bold=True)
     c.text((36, top + 34), "7 files · TSX · 2m ago", t("muted"), 9.5, mono=True)
@@ -564,7 +565,7 @@ def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Imag
     ed_top = tabs_top + TABS_H
     RAIL_H = 88
     STATUS_H = 28
-    TABBAR_H = 58
+    TABBAR_H = 0
     ed_bottom = H - TABBAR_H - STATUS_H - RAIL_H
     c.rect((0, ed_top, W, ed_bottom), fill=p("bg"))
 
@@ -663,31 +664,77 @@ def draw_screen(mode: str, skin: str = "graphite", scheme: str = "dark") -> Imag
     canvas.polygon([(W - run_w + 6, row2 + 10), (W - run_w + 6, row2 + 24), (W - run_w + 17, row2 + 17)], fill=ink)
     c.text((W - run_w + 23, row2 + 8.5), "Run", ink, 12, bold=True)
 
-    # ---------------- command line (bracketed keys, 46px) ----------------
-    bar = rail + RAIL_H
-    c.rect((0, bar, W, H), fill=t("bg-chrome"))
-    c.rect((0, bar, W, bar + 1), fill=t("border"))
-    items = [("[f]", "Files"), ("[c]", "Code"), ("[r]", "Run"), ("[b]", "Build"), ("[a]", "AI")]
-    slot = W / len(items)
-    for index, (key, label) in enumerate(items):
-        cx = slot * index + slot / 2
-        active = index == 1
-        ink_c = t("text") if active else t("muted")
-        if active:
-            c.rect((slot * index, bar, slot * (index + 1), bar + 2), fill=t("accent"))
-        if index:
-            c.rect((slot * index, bar + 8, slot * index + 1, bar + 30), fill=t("border"))
-        c.text((cx, bar + 11), key, t("accent") if active else t("muted"), 9, mono=True, anchor="ma")
-        c.text((cx, bar + 24), label, ink_c, 10.5, mono=True, anchor="ma", bold=active)
-
-
     # home indicator
-    c.rect((W / 2 - 46, H - 7.5, W / 2 + 46, H - 3), fill=t("text-dim"), radius=2.4, alpha=0.55)
+    if skin == "terminal":
+        c.rect((W / 2 - 46, H - 7.5, W / 2 + 46, H - 3), fill=t("text-dim"), radius=2.4, alpha=0.55)
     return canvas.image
 
 
 def downscale(image: Image.Image, width: int) -> Image.Image:
     return image.resize((width, int(image.height * width / image.width)), Image.LANCZOS)
+
+
+def draw_drawer(mode: str, skin: str = "terminal", scheme: str = "dark") -> Image.Image:
+    """The menu: the app's only navigation control, open over the editor."""
+    tokens = {**TOKENS[mode], **parse_skin(skin)}
+    palette = dict(PALETTES[scheme])
+    if skin != "graphite" and "editor-bg" in tokens:
+        palette["bg"] = tokens["editor-bg"]
+    t = lambda k: tokens.get(k, TOKENS[mode].get(k, "#000000"))  # noqa: E731
+    accent = tokens.get("accent", t("accent"))
+    squ = 0 if skin == "terminal" else 1
+    c = Canvas((W, H), t("bg-chrome"))
+
+    # dimmed app behind the scrim
+    c.rect((0, 0, W, H), fill=t("bg"))
+    c.text((20, 14), "9:41", t("text"), 12.5, bold=True)
+    for i in range(4):
+        c.rect((W - 79 + i * 5, 25 - i * 2.4, W - 76 + i * 5, 26), fill=t("text"), radius=0.6)
+    c.text((36, 59), "~/Cody tasks", t("text"), 13, mono=True, bold=True)
+    c.text((36, 80), "7 files · TSX · 2m ago", t("muted"), 9.5, mono=True)
+    for i in range(3):
+        c.rect((15, 66 + i * 5, 33 if i != 1 else 27, 67.4 + i * 5), fill=t("text-dim"))
+    for row in range(14):
+        y = 130 + row * 20
+        c.rect((32, y, 32 + (120 + (row * 37) % 190), y + 7), fill=t("muted"), alpha=0.20)
+    c.rect((0, 0, W, H), fill="#000000", alpha=0.55)
+
+    # the sheet itself
+    DW = 300
+    c.rect((0, 0, DW, H), fill=t("bg-elevated"))
+    c.rect((DW - 1, 0, DW, H), fill=t("border-strong"))
+    c.text((16, 22), "~/Cody tasks", t("text-dim"), 12, mono=True)
+    c.text((DW - 40, 18), "✕", t("text-dim"), 13, anchor="ma")
+
+    def section(y, key, label, active=False, tail=None):
+        if active:
+            c.rect((10, y, DW - 10, y + 40), fill=t("surface-2"), radius=2 * squ)
+            c.rect((10, y, 12, y + 40), fill=accent)
+        c.text((18, y + 13), "[" + key + "]", accent if active else t("muted"), 10.5, mono=True)
+        c.text((44, y + 11), label, t("text") if active else t("text-dim"), 14)
+        if tail:
+            c.circle((DW - 26, y + 20), 3, accent)
+        return y + 40
+
+    c.text((18, 68), "SECTIONS", t("muted"), 9.5, mono=True)
+    y = 88
+    y = section(y, "f", "Files", False, tail=True)
+    y = section(y, "c", "Code", True)
+    y = section(y, "r", "Run")
+    y = section(y, "b", "Build")
+    y = section(y, "a", "AI")
+
+    c.text((18, y + 20), "WORKSPACE", t("muted"), 9.5, mono=True)
+    y += 40
+    for label in ("Switch workspace…", "Find in files…", "Settings…", "Project actions…"):
+        c.text((18, y + 10), label, t("text-dim"), 13.5)
+        if label == "Find in files…":
+            c.text((DW - 30, y + 11), "⌘⇧F", t("muted"), 10.5, mono=True, anchor="ra")
+        c.rect((18, y + 37, DW - 18, y + 38), fill=t("border"))
+        y += 38
+
+    c.rect((W / 2 - 46, H - 7.5, W / 2 + 46, H - 3), fill=t("text-dim"), radius=2.4, alpha=0.55)
+    return c.image
 
 
 def draw_pane(mode: str, skin: str, scheme: str, pane: str) -> Image.Image:
@@ -721,7 +768,8 @@ def draw_pane(mode: str, skin: str, scheme: str, pane: str) -> Image.Image:
     c.text((36, top + 13), "~", t("muted"), 12, mono=True)
     c.text((47, top + 13), "/Cody tasks", t("text"), 13, mono=True, bold=True)
     c.text((36, top + 34), "7 files · TSX · 2m ago", t("muted"), 9.5, mono=True)
-    c.line([(22, top + 20), (15, top + 27), (22, top + 34)], fill=t("text-dim"), width=2)
+    for i in range(3):
+        c.rect((15, top + 20 + i * 5, 33 if i != 1 else 27, top + 21.4 + i * 5), fill=t("text-dim"))
     c.rect((W - 82, top + 10, W - 48, top + 44), fill=accent, radius=10)
     ink = parse_skin(skin).get("accent-ink", tokens.get("accent-ink", "#04241c"))
     canvas = c
@@ -731,7 +779,7 @@ def draw_pane(mode: str, skin: str, scheme: str, pane: str) -> Image.Image:
     c.rect((0, top + HEADER_H - 1, W, top + HEADER_H), fill=t("border"))
 
     body_top = top + HEADER_H
-    body_bottom = H - 58
+    body_bottom = H - 10
 
     if pane == "files":
         # toolbar
@@ -883,30 +931,12 @@ def draw_pane(mode: str, skin: str, scheme: str, pane: str) -> Image.Image:
         c.text((W - 34.5, comp_top + 27), "➤", ink, 11, anchor="ma")
         c.text((14, comp_top + 70), "Planner → Coder A → Coder B → Tester · free", t("muted"), 9.5, mono=True)
 
-    # bottom nav
-    bar = H - 58
-    c.rect((0, bar, W, H), fill="#08111e" if skin == "navy" else t("bg-chrome"))
-    c.rect((0, bar, W, bar + 1), fill=t("border"))
-    active_index = {"files": 0, "code": 1, "run": 2, "ai": 4}[pane]
-    items = [("[f]", "Files"), ("[c]", "Code"), ("[r]", "Run"), ("[b]", "Build"), ("[a]", "AI")]
-    slot = W / 5
-    for index, (key, label) in enumerate(items):
-        cx = slot * index + slot / 2
-        active = index == active_index
-        ink_c = t("text") if active else t("muted")
-        if active:
-            c.rect((slot * index, bar, slot * (index + 1), bar + 2), fill=accent)
-        if index:
-            c.rect((slot * index, bar + 8, slot * index + 1, bar + 30), fill=t("border"))
-        c.text((cx, bar + 12), key, accent if active else t("muted"), 9, mono=True, anchor="ma")
-        c.text((cx, bar + 25), label, ink_c, 10.5, mono=True, anchor="ma", bold=active)
-    c.rect((W / 2 - 46, H - 7.5, W / 2 + 46, H - 3), fill=t("text-dim"), radius=2.4, alpha=0.55)
     return c.image
 
 
 def main_panes() -> None:
     out = ROOT / "docs" / "cody-panes.png"
-    frames = []
+    frames = [("Menu", downscale(draw_drawer("dark", "terminal", "dark"), W * SCALE))]
     for pane in ("files", "run", "ai"):
         frames.append((pane[0].upper() + pane[1:], downscale(draw_pane("dark", "navy", "onedark", pane), W * SCALE)))
     pad, gap, radius = 26, 20, 42

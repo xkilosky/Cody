@@ -115,6 +115,22 @@ async function click(text_: string) {
   await wait(120)
 }
 
+/**
+ * Sections and workspace commands now live in the drawer, so every test that
+ * used to tap the bottom bar opens the menu first — one real tap, like a user.
+ */
+async function openMenu() {
+  const node = findByLabel('Open menu')
+  if (!node) throw new Error('menu button missing')
+  node.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }))
+  await wait(80)
+}
+
+async function pick(label: string) {
+  await openMenu()
+  await click(label)
+}
+
 async function typeInto(selector: string, value: string) {
   const input = dom.window.document.querySelector<HTMLInputElement>(selector)
   if (!input) throw new Error(`Input not found: ${selector}`)
@@ -175,7 +191,7 @@ async function main() {
   check('console recorded the run', text().includes('module') || text().includes('Browser'))
 
   // --- workspace switcher: create a workspace, no template --------------
-  await clickLabel('Switch workspace')
+  await pick('Switch workspace…')
   await wait(250)
   check('switcher opened', text().includes('Workspaces'))
   check('current workspace marked', text().includes('Untitled'))
@@ -206,7 +222,7 @@ async function main() {
   )
 
   // the switcher reopens on the list and keeps the previous workspace
-  await clickLabel('Switch workspace')
+  await pick('Switch workspace…')
   await wait(250)
   check('switcher reopens on the list', text().includes('Untitled') && text().includes('Smoke app'))
 
@@ -233,20 +249,20 @@ async function main() {
   check('renaming a workspace updates the list', text().includes('Renamed app'), text().slice(0, 80))
 
   // --- switching between workspaces --------------------------------------
-  await clickLabel('Switch workspace')
+  await pick('Switch workspace…')
   await wait(300)
   await click('Untitled')
   await wait(600)
   check('picking a workspace in the list opens it', text().includes('Untitled'))
   check('the picked workspace brings its own files', text().includes('index.html'))
-  await clickLabel('Switch workspace')
+  await pick('Switch workspace…')
   await wait(300)
   await click('Renamed app')
   await wait(600)
   check('and back again', text().includes('Renamed app'))
 
   // --- create files and folders -----------------------------------------
-  await click('Files')
+  await pick('Files')
   await wait(250)
   await click('New')
   await wait(150)
@@ -259,7 +275,7 @@ async function main() {
   await wait(300)
   check('nested file created', text().includes('helper.js'))
   // creating a file jumps to the editor, so come back to the tree
-  await click('Files')
+  await pick('Files')
   await wait(250)
   check('folder node created', text().includes('util'))
 
@@ -288,7 +304,7 @@ async function main() {
   await typeInto('.sheet input.text-input', 'src/notes.md')
   await click('Create file')
   await wait(300)
-  await click('Files')
+  await pick('Files')
   await wait(250)
   check('file created inside the folder', fileList().includes('notes.md'))
 
@@ -300,7 +316,7 @@ async function main() {
   await typeInto('.sheet input.text-input', 'tmp/scratch.txt')
   await click('Create file')
   await wait(300)
-  await click('Files')
+  await pick('Files')
   await wait(250)
   check('second folder created', fileList().includes('tmp'))
   await clickLabel('Folder actions for tmp')
@@ -310,7 +326,7 @@ async function main() {
   await typeInto('.sheet input.text-input', 'drafts')
   await click('Rename folder')
   await wait(400)
-  await click('Files')
+  await pick('Files')
   await wait(250)
   check('folder renamed', fileList().includes('drafts'))
   check('file moved with the folder', fileList().includes('scratch.txt') && !fileList().includes('tmp'))
@@ -323,7 +339,7 @@ async function main() {
   await typeInto('.sheet input.text-input', 'assets')
   await click('Move file')
   await wait(400)
-  await click('Files')
+  await pick('Files')
   await wait(250)
   check('file moved into the empty folder', fileList().includes('assets'))
   check('moved file is no longer empty-folder state', !fileList().includes('Empty folder'))
@@ -352,7 +368,7 @@ async function main() {
   check('another file took its place', Boolean(dom.window.document.querySelector('.file-row-wrap.active')))
 
   // --- editor mounts for the active file --------------------------------
-  await click('Code')
+  await pick('Code')
   await wait(400)
   check('code editor mounted', Boolean(dom.window.document.querySelector('.cm-editor')))
   check('editor toolbar present', Boolean(findByLabel('Undo') && findByLabel('Find')))
@@ -365,7 +381,7 @@ async function main() {
   // --- smart autocomplete ----------------------------------------------
   // A .tsx file for the member check — created here, since the workspace
   // starts as a plain three-file project with no template.
-  await click('Files')
+  await pick('Files')
   await wait(200)
   await click('New')
   await wait(120)
@@ -374,7 +390,7 @@ async function main() {
   await typeInto('.sheet input.text-input', 'src/App.tsx')
   await click('Create file')
   await wait(400)
-  await click('Files')
+  await pick('Files')
   await wait(250)
   check('a tsx file can be created by path', fileList().includes('App.tsx'))
   await click('App.tsx')
@@ -466,19 +482,19 @@ async function main() {
   }
 
   // back to the entry file for the remaining checks
-  await click('Files')
+  await pick('Files')
   await wait(200)
   await click('index.html')
   await wait(400)
 
   // --- build assist -----------------------------------------------------
-  await click('Build')
+  await pick('Build')
   await wait(200)
   check('snippet library visible', text().includes('Tap-friendly button'))
   check('project stats visible', text().includes('runnable'))
 
   // --- Build AI ---------------------------------------------------------
-  await click('AI')
+  await pick('AI')
   await wait(250)
   check('the AI tab is a fifth section', Boolean(dom.window.document.querySelector('.ai-pane')))
   check('with no key it asks for one', Boolean(dom.window.document.querySelector('.ai-setup')), text().slice(0, 60))
@@ -518,7 +534,7 @@ async function main() {
   )
   const composer = dom.window.document.querySelector<HTMLTextAreaElement>('.ai-input')
   check('a minimal composer is present', Boolean(composer))
-  await click('Build')
+  await pick('Build')
   await wait(200)
 
   // --- snippet insert lands in the editor ------------------------------
@@ -590,7 +606,7 @@ async function main() {
   check('tapping a problem moves the caret to its line', /\(Ln 2, Col 3\)|Ln 2, Col 3/.test(text()), (dom.window.document.querySelector('.status-pos')?.textContent ?? ''))
 
   // The file list must surface the same problem next to the file's badge.
-  await click('Files')
+  await pick('Files')
   await wait(300)
   const brokenRow = [...dom.window.document.querySelectorAll('.file-row-wrap')].find((row) =>
     (row.textContent ?? '').includes('index.html'),
@@ -604,12 +620,20 @@ async function main() {
     (row.textContent ?? '').includes('styles.css'),
   )
   check('clean file row has no mark', !cleanRow?.querySelector('.problem-flag'))
-  check('Files tab in the tab bar shows the error count', Boolean(dom.window.document.querySelector('.tab-badge.error')), dom.window.document.querySelector('.tab-badge')?.outerHTML ?? '')
-  await click('Code')
+  // the drawer is where a section advertises its problems now
+  await openMenu()
+  check(
+    'the menu shows the error count on Files',
+    Boolean(dom.window.document.querySelector('.tab-badge.error')),
+    dom.window.document.querySelector('.tab-badge')?.outerHTML ?? '',
+  )
+  await clickLabel('Close menu')
+  await wait(120)
+  await pick('Code')
   await wait(250)
 
   // --- a language from the second wave, end to end -----------------------
-  await click('Files')
+  await pick('Files')
   await wait(200)
   await click('New')
   await wait(120)
@@ -618,7 +642,7 @@ async function main() {
   await typeInto('.sheet input.text-input', 'lib/Main.hs')
   await click('Create file')
   await wait(400)
-  await click('Files')
+  await pick('Files')
   await wait(250)
   check('a haskell file can be created by path', fileList().includes('Main.hs'))
   const haskellRow = [...dom.window.document.querySelectorAll('.file-row-wrap')].find((row) =>
@@ -645,7 +669,7 @@ async function main() {
   await clickLabel('Close')
 
   // --- find in files ----------------------------------------------------
-  await click('Files')
+  await pick('Files')
   await wait(200)
   check('the Files pane offers a project search', Boolean(findByLabel('Find in files')))
   await clickLabel('Find in files')
@@ -725,7 +749,7 @@ async function main() {
   check('and the old text is gone', dom.window.document.querySelectorAll('.find-group').length === 0)
   await clickLabel('Close')
   await wait(120)
-  await click('Code')
+  await pick('Code')
   await wait(200)
 
   let failures = 0

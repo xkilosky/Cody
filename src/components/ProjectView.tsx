@@ -141,6 +141,7 @@ export default function ProjectView(props: Props) {
   } = props
 
   const [menuOpen, setMenuOpen] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
@@ -157,6 +158,16 @@ export default function ProjectView(props: Props) {
     onOpenFile(path)
     setJump({ path, line, column, id: jumpId.current })
   }
+
+  // Escape closes the drawer; the scrim covers everything else.
+  useEffect(() => {
+    if (!drawerOpen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDrawerOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [drawerOpen])
 
   // ⌘⇧F / Ctrl⇧F — the one shortcut a project search deserves.
   useEffect(() => {
@@ -208,12 +219,17 @@ export default function ProjectView(props: Props) {
     <div className="project-shell">
       <header className="app-header">
         <button
-          className="icon-btn"
-          onClick={onOpenSwitcher}
-          aria-label="Switch workspace"
-          title="Workspaces (⌘K)"
+          className="icon-btn menu-btn"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open menu"
+          aria-expanded={drawerOpen}
+          title="Menu"
         >
-          <Icon name="chevron-left" size={22} />
+          <span className="hamburger" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
         </button>
         <button className="title-block" onClick={() => setRenameOpen(true)}>
           <span className="title-line">
@@ -333,33 +349,91 @@ export default function ProjectView(props: Props) {
         onReplace={onReplaceFiles}
       />
 
-      {/* The navigation is a command line, not a toolbar: five keys you can
-          read at a glance, in the order a keyboard would reach them. */}
-      <nav className="tab-bar" role="tablist" aria-label="Project sections">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            role="tab"
-            aria-selected={tab === item.id}
-            className={`tab-btn${tab === item.id ? ' active' : ''}`}
-            onClick={() => setTab(item.id)}
-            aria-keyshortcuts={item.key}
-          >
-            <span className="tab-key">[{item.key}]</span>
-            <span className="tab-label">{item.label}</span>
-            {item.id === 'run' && running && <span className="tab-dot" />}
-            {item.id === 'ai' && aiSession.running && <span className="tab-dot" />}
-            {item.id === 'files' && index.total > 0 && (
-              <span
-                className={`tab-badge${index.errors > 0 ? ' error' : ' warning'}`}
-                aria-label={`${index.errors} errors, ${index.warnings} warnings`}
+      {/* One drawer, not five buttons nailed to the bottom of the screen.
+          It also carries the workspace switcher and the two things people
+          reach for most, so the header needs a single control. */}
+      {drawerOpen && (
+        <div className="drawer-layer" role="dialog" aria-modal="true" aria-label="Menu">
+          <button className="drawer-scrim" onClick={() => setDrawerOpen(false)} aria-label="Close menu" tabIndex={-1} />
+          <nav className="drawer" aria-label="Project sections">
+            <header className="drawer-head">
+              <span className="drawer-prompt">~/{project.name}</span>
+              <button className="icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
+                <Icon name="close" size={17} />
+              </button>
+            </header>
+
+            <p className="drawer-label">sections</p>
+            {TABS.map((item) => (
+              <button
+                key={item.id}
+                className={`drawer-item${tab === item.id ? ' active' : ''}`}
+                aria-current={tab === item.id ? 'page' : undefined}
+                aria-keyshortcuts={item.key}
+                data-key={item.key}
+                onClick={() => {
+                  setTab(item.id)
+                  setDrawerOpen(false)
+                }}
               >
-                {index.errors > 0 ? index.errors : index.warnings}
-              </span>
-            )}
-          </button>
-        ))}
-      </nav>
+                <span className="drawer-name">{item.label}</span>
+                <span className="drawer-tail">
+                  {item.id === 'files' && index.total > 0 && (
+                    <span
+                      className={`tab-badge${index.errors > 0 ? ' error' : ' warning'}`}
+                      aria-label={`${index.errors} errors, ${index.warnings} warnings`}
+                    >
+                      {index.errors > 0 ? index.errors : index.warnings}
+                    </span>
+                  )}
+                  {(item.id === 'run' && running) || (item.id === 'ai' && aiSession.running) ? (
+                    <span className="drawer-live" aria-label="running" />
+                  ) : null}
+                </span>
+              </button>
+            ))}
+
+            <p className="drawer-label">workspace</p>
+            <button
+              className="drawer-item plain"
+              onClick={() => {
+                setDrawerOpen(false)
+                onOpenSwitcher()
+              }}
+            >
+              <span className="drawer-name">Switch workspace…</span>
+            </button>
+            <button
+              className="drawer-item plain"
+              onClick={() => {
+                setDrawerOpen(false)
+                setSearchOpen(true)
+              }}
+            >
+              <span className="drawer-name">Find in files…</span>
+              <span className="drawer-tail mono">⌘⇧F</span>
+            </button>
+            <button
+              className="drawer-item plain"
+              onClick={() => {
+                setDrawerOpen(false)
+                onOpenSettings()
+              }}
+            >
+              <span className="drawer-name">Settings…</span>
+            </button>
+            <button
+              className="drawer-item plain"
+              onClick={() => {
+                setDrawerOpen(false)
+                setMenuOpen(true)
+              }}
+            >
+              <span className="drawer-name">Project actions…</span>
+            </button>
+          </nav>
+        </div>
+      )}
 
       <Sheet open={menuOpen} title={project.name} subtitle="Project actions" onClose={() => setMenuOpen(false)}>
         <div className="action-list">

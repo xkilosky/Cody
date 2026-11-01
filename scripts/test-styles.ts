@@ -28,7 +28,9 @@ function check(name: string, ok: boolean, detail = '') {
 /** Selectors that each screen and sheet depends on. If one disappears the UI breaks. */
 const REQUIRED = [
   // shell + navigation
-  '.app-root', '.app-header', '.project-shell', '.tab-bar', '.tab-btn',
+  '.app-root', '.app-header', '.project-shell', '.drawer', '.drawer-layer',
+  '.drawer-scrim', '.drawer-head', '.drawer-label', '.drawer-item', '.drawer-item.active',
+  '.drawer-name', '.drawer-tail', '.drawer-live', '.hamburger', '.app-header .menu-btn',
   // editor pane chrome
   '.code-pane', '.editor-tabs', '.tab-chip', '.tab-chip-main', '.tab-name', '.tab-close',
   '.dirty-dot', '.tabs-more', '.lang-icon', '.editor-host', '.editor-status', '.status-lang',

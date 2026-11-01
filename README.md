@@ -399,7 +399,9 @@ python3 scripts/make-icons.py     # needs Pillow; verifies the source exists fir
 It writes `public/icon.svg` (a self-contained favicon), `icon-192.png`, `icon-512.png`,
 `icon-maskable-512.png` (the mark pulled into the launcher's safe zone), `apple-touch-icon.png`
 and `public/brand/mark.png` (the rounded plate used on the boot screen, in the drawer header and
-in Settings → About). The plate is black on purpose: the artwork is rendered metal on black, so
+in Settings → About).
+
+![The mark at every size](docs/brand/cody-logo.png) The plate is black on purpose: the artwork is rendered metal on black, so
 the icon and the boot splash share the same background instead of faking transparency.
 
 Any other host works the same way: `npm run build` and serve `dist/`, giving the app a single-page

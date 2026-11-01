@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
+  AppTab,
+  Draft,
   LogEntry,
   Project,
   ProjectMeta,
@@ -31,6 +33,14 @@ import {
   setValue,
 } from './lib/storage'
 import { blankProject } from './lib/starter'
+import {
+  draftMarkdown,
+  draftProject,
+  DRAFTS_KEY,
+  newDraft,
+  planPathIn,
+  sortDrafts,
+} from './lib/drafts'
 import { AI_DEFAULTS, normalizeConfig, type AiConfig } from './lib/ai/config'
 import { getKeys } from './lib/ai/keys'
 import type { ToolWorkspace } from './lib/ai/tools'
@@ -45,7 +55,7 @@ export default function App() {
   const [project, setProject] = useState<Project | null>(null)
   const [activePath, setActivePath] = useState<string | null>(null)
   const [runEntry, setRunEntry] = useState<string | null>(null)
-  const [tab, setTab] = useState<'files' | 'code' | 'run' | 'cody' | 'ai'>('code')
+  const [tab, setTab] = useState<AppTab>('code')
   const [runState, setRunState] = useState<RunState>({ kind: 'idle', runId: 0 })
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [stdin, setStdin] = useState('')
@@ -58,6 +68,7 @@ export default function App() {
   const [aiConfig, setAiConfig] = useState<AiConfig>({ ...AI_DEFAULTS, roles: { ...AI_DEFAULTS.roles } })
   const [aiKeys, setAiKeys] = useState<Record<string, string | undefined>>({})
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false)
+  const [drafts, setDrafts] = useState<Draft[]>([])
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cleanupRef = useRef<Cleanup | null>(null)
@@ -65,6 +76,8 @@ export default function App() {
   const savedAtRef = useRef<number | null>(null)
   const logsRef = useRef<LogEntry[]>([])
   const projectsRef = useRef<ProjectMeta[]>([])
+  const draftsLoaded = useRef(false)
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   projectRef.current = project
   savedAtRef.current = savedAt
@@ -78,12 +91,17 @@ export default function App() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [storedSettings, metas, lastId, storedAi] = await Promise.all([
+      const [storedSettings, metas, lastId, storedAi, storedDrafts] = await Promise.all([
         loadSettings(),
         listProjects(),
         getValue<string | null>('lastProject', null),
         getValue<AiConfig | null>('aiConfig', null),
+        getValue<Draft[]>(DRAFTS_KEY, []),
       ])
+      // Drafts belong to the device, not to the workspace being opened: they
+      // are what you write *before* deciding what to build.
+      draftsLoaded.current = true
+      setDrafts(sortDrafts(Array.isArray(storedDrafts) ? storedDrafts : []))
       setAiConfig(normalizeConfig(storedAi))
       setAiKeys(getKeys())
       if (cancelled) return
@@ -1107,6 +1125,69 @@ export default function App() {
     setRecentPaths((prev) => [path, ...prev.filter((item) => item !== path)].slice(0, 6))
   }, [])
 
+  /* ---------------------------------------------------------------- */
+  /* drafts — plan before there is a workspace                         */
+  /* ---------------------------------------------------------------- */
+
+  // Typing in a draft saves quietly, a beat after the last keystroke.
+  useEffect(() => {
+    if (!draftsLoaded.current) return
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current)
+    draftSaveTimer.current = setTimeout(() => {
+      draftSaveTimer.current = null
+      void setValue(DRAFTS_KEY, drafts)
+    }, 350)
+  }, [drafts])
+
+  const createDraft = useCallback((title: string) => {
+    const draft = newDraft(title)
+    setDrafts((prev) => [draft, ...prev])
+    return draft.id
+  }, [])
+
+  const updateDraft = useCallback((next: Draft) => {
+    setDrafts((prev) =>
+      sortDrafts(prev.map((draft) => (draft.id === next.id ? { ...next, updatedAt: Date.now() } : draft))),
+    )
+  }, [])
+
+  const deleteDraft = useCallback((id: string) => {
+    setDrafts((prev) => prev.filter((draft) => draft.id !== id))
+  }, [])
+
+  /** A draft becomes a workspace: the plan is written down as its README. */
+  const buildDraftWorkspace = useCallback(
+    async (draft: Draft) => {
+      const next = draftProject(draft)
+      await saveProject(next)
+      await refreshProjects()
+      enterProject(next)
+      setDrafts((prev) =>
+        prev.map((item) => (item.id === draft.id ? { ...item, projectId: next.id } : item)),
+      )
+      notify(`Created ${next.name} — the plan is its README`, 'success')
+    },
+    [enterProject, notify, refreshProjects],
+  )
+
+  /** Or the plan joins the workspace that is already open, beside the code. */
+  const addDraftToProject = useCallback(
+    (draft: Draft) => {
+      const current = projectRef.current
+      if (!current) return
+      const path = planPathIn(current.files)
+      commit((prev) => ({
+        ...prev,
+        files: [...prev.files, { path, content: draftMarkdown(draft) }],
+      }))
+      setActivePath(path)
+      trackRecent(path)
+      setTab('code')
+      notify(`Added ${path}`, 'success')
+    },
+    [commit, notify, trackRecent],
+  )
+
   const openFile = useCallback(
     (path: string) => {
       setActivePath(path)
@@ -1228,6 +1309,12 @@ export default function App() {
           aiKeys={aiKeys}
           aiSession={aiSession}
           onOpenAiSettings={() => setAiSettingsOpen(true)}
+          drafts={drafts}
+          onCreateDraft={createDraft}
+          onUpdateDraft={updateDraft}
+          onDeleteDraft={deleteDraft}
+          onBuildDraftWorkspace={buildDraftWorkspace}
+          onAddDraftToProject={addDraftToProject}
           onSaveNow={() => {
             const current = projectRef.current
             if (current) {

@@ -57,6 +57,13 @@ const REQUIRED = [
   '.action-kind.create', '.action-body', '.action-title', '.action-detail', '.tool-count',
   '.cm-bulb-gutter', '.cm-bulb', '.cm-bulb.cm-bulb-fix',
   '.snippet-card', '.runtime-row', '.action-list', '.action-item', '.empty-state',
+  // drafts: the plan before the workspace
+  '.drafts-pane', '.draft-list', '.draft-row', '.draft-row-main', '.draft-title', '.draft-pitch',
+  '.draft-meta', '.draft-progress', '.draft-linked', '.drawer-count',
+  '.draft-scroll', '.draft-title-input', '.draft-pitch-input', '.draft-notes',
+  '.draft-steps-head', '.draft-steps', '.draft-step', '.draft-step.done', '.draft-check',
+  '.draft-box', '.draft-step-text', '.draft-add', '.draft-hint', '.draft-stamp',
+  '.draft-footer', '.draft-footer-row', '.linkish.danger',
   // find in files
   '.find-field', '.find-field.replacement', '.find-toggle', '.find-toggle.active',
   '.find-results', '.find-group', '.find-file', '.find-count', '.find-row', '.find-loc',

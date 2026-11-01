@@ -74,7 +74,33 @@ export type LogEntry = {
   source?: string
 }
 
-export type AppTab = 'files' | 'code' | 'run' | 'cody' | 'ai'
+export type AppTab = 'files' | 'code' | 'run' | 'cody' | 'drafts' | 'ai'
+
+/** One line of a draft's plan. */
+export type DraftStep = {
+  id: string
+  text: string
+  done: boolean
+}
+
+/**
+ * A project *idea* before it is a project: a name, one line of intent, a free
+ * brief and a plan you can tick off. Drafts live on the device, not inside a
+ * workspace, because that is the whole point — decide what to build first.
+ */
+export type Draft = {
+  id: string
+  title: string
+  /** One line: what this is. */
+  pitch: string
+  /** Free-form brief: the messy thinking. */
+  notes: string
+  steps: DraftStep[]
+  createdAt: number
+  updatedAt: number
+  /** Set once a workspace has been built from it. */
+  projectId?: string
+}
 
 export type RunKind = 'idle' | 'bundling' | 'running' | 'loading-runtime' | 'done' | 'error'
 

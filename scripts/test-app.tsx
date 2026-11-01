@@ -131,6 +131,22 @@ async function pick(label: string) {
   await click(label)
 }
 
+async function typeArea(selector: string, value: string) {
+  const area = dom.window.document.querySelector<HTMLTextAreaElement>(selector)
+  if (!area) throw new Error(`Textarea not found: ${selector}`)
+  const setter = Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype, 'value')?.set
+  setter?.call(area, value)
+  area.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  await wait(80)
+}
+
+async function clickSelector(selector: string) {
+  const node = dom.window.document.querySelector<HTMLElement>(selector)
+  if (!node) throw new Error(`Element not found: ${selector}`)
+  node.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }))
+  await wait(150)
+}
+
 async function typeInto(selector: string, value: string) {
   const input = dom.window.document.querySelector<HTMLInputElement>(selector)
   if (!input) throw new Error(`Input not found: ${selector}`)
@@ -751,6 +767,78 @@ async function main() {
   await wait(120)
   await pick('Code')
   await wait(200)
+
+  // --- drafts: plan first, then a workspace -----------------------------
+  await pick('Drafts')
+  await wait(250)
+  check('Drafts is a section of its own', Boolean(dom.window.document.querySelector('.drafts-pane')))
+  check('an empty shelf says what a draft is for', text().includes('Nothing drafted'))
+
+  await click('Start a draft')
+  await wait(300)
+  check(
+    'a new draft opens straight into its title',
+    Boolean(dom.window.document.querySelector('[aria-label="Draft title"]')),
+  )
+  await typeInto('[aria-label="Draft title"]', 'Pocket timer')
+  await typeInto('[aria-label="Draft pitch"]', 'A timer that survives a locked phone')
+  await typeArea('[aria-label="Draft brief"]', 'Start, stop, one job, no accounts.')
+  await typeInto('[aria-label="New step"]', 'Rough the UI')
+  await click('Add')
+  await typeInto('[aria-label="New step"]', 'Persist the deadline')
+  await click('Add')
+  await wait(200)
+  check('the plan lists its steps', dom.window.document.querySelectorAll('.draft-step').length === 2)
+  check(
+    'steps are drawn as brackets, like the menu keys',
+    (dom.window.document.querySelector('.draft-box')?.textContent ?? '') === '[ ]',
+    dom.window.document.querySelector('.draft-box')?.textContent ?? '(missing)',
+  )
+  await clickLabel('Check step 1: Rough the UI')
+  await wait(200)
+  check('ticking a step marks it', Boolean(dom.window.document.querySelector('.draft-step.done')))
+  check('progress counts what is done', text().includes('1 of 2 done'), text().slice(0, 120))
+
+  await wait(600)
+  const storedDrafts = dom.window.localStorage.getItem('cody:drafts') ?? ''
+  check('drafts save as you type', storedDrafts.includes('Pocket timer') && storedDrafts.includes('Persist the deadline'))
+
+  await click('Create workspace')
+  await wait(900)
+  check('the draft became a workspace', text().includes('Pocket timer'))
+  const draftTabs = [...dom.window.document.querySelectorAll('.tab-chip')].map((node) => node.textContent ?? '')
+  check('the workspace opens on the plan', draftTabs.some((label) => label.includes('README.md')), draftTabs.join(' | '))
+  const draftReadme = dom.window.document.querySelector('.cm-content')?.textContent ?? ''
+  check(
+    'the plan is the README, step state included',
+    draftReadme.includes('# Pocket timer') && draftReadme.includes('[x] Rough the UI') && draftReadme.includes('[ ] Persist the deadline'),
+    draftReadme.slice(0, 80),
+  )
+  check(
+    'a draft-built workspace invents no starter markup',
+    !dom.window.document.querySelector('.cm-content')?.textContent?.includes('<!doctype'),
+  )
+
+  await pick('Drafts')
+  await wait(250)
+  check(
+    'the draft remembers the workspace it became',
+    (dom.window.document.querySelector('.draft-row')?.textContent ?? '').includes('built'),
+  )
+  await clickSelector('.draft-row')
+  await wait(250)
+  await click('Add as PLAN.md')
+  await wait(800)
+  const planTabs = [...dom.window.document.querySelectorAll('.tab-chip')].map((node) => node.textContent ?? '')
+  check('the plan can join an existing workspace', planTabs.some((label) => label.includes('PLAN.md')), planTabs.join(' | '))
+
+  await pick('Drafts')
+  await wait(250)
+  await clickSelector('.draft-row')
+  await wait(250)
+  await click('Delete draft')
+  await wait(300)
+  check('deleting the draft empties the shelf', text().includes('Nothing drafted'))
 
   let failures = 0
   for (const [label, ok, extra] of checks) {

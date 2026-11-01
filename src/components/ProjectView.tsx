@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
-import type { AppTab, LogEntry, Project, ProjectMeta, RunState, Settings } from '../types'
+import type { AppTab, Draft, LogEntry, Project, ProjectMeta, RunState, Settings } from '../types'
 import type { CodyEditorHandle } from '../editor/CodeEditor'
 import { languageForPath } from '../lib/languages'
 import { downloadBlob, downloadText, relativeTime } from '../lib/utils'
@@ -12,6 +12,7 @@ import {
 } from '../lib/importExport'
 import CodePane from './CodePane'
 import CodyPanel from './CodyPanel'
+import DraftsPane from './DraftsPane'
 import FilesPane from './FilesPane'
 import Icon from './Icons'
 import LangIcon from './LangIcon'
@@ -75,11 +76,24 @@ type Props = {
   aiKeys: Record<string, string | undefined>
   aiSession: AiSession
   onOpenAiSettings: () => void
+  /** Drafts are device-wide: they exist before a workspace does. */
+  drafts: Draft[]
+  onCreateDraft: (title: string) => string
+  onUpdateDraft: (draft: Draft) => void
+  onDeleteDraft: (id: string) => void
+  onBuildDraftWorkspace: (draft: Draft) => void
+  onAddDraftToProject: (draft: Draft) => void
   onSaveNow: () => void
   onUpdateSettings?: (patch: Partial<Settings>) => void
 }
 
-const TABS: Array<{ id: AppTab; label: string; key: string; icon: 'files' | 'code' | 'terminal' | 'sparkles' | 'agents' }> = [
+const TABS: Array<{
+  id: AppTab
+  label: string
+  key: string
+  icon: 'files' | 'code' | 'terminal' | 'sparkles' | 'agents' | 'pencil'
+}> = [
+  { id: 'drafts', label: 'Drafts', key: 'd', icon: 'pencil' },
   { id: 'files', label: 'Files', key: 'f', icon: 'files' },
   { id: 'code', label: 'Code', key: 'c', icon: 'code' },
   { id: 'run', label: 'Run', key: 'r', icon: 'terminal' },
@@ -136,6 +150,12 @@ export default function ProjectView(props: Props) {
     aiKeys,
     aiSession,
     onOpenAiSettings,
+    drafts,
+    onCreateDraft,
+    onUpdateDraft,
+    onDeleteDraft,
+    onBuildDraftWorkspace,
+    onAddDraftToProject,
     onSaveNow,
     onUpdateSettings,
   } = props
@@ -339,6 +359,18 @@ export default function ProjectView(props: Props) {
             onNotify={onNotify}
           />
         )}
+
+        {tab === 'drafts' && (
+          <DraftsPane
+            drafts={drafts}
+            onCreateDraft={onCreateDraft}
+            onUpdateDraft={onUpdateDraft}
+            onDeleteDraft={onDeleteDraft}
+            onBuildWorkspace={onBuildDraftWorkspace}
+            onAddToProject={onAddDraftToProject}
+            onNotify={onNotify}
+          />
+        )}
       </main>
 
       <SearchSheet
@@ -379,6 +411,11 @@ export default function ProjectView(props: Props) {
               >
                 <span className="drawer-name">{item.label}</span>
                 <span className="drawer-tail">
+                  {item.id === 'drafts' && drafts.length > 0 && (
+                    <span className="drawer-count" aria-label={`${drafts.length} drafts`}>
+                      {drafts.length}
+                    </span>
+                  )}
                   {item.id === 'files' && index.total > 0 && (
                     <span
                       className={`tab-badge${index.errors > 0 ? ' error' : ' warning'}`}

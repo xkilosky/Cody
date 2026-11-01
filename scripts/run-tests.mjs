@@ -96,6 +96,13 @@ const suites = [
     plugins: [],
   },
   {
+    name: 'drafts',
+    entry: 'scripts/test-drafts.ts',
+    format: 'esm',
+    out: '.test-drafts.mjs',
+    plugins: [],
+  },
+  {
     name: 'styles',
     entry: 'scripts/test-styles.ts',
     format: 'esm',

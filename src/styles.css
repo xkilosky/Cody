@@ -1345,6 +1345,290 @@ select:focus-visible {
 }
 
 /* ==========================================================================
+   Drafts — the plan that comes before the workspace
+
+   A draft is read, not skimmed: it is a document with a title, one line of
+   intent, a brief and a plan. So the surface is typographic — the only shapes
+   are the step rows, and the only colour is the accent on a finished step.
+   ========================================================================== */
+
+.drafts-pane {
+  background: var(--bg);
+}
+
+.drawer-count {
+  min-width: 16px;
+  padding: 0 4px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-dim);
+}
+
+.draft-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 6px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.draft-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 10px;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  transition: background 0.12s ease;
+}
+
+.draft-row:active {
+  background: var(--surface-2);
+}
+
+.draft-row-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.draft-title {
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-pitch {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  opacity: 0.75;
+}
+
+.draft-linked {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+}
+
+/* ---- one draft ---------------------------------------------------------- */
+
+.draft-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 14px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draft-title-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 2px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.draft-title-input:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+
+.draft-progress {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.draft-pitch-input {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+/* The brief is prose, not code: it takes the reading font even in Terminal. */
+.draft-notes {
+  width: 100%;
+  min-height: 132px;
+  padding: 10px 11px;
+  resize: vertical;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.draft-notes:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.draft-steps-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.draft-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  padding: 2px 0 6px;
+}
+
+.draft-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.draft-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.draft-check {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 2px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.draft-box {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.draft-step-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.draft-step.done .draft-check {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--border-strong);
+}
+
+.draft-step.done .draft-box {
+  color: var(--accent);
+}
+
+.draft-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding-top: 4px;
+}
+
+.draft-add .text-input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+}
+
+.draft-add .btn {
+  flex: none;
+}
+
+.draft-stamp {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0.8;
+  padding-top: 6px;
+}
+
+.draft-footer {
+  flex: none;
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px calc(var(--safe-bottom, 0px) + 12px);
+  border-top: 1px solid var(--border);
+  background: var(--bg-chrome);
+}
+
+.draft-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.linkish.danger {
+  color: var(--error);
+}
+
+/* Terminal draws every control as a ruled line, not a pill. */
+[data-skin='terminal'] .draft-row,
+[data-skin='terminal'] .draft-notes,
+[data-skin='terminal'] .draft-title-input {
+  border-radius: 0;
+}
+
+[data-skin='terminal'] .draft-notes {
+  background: transparent;
+}
+
+[data-skin='terminal'] .draft-title-input {
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+[data-skin='terminal'] .draft-box {
+  letter-spacing: 0.02em;
+}
+
+/* ==========================================================================
    Files pane
    ========================================================================== */
 

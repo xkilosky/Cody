@@ -731,6 +731,7 @@ def draw_drawer(mode: str, skin: str = "terminal", scheme: str = "dark") -> Imag
 
     c.text((18, 68), "SECTIONS", t("muted"), 9.5, mono=True)
     y = 88
+    y = section(y, "d", "Drafts", False)
     y = section(y, "f", "Files", False, tail=True)
     y = section(y, "c", "Code", True)
     y = section(y, "r", "Run")
@@ -889,6 +890,54 @@ def draw_pane(mode: str, skin: str, scheme: str, pane: str) -> Image.Image:
             c.text((88, ly), text, colours[level], 10.5, mono=True)
             ly += 24
 
+    elif pane == "drafts":
+        # toolbar: back, the title itself (an input, so no field chrome), progress
+        c.rect((0, body_top, W, body_top + 56), fill=t("bg-chrome"))
+        c.text((18, body_top + 16), "\u2039", t("text-dim"), 19, anchor="la")
+        c.text((44, body_top + 17), "Pocket timer", t("text"), 13.5, mono=True, bold=True)
+        c.text((W - 14, body_top + 20), "1/2", t("muted"), 10.5, mono=True, anchor="ra")
+        c.rect((0, body_top + 55, W, body_top + 56), fill=t("border"))
+
+        y = body_top + 72
+        c.text((14, y), "ONE LINE", t("muted"), 9, mono=True)
+        y += 16
+        c.text((14, y), "A timer that survives a locked phone.", t("text"), 11.5, mono=True)
+        y += 26
+
+        c.text((14, y), "BRIEF", t("muted"), 9, mono=True)
+        y += 17
+        for line in ("Start, stop, one job, no accounts.", "The deadline has to outlive the tab."):
+            c.text((14, y), line, t("text-dim"), 12.5)
+            y += 19
+        y += 14
+
+        c.text((14, y), "PLAN", t("muted"), 9, mono=True)
+        c.text((W - 14, y), "1 of 2 done", t("muted"), 9.5, mono=True, anchor="ra")
+        y += 20
+        steps = [("x", "Rough the UI", True), (" ", "Persist the deadline", False)]
+        for mark, label, done in steps:
+            c.text((16, y + 1), "[" + mark + "]", accent if done else t("muted"), 10, mono=True)
+            c.text((48, y - 1), label, t("muted") if done else t("text"), 12.5)
+            c.rect((14, y + 22, W - 14, y + 23), fill=t("border"))
+            y += 34
+
+        c.rect((14, y + 6, W - 58, y + 34), fill=t("surface-2"), outline=t("border"), radius=8)
+        c.text((26, y + 14), "Next step\u2026", t("muted"), 11.5)
+        c.rect((W - 50, y + 6, W - 14, y + 34), fill=t("surface-2"), radius=8)
+        c.text((W - 32, y + 13), "Add", t("text-dim"), 11, anchor="ma")
+        y += 46
+        c.text((14, y), "not built yet \u00b7 edited just now", t("muted"), 9.5, mono=True)
+
+        # footer: the one action that spends the draft
+        foot = body_bottom - 92
+        c.rect((0, foot, W, body_bottom), fill=t("bg-chrome"))
+        c.rect((0, foot, W, foot + 1), fill=t("border"))
+        c.rect((12, foot + 12, W - 12, foot + 46), fill=accent, radius=8)
+        c.text((W / 2, foot + 23), "Create workspace", ink, 12.5, bold=True, anchor="ma")
+        c.text((14, foot + 58), "Add as PLAN.md", accent, 11, mono=True)
+        c.text((W - 14, foot + 58), "Delete draft", t("error"), 11, mono=True, anchor="ra")
+        c.text((14, foot + 74), "plan \u2192 workspace", t("muted"), 9, mono=True)
+
     elif pane == "ai":
         c.rect((0, body_top, W, body_top + 56), fill=t("bg-chrome"))
         c.rect((12, body_top + 10, 150, body_top + 46), fill=t("surface-2"), outline=t("border"), radius=11)
@@ -950,7 +999,7 @@ def draw_pane(mode: str, skin: str, scheme: str, pane: str) -> Image.Image:
 def main_panes() -> None:
     out = ROOT / "docs" / "cody-panes.png"
     frames = [("Menu", downscale(draw_drawer("dark", "terminal", "dark"), W * SCALE))]
-    for pane in ("files", "run", "ai"):
+    for pane in ("drafts", "files", "run", "ai"):
         frames.append((pane[0].upper() + pane[1:], downscale(draw_pane("dark", "navy", "onedark", pane), W * SCALE)))
     pad, gap, radius = 26, 20, 42
     col_w = frames[0][1].width

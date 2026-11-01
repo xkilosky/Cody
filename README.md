@@ -23,7 +23,7 @@ Cody ships four complete looks — **Terminal** (default), **Graphite**, **Navy*
 Settings → Appearance. A look re-declares the whole ramp, not just the accent, so it changes the
 corners, the chrome and the code surface along with the colour.
 
-![Files, Run and AI](docs/cody-panes.png)
+![Drafts, Files and Run](docs/cody-panes.png)
 
 ---
 
@@ -33,9 +33,9 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
 
 - **Editor first** — boot lands in the code, not a dashboard. The workspace switcher is a sheet
   over the editor, so switching projects never costs you your screen.
-- **One-handed navigation** — a menu button in the header opens a drawer of five sections
-  (`[f] Files`, `[c] Code`, `[r] Run`, `[b] Build`, `[a] AI`), so the screen below it belongs to
-  the code instead of to a bar.
+- **One-handed navigation** — a menu button in the header opens a drawer of six sections
+  (`[d] Drafts`, `[f] Files`, `[c] Code`, `[r] Run`, `[b] Build`, `[a] AI`), so the screen below
+  it belongs to the code instead of to a bar.
 - **A keyboard for people without a keyboard** — a symbol rail (`{} () [] => ; $`) plus
   language-aware insert keys (`def `, `fn `, `useState(` …), undo/redo, comment toggle, find.
 - **Previews that actually run your code** — Cody transpiles TypeScript/JSX with Sucrase and
@@ -86,6 +86,23 @@ Desktop editors assume a keyboard and three panes of screen. Cody assumes a thum
   `.cody.json` project file.
 - Export a **ZIP** (dependency-free ZIP writer, no libraries) or a portable JSON project, and use
   the native share sheet where the browser supports `navigator.share` with files.
+
+### Drafts — plan before you build
+Not every idea should become a workspace the moment you have it. **Drafts** is a section of its
+own, outside any project, for the part that comes first:
+
+- One tap gives you a draft. A draft is a **name**, **one line** of intent, a **brief** you can
+  think in, and a **plan** of steps you tick off (`[ ]` / `[x]`, because this app speaks in
+  bracket keys). Everything saves as you type — there is no save button anywhere in the pane.
+- Taps stop at **Create workspace**: the draft becomes a workspace named after it, and the plan is
+  its **`README.md`** — pitch as a quote, brief as a section, every step with its state. No starter
+  markup is invented; the first real file is a decision, not a default.
+- Already have a workspace? **Add as PLAN.md** drops the same markdown into the open project as
+  `PLAN.md` (`PLAN-2.md` if one exists) and opens it, so the plan lives next to the code.
+- A built draft remembers which workspace it became, and the drawer shows how many drafts exist.
+
+Drafts live in the device store (`drafts`), not inside a project — that is the whole point: you can
+decide what to build without having decided where.
 
 ### Running
 | Runtime | Languages | How |
@@ -326,15 +343,15 @@ Details that matter on a phone:
   docks to it (sticky) rather than being pushed off-screen. The ⌄ key dismisses the keyboard.
 - **Four looks, all real.** Every style is a full palette for chrome *and* syntax — selection,
   search matches, bracket matching, the autocomplete popup and the code surface all follow it.
-- **A drawer, not a tab bar.** Navigation is a written menu of bracketed keys — `[f] Files`,
-  `[c] Code`, `[r] Run`, `[b] Build`, `[a] AI` — with the current section marked by an accent
-  rule, plus the things people otherwise hunt for (switch workspace, find in files, settings,
-  project actions). Open files are a numbered buffer list, the header is a shell prompt
+- **A drawer, not a tab bar.** Navigation is a written menu of bracketed keys — `[d] Drafts`,
+  `[f] Files`, `[c] Code`, `[r] Run`, `[b] Build`, `[a] AI` — with the current section marked by
+  an accent rule, plus the things people otherwise hunt for (switch workspace, find in files,
+  settings, project actions). Open files are a numbered buffer list, the header is a shell prompt
   (`~/project`), and the code area gains the 46px a bottom bar used to eat.
 
 Regenerate the mocks with `python3 scripts/render-mock.py` (reads the live tokens from
 `src/styles.css` and `src/editor/syntaxThemes.ts`; writes `docs/cody-skins.png` and
-`docs/cody-panes.png`). It is a design renderer, not a browser screenshot — this sandbox has no
+`docs/cody-panes.png` — Menu, Drafts, Files, Run, AI). It is a design renderer, not a browser screenshot — this sandbox has no
 Chromium.
 
 ---
@@ -357,9 +374,9 @@ Quality checks:
 
 ```bash
 npm run typecheck    # strict TypeScript
-npm test             # 13 suites: bundler, every screen, every language, diagnostics,
-                     # code actions, completions, find-in-files, Build AI (selection,
-                     # failover, tools, crew), styles, jsdom app smoke
+npm test             # 14 suites: bundler, every screen, every language, diagnostics,
+                     # code actions, completions, find-in-files, drafts (plan → project),
+                     # Build AI (selection, failover, tools, crew), styles, jsdom app smoke
 ```
 
 The `languages` suite is the one that keeps the table honest: unique ids and extensions, path
@@ -401,8 +418,10 @@ It writes `public/icon.svg` (a self-contained favicon), `icon-192.png`, `icon-51
 and `public/brand/mark.png` (the rounded plate used on the boot screen, in the drawer header and
 in Settings → About).
 
-![The mark at every size](docs/brand/cody-logo.png) The plate is black on purpose: the artwork is rendered metal on black, so
-the icon and the boot splash share the same background instead of faking transparency.
+The plate is black on purpose: the artwork is rendered metal on black, so the icon and the boot
+splash share the same background instead of faking transparency.
+
+![The mark at every size](docs/brand/cody-logo.png)
 
 Any other host works the same way: `npm run build` and serve `dist/`, giving the app a single-page
 fallback to `index.html`. To install it on a phone, open the deployment URL and use
@@ -420,6 +439,7 @@ src/
     SearchSheet.tsx        find in files: results, case/regex, project-wide replace
     CodePane.tsx           editor host + mobile toolbars/sheets
     RunPanel.tsx           entry picker, preview iframe, console, stdin
+    DraftsPane.tsx         drafts: the plan (title, brief, steps) before a workspace
     CodyPanel.tsx          offline snippet library & project stats
     ai/BuildAiPane.tsx     Build AI: chat, crew, tool activity, approval sheet
     ai/AiSettingsSheet.tsx BYOK keys, model selection, failover, per-role pinning
@@ -436,6 +456,7 @@ src/
     storage.ts             IndexedDB (localStorage fallback) persistence
     languages.ts           45-language registry + lazy CodeMirror grammars
     starter.ts             what a new workspace starts as (three plain files)
+    drafts.ts              draft model, plan markdown, draft → workspace
     snippets.ts            snippet library
     search.ts              find in files: matching, previews, replacement
     importExport.ts        ZIP / JSON import-export, share

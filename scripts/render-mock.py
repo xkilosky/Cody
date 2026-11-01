@@ -698,6 +698,243 @@ def downscale(image: Image.Image, width: int) -> Image.Image:
     return image.resize((width, int(image.height * width / image.width)), Image.LANCZOS)
 
 
+def draw_pane(mode: str, skin: str, scheme: str, pane: str) -> Image.Image:
+    """Render the Files / Run / AI screens, so a skin can be judged everywhere
+    rather than just on the code surface."""
+    tokens = {**TOKENS[mode], **parse_skin(skin)}
+    palette = dict(PALETTES[scheme])
+    if skin != "graphite" and "editor-bg" in tokens:
+        palette["bg"] = tokens["editor-bg"]
+    t = lambda k: tokens.get(k, TOKENS[mode].get(k, "#000000"))  # noqa: E731
+    c = Canvas((W, H), t("bg-chrome"))
+
+    # OS bar
+    c.text((20, 14), "9:41", t("text"), 12.5, bold=True)
+    for i in range(4):
+        c.rect((W - 79 + i * 5, 25 - i * 2.4, W - 76 + i * 5, 26), fill=t("text"), radius=0.6)
+    c.rect((W - 53, 18, W - 33, 26), fill=None, outline=t("text-dim"), radius=2.5, width=1)
+    c.rect((W - 51, 20, W - 39, 24), fill=t("text"), radius=1)
+
+    accent = parse_skin(skin).get("accent", tokens["accent"])
+    if skin == "navy":
+        # the same three-stop field the stylesheet paints
+        for i in range(46):
+            y = 46 + i * 16
+            blend = i / 45
+            base = (14 - 4 * blend, 27 - 7 * blend, 46 - 10 * blend)
+            c.rect((0, y, W, y + 16), fill="#%02x%02x%02x" % tuple(int(v) for v in base))
+
+    top = 46
+    HEADER_H = 54
+    c.text((36, top + 12), "Cody tasks", t("text"), 15, bold=True)
+    c.text((36, top + 33), "7 files · TSX · 2m ago", t("muted"), 10, mono=True)
+    c.line([(22, top + 20), (15, top + 27), (22, top + 34)], fill=t("text-dim"), width=2)
+    c.rect((W - 82, top + 10, W - 48, top + 44), fill=accent, radius=10)
+    ink = parse_skin(skin).get("accent-ink", tokens.get("accent-ink", "#04241c"))
+    canvas = c
+    canvas.polygon([(W - 69, top + 20), (W - 69, top + 34), (W - 58, top + 27)], fill=ink)
+    for i in range(3):
+        c.circle((W - 26, top + 21 + i * 6), 1.7, t("text-dim"))
+    c.rect((0, top + HEADER_H - 1, W, top + HEADER_H), fill=t("border"))
+
+    body_top = top + HEADER_H
+    body_bottom = H - 58
+
+    if pane == "files":
+        # toolbar
+        c.rect((0, body_top, W, body_top + 56), fill=t("bg-chrome"))
+        c.rect((12, body_top + 9, W - 110, body_top + 47), fill=t("surface-2"), outline=t("border"), radius=11)
+        c.text((26, body_top + 22), "⌕  Search files", t("muted"), 12.5)
+        c.rect((W - 104, body_top + 9, W - 64, body_top + 47), fill=t("surface-2"), radius=11)
+        c.text((W - 84, body_top + 23), "⊘", t("text-dim"), 12, mono=True, anchor="ma")
+        c.rect((W - 58, body_top + 9, W - 12, body_top + 47), fill=t("surface-2"), radius=11)
+        c.text((W - 35, body_top + 23), "+ New", t("text-dim"), 11.5, anchor="ma")
+        c.rect((0, body_top + 55, W, body_top + 56), fill=t("border"))
+
+        rows = [
+            (0, "folder-open", "src", "6", True),
+            (1, "file", "App.tsx", "", False),
+            (1, "file", "Task.tsx", "", False),
+            (1, "file", "styles.css", "", False),
+            (0, "folder-open", "components", "3", True),
+            (1, "file", "Card.tsx", "", False),
+            (1, "file", "Header.tsx", "", False),
+            (0, "folder", "scripts", "2", True),
+            (0, "folder", "public", "1", True),
+            (0, "file", "index.html", "", False),
+            (0, "file", "README.md", "", False),
+        ]
+        y = body_top + 60
+        for depth, kind, name, count, folder in rows:
+            x = 12 + depth * 14
+            if name == "App.tsx":
+                c.rect((6, y, W - 6, y + 46), fill=accent, radius=10, alpha=0.09)
+            if folder:
+                c.rect((x, y + 15, x + 15, y + 28), fill=None, outline=t("text-dim"), radius=2, width=1.3)
+                c.rect((x, y + 11, x + 7, y + 17), fill=None, outline=t("text-dim"), radius=1.5, width=1.3)
+            else:
+                c.rect((x + 2, y + 13, x + 13, y + 31), fill=None, outline=t("muted"), radius=2, width=1.2)
+            name_col = t("text") if name == "App.tsx" else t("text-dim")
+            c.text((x + 26, y + 16), name, name_col, 13, mono=not folder, bold=folder)
+            if count:
+                c.text((W - 62, y + 17), count, t("muted"), 10.5, mono=True, anchor="ra")
+                c.text((W - 44, y + 14), "›", t("muted"), 12, anchor="ma")
+            if name == "App.tsx":
+                c.rect((W - 66, y + 12, W - 40, y + 34), fill=None, outline=t("border"), radius=8)
+                c.text((W - 53, y + 17), "▶", accent, 9, anchor="ma")
+            y += 46
+        # footnote
+        c.rect((0, body_bottom - 30, W, body_bottom), fill=t("bg-chrome"))
+        c.rect((0, body_bottom - 30, W, body_bottom - 29), fill=t("border"))
+        c.text((14, body_bottom - 20), "11 files · 3 folders · 5 languages", t("muted"), 10.5, mono=True)
+        c.text((W - 14, body_bottom - 20), "entry: index.html", accent, 10.5, mono=True, anchor="ra")
+
+    elif pane == "run":
+        c.rect((0, body_top, W, body_top + 82), fill=t("bg-chrome"))
+        c.text((14, body_top + 12), "ENTRY", t("muted"), 9.5, mono=True)
+        c.rect((14, body_top + 28, W - 130, body_top + 66), fill=t("surface-2"), outline=t("border"), radius=11)
+        c.text((26, body_top + 40), "src/App.tsx", t("text"), 12.5, mono=True)
+        c.text((W - 152, body_top + 42), "⌄", t("text-dim"), 12, anchor="ma")
+        c.rect((W - 116, body_top + 28, W - 14, body_top + 66), fill=accent, radius=11)
+        c.text((W - 65, body_top + 40), "▶  Run", ink, 12.5, bold=True, anchor="ma")
+        c.rect((0, body_top + 81, W, body_top + 82), fill=t("border"))
+
+        # meta pills
+        py = body_top + 94
+        for label, tint in (("TSX", t("text-dim")), ("Browser", accent), ("finished", accent)):
+            wpx = 26 + len(label) * 6.2
+            c.rect((14 if label == "TSX" else None or 0, 0, 0, 0)) if False else None
+        px = 14.0
+        for label, tint in (("TSX", t("text-dim")), ("Browser", accent), ("finished", accent)):
+            wpx = 20 + len(label) * 6.2
+            c.rect((px, py, px + wpx, py + 22), fill=tint, radius=11, alpha=0.13)
+            c.text((px + 9, py + 6), label, tint, 10, mono=True)
+            px += wpx + 6
+
+        # segmented
+        c.rect((12, py + 32, W - 12, py + 72), fill=t("surface-2"), outline=t("border"), radius=11)
+        c.rect((14, py + 34, (W - 12) / 2, py + 70), fill=t("surface"), radius=9)
+        c.text((12 + (W - 24) / 4, py + 43), "◉ Preview", t("text"), 11.5, anchor="ma")
+        c.text((W / 2 + (W - 24) / 4, py + 43), "▸ Output", t("muted"), 11.5, anchor="ma")
+
+        # console
+        cy = py + 84
+        c.rect((12, cy, W - 12, body_bottom - 12), fill="#071120" if skin == "navy" else t("bg-chrome"), outline=t("border"), radius=14)
+        lines = [
+            ("12:04:02", "log", "Bundling 4 modules…"),
+            ("12:04:02", "success", "bundle built in 214 ms"),
+            ("12:04:03", "log", "Task added: Design on the bus"),
+            ("12:04:03", "warn", "localStorage quota near limit"),
+            ("12:04:04", "error", "TypeError: cannot read 'length' of undefined"),
+            ("12:04:04", "system", "preview ready on port 5173"),
+        ]
+        ly = cy + 12
+        colours = {"log": t("text-dim"), "success": accent, "warn": t("warn"), "error": t("error"), "system": t("muted")}
+        for clock, level, text in lines:
+            c.text((26, ly), clock, t("muted"), 9.5, mono=True)
+            c.text((88, ly), text, colours[level], 10.5, mono=True)
+            ly += 24
+
+    elif pane == "ai":
+        c.rect((0, body_top, W, body_top + 56), fill=t("bg-chrome"))
+        c.rect((12, body_top + 10, 150, body_top + 46), fill=t("surface-2"), outline=t("border"), radius=11)
+        c.rect((14, body_top + 12, 80, body_top + 44), fill=t("surface"), radius=9)
+        c.text((47, body_top + 22), "✦ Chat", t("text"), 11.5, anchor="ma")
+        c.text((112, body_top + 22), "◈ Crew", t("muted"), 11.5, anchor="ma")
+        c.rect((W - 152, body_top + 12, W - 12, body_top + 44), fill=t("surface-2"), outline=t("border"), radius=11)
+        c.circle((W - 138, body_top + 28), 3, accent)
+        c.text((W - 128, body_top + 21), "free · 3 models", t("text-dim"), 10, mono=True)
+        c.rect((0, body_top + 55, W, body_top + 56), fill=t("border"))
+
+        ty = body_top + 70
+        # user bubble
+        c.rect((W - 250, ty, W - 14, ty + 40), fill=accent, radius=14, alpha=0.13)
+        c.text((W - 238, ty + 12), "add a dark mode toggle to the header", t("text"), 12)
+        ty += 54
+        # agent block with avatar and markdown
+        c.rect((14, ty, 37, ty + 23), fill=t("surface-2"), outline=t("border"), radius=7)
+        c.text((25.5, ty + 7), "P", accent, 10.5, mono=True, anchor="ma")
+        c.text((46, ty + 6), "Planner", t("text"), 11.5, bold=True)
+        c.text((100, ty + 7), "gemini-3.6-flash", t("muted"), 9.5, mono=True)
+        ty += 30
+        body = [
+            ("Adding a toggle that writes to localStorage.", t("text")),
+            ("", t("text")),
+            ("•  1 file to change", t("text")),
+            ("•  App.tsx — header row", t("text-dim")),
+        ]
+        for text, colour in body:
+            c.text((46, ty), text, colour, 12)
+            ty += 21
+        ty += 8
+        # tool chips
+        cx = 46.0
+        for label in ("Patch file", "Check problems"):
+            wpx = 20 + len(label) * 6
+            c.rect((cx, ty, cx + wpx, ty + 22), fill=t("surface-2"), outline=t("border"), radius=7)
+            c.text((cx + 8, ty + 6), "✓ " + label, t("text-dim"), 9.5, mono=True)
+            cx += wpx + 6
+        ty += 36
+        c.rect((14, ty, 37, ty + 23), fill=t("surface-2"), outline=t("border"), radius=7)
+        c.text((25.5, ty + 7), "T", accent, 10.5, mono=True, anchor="ma")
+        c.text((46, ty + 4), "Tester", t("text"), 11.5, bold=True)
+        c.text((46, ty + 20), "Runs clean. 0 errors, 0 warnings.", t("text-dim"), 11.5)
+
+        # composer
+        comp_top = body_bottom - 92
+        c.rect((0, comp_top, W, body_bottom), fill=t("bg-chrome"))
+        c.rect((0, comp_top, W, comp_top + 1), fill=t("border"))
+        c.rect((12, comp_top + 12, W - 12, comp_top + 60), fill=t("surface-2"), outline=t("border"), radius=15)
+        c.text((26, comp_top + 28), "Ask or ask for a change…", t("muted"), 12)
+        c.rect((W - 50, comp_top + 20, W - 19, comp_top + 51), fill=accent, radius=10)
+        c.text((W - 34.5, comp_top + 27), "➤", ink, 11, anchor="ma")
+        c.text((14, comp_top + 70), "Planner → Coder A → Coder B → Tester · free", t("muted"), 9.5, mono=True)
+
+    # bottom nav
+    bar = H - 58
+    c.rect((0, bar, W, H), fill="#08111e" if skin == "navy" else t("bg-chrome"))
+    c.rect((0, bar, W, bar + 1), fill=t("border"))
+    active_index = {"files": 0, "code": 1, "run": 2, "ai": 4}[pane]
+    items = ["Files", "Code", "Run", "Build", "AI"]
+    slot = W / 5
+    for index, label in enumerate(items):
+        cx = slot * index + slot / 2
+        active = index == active_index
+        ink_c = accent if active else t("muted")
+        if active:
+            c.rect((cx - 21, bar + 6, cx + 21, bar + 32), fill=accent, radius=9, alpha=0.12)
+        c.text((cx, bar + 19), ["▤", "‹›", "›_", "✦", "◍"][index], ink_c, 12, anchor="ma")
+        c.text((cx, bar + 36), label, ink_c, 9.4, bold=active, anchor="ma")
+    c.rect((W / 2 - 46, H - 7.5, W / 2 + 46, H - 3), fill=t("text-dim"), radius=2.4, alpha=0.55)
+    return c.image
+
+
+def main_panes() -> None:
+    out = ROOT / "docs" / "cody-panes.png"
+    frames = []
+    for pane in ("files", "run", "ai"):
+        frames.append((pane[0].upper() + pane[1:], downscale(draw_pane("dark", "navy", "onedark", pane), W * SCALE)))
+    pad, gap, radius = 26, 20, 42
+    col_w = frames[0][1].width
+    width = pad * 2 + col_w * len(frames) + gap * (len(frames) - 1)
+    height = pad * 2 + frames[0][1].height + 46
+    stage = Image.new("RGBA", (width, height), (7, 10, 16, 255))
+    for index, (label, frame) in enumerate(frames):
+        x = pad + index * (col_w + gap)
+        mask = Image.new("L", frame.size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, frame.width - 1, frame.height - 1), radius=radius, fill=255)
+        stage.paste(frame, (x, pad), mask)
+        ImageDraw.Draw(stage).rounded_rectangle(
+            (x, pad, x + col_w - 1, pad + frame.height - 1), radius=radius, outline=(38, 52, 74, 255), width=2
+        )
+        ImageDraw.Draw(stage).text(
+            (x + col_w / 2, pad + frame.height + 14), label,
+            font=ImageFont.truetype(FONT_UI, 17), fill=(226, 231, 238, 255), anchor="ma",
+        )
+    stage.convert("RGB").save(out)
+    print(f"wrote {out} ({stage.width}x{stage.height})")
+
+
 def main() -> None:
     out = Path(sys.argv[1] if len(sys.argv) > 1 else ROOT / "docs" / "cody-skins.png")
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -742,6 +979,7 @@ def main() -> None:
 
     stage.convert("RGB").save(out)
     print(f"wrote {out} ({stage.width}x{stage.height})")
+    main_panes()
 
 
 if __name__ == "__main__":

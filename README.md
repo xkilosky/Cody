@@ -15,7 +15,13 @@ were in.
 No backend. No install step. No account. Projects are stored on the device (IndexedDB) and
 nothing leaves it unless you explicitly run a cloud-sandbox language.
 
-![Cody's editor on a phone, dark and light](docs/cody-editor.png)
+![The four looks](docs/cody-skins.png)
+
+Cody ships four complete looks — **Navy** (default), **Paper**, **Mono** and **Graphite** — in
+Settings → Appearance. A look re-declares the whole ramp, not just the accent, so it changes the
+corners, the chrome and the code surface along with the colour.
+
+![Files, Run and AI in Navy](docs/cody-panes.png)
 
 ---
 
@@ -315,12 +321,13 @@ Details that matter on a phone:
   fails if any of them stops colouring tokens.
 - **Keyboard-aware.** When the OS keyboard opens, `visualViewport` height is measured and the rail
   docks to it (sticky) rather than being pushed off-screen. The ⌄ key dismisses the keyboard.
-- **Both themes are real.** Dark and light are separate palettes for chrome *and* syntax, including
-  selection, search matches, bracket matching and the autocomplete popup.
+- **Four looks, all real.** Every style is a full palette for chrome *and* syntax — selection,
+  search matches, bracket matching, the autocomplete popup and the code surface all follow it.
 
-Regenerate the mock with `python3 scripts/render-mock.py docs/cody-editor.png` (reads the live
-tokens from `src/styles.css` and `src/editor/theme.ts`). It is a design renderer, not a browser
-screenshot — this sandbox has no Chromium.
+Regenerate the mocks with `python3 scripts/render-mock.py` (reads the live tokens from
+`src/styles.css` and `src/editor/syntaxThemes.ts`; writes `docs/cody-skins.png` and
+`docs/cody-panes.png`). It is a design renderer, not a browser screenshot — this sandbox has no
+Chromium.
 
 ---
 

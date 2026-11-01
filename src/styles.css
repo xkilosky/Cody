@@ -4007,3 +4007,226 @@ select:focus-visible {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ==========================================================================
+   Navy polish — depth, and one language across the four panes
+   ========================================================================== */
+
+/* Spck's blue reads deep because it is a gradient, not a flat fill. Three
+   stops only, all inside the same hue, so it never looks like a gradient. */
+[data-skin='navy'] .project-shell,
+[data-skin='navy'] .app-root {
+  background: linear-gradient(180deg, #0e1b2e 0%, #0b1626 46%, #091322 100%);
+}
+
+[data-skin='navy'] .app-header {
+  background: linear-gradient(180deg, #0b1626 0%, #091424 100%);
+  border-bottom-color: #16273f;
+}
+
+/* A single faint halo under the title, the way a lit toolbar sits above the
+   work. It is the only decorative pixel in the app. */
+[data-skin='navy'] .app-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -18px;
+  height: 18px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(87, 200, 255, 0.05), transparent);
+}
+
+[data-skin='navy'] .tab-bar,
+[data-skin='navy'] .editor-toolbar,
+[data-skin='navy'] .editor-status,
+[data-skin='navy'] .editor-tabs {
+  background: #08111e;
+}
+
+[data-skin='navy'] .console {
+  background: #071120;
+  border-color: #16273f;
+}
+
+[data-skin='navy'] .preview-frame {
+  border-color: #20395a;
+  box-shadow: 0 12px 34px rgba(0, 6, 16, 0.55);
+}
+
+/* ---- one header rhythm across Files, Run and AI ------------------------- */
+
+.pane-toolbar,
+.run-header,
+.ai-head {
+  background: var(--bg-chrome);
+  border-bottom: 1px solid var(--border);
+}
+
+.pane-toolbar {
+  padding: 9px 12px;
+}
+
+.run-header {
+  padding: 10px 14px 12px;
+  align-items: flex-end;
+}
+
+.run-entry .field-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.ai-head {
+  padding: 9px 12px;
+}
+
+/* ---- files: quiet rows, one loud row ------------------------------------ */
+
+/* Two icons on every runnable row turned the tree into a wall of glyphs.
+   They stay, but only the open file's row shows them at full strength. */
+.file-row-wrap .row-icon {
+  color: var(--muted);
+  opacity: 0.55;
+  transition: opacity 0.14s ease, background 0.14s ease, color 0.14s ease;
+}
+
+.file-row-wrap.active .row-icon,
+.file-row-wrap:active .row-icon {
+  opacity: 1;
+  color: var(--text-dim);
+}
+
+.file-row-wrap.active {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+
+.file-row-main,
+.file-row {
+  transition: background 0.12s ease;
+}
+
+.file-list {
+  padding-bottom: 20px;
+}
+
+/* ---- run: the status line speaks the editor's language ------------------ */
+
+.run-meta {
+  padding: 0 16px 10px;
+  gap: 5px;
+}
+
+.run-meta .pill {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 3px 8px;
+  background: transparent;
+}
+
+.run-meta .pill.ok {
+  background: var(--accent-soft);
+}
+
+.run-meta .pill.bad {
+  background: var(--error-soft);
+}
+
+.run-meta .pill.warn {
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+
+.console-toolbar {
+  padding: 0 0 8px;
+  gap: 4px;
+}
+
+/* ---- AI: a conversation, not a form ------------------------------------- */
+
+.ai-msg.user {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 26%, transparent);
+  border-radius: 15px 15px 5px 15px;
+}
+
+.ai-avatar {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.ai-example {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.ai-example::after {
+  content: '→';
+  font-family: var(--mono);
+  color: var(--muted);
+  flex: none;
+}
+
+.ai-composer {
+  background: var(--bg-chrome);
+  border-top: 1px solid var(--border);
+}
+
+.ai-input-row {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 6px 6px 12px;
+  align-items: flex-end;
+}
+
+.ai-input-row:focus-within {
+  border-color: var(--accent-line);
+}
+
+.ai-input {
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.ai-send {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  flex: none;
+}
+
+/* ---- sheets: same rhythm as the panes ----------------------------------- */
+
+.sheet-header h2 {
+  font-weight: 650;
+}
+
+.sheet-body {
+  padding: 4px 16px 20px;
+}
+
+.setting-row strong {
+  font-weight: 600;
+}
+
+.settings-section h3 {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.field-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
